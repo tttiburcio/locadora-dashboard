@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: #031a0e;
+    color: #dcfce7;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #031a0e; }
+  ::-webkit-scrollbar-thumb { background: #166534; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #22c55e; }
+}
+
+@layer components {
+  .card {
+    @apply bg-g-850 border border-g-800 rounded-xl;
+  }
+
+  .card-hover {
+    @apply hover:border-g-700 hover:bg-g-800 transition-all duration-200;
+  }
+
+  .badge-green {
+    @apply bg-g-800 text-g-300 border border-g-700 text-xs font-medium px-2 py-0.5 rounded-full;
+  }
+
+  .badge-red {
+    @apply bg-red-950 text-red-300 border border-red-800 text-xs font-medium px-2 py-0.5 rounded-full;
+  }
+
+  .badge-amber {
+    @apply bg-amber-950 text-amber-300 border border-amber-800 text-xs font-medium px-2 py-0.5 rounded-full;
+  }
+
+  .value-pos { @apply text-g-400 font-semibold; }
+  .value-neg { @apply text-red-400 font-semibold; }
+  .value-neutral { @apply text-g-200; }
+
+  .table-row {
+    @apply border-b border-g-900 hover:bg-g-900/60 transition-colors duration-100 cursor-pointer;
+  }
+
+  .th {
+    @apply text-g-400 text-xs font-semibold uppercase tracking-wider px-4 py-3 text-right;
+  }
+
+  .th-left { @apply text-left; }
+
+  .td {
+    @apply px-4 py-3 text-sm text-right text-g-100;
+  }
+
+  .td-left { @apply text-left; }
+
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150;
+  }
+
+  .nav-item-active {
+    @apply bg-g-700 text-g-100 shadow-inner;
+  }
+
+  .nav-item-inactive {
+    @apply text-g-400 hover:text-g-200 hover:bg-g-900;
+  }
+}
+
+/* Recharts custom */
+.recharts-tooltip-wrapper { outline: none !important; }
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(22, 101, 52, 0.3) !important;
+}
