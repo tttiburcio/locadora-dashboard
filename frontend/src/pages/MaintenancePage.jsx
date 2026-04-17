@@ -8,12 +8,13 @@ import FinalizarManutencaoModal from '../components/FinalizarManutencaoModal'
 import {
   FornecedorChart, SistemaTreemap, TipoPie,
   ImplementoRadial, TrendProjectionChart, ServicosChart,
+  MonthlyBarChart,
 } from '../components/charts/MaintenanceCharts'
 import {
   Wrench, DollarSign, Hash, Award, Search, X,
   Calendar, AlertTriangle, ChevronDown, ChevronUp,
   Activity, Loader2, TrendingUp, Plus, CheckCircle,
-  Truck, Clock, AlertCircle, Trash2, BarChart2,
+  Truck, Clock, AlertCircle, Trash2, BarChart2, Pencil,
 } from 'lucide-react'
 
 // ── Status helpers ────────────────────────────────────────────────────
@@ -61,17 +62,68 @@ function ChartCard({ title, subtitle, children, className = '' }) {
   )
 }
 
+// ── Helpers de filtro/ordenação ───────────────────────────────────────
+function diasParados(dataEntrada, dataExecucao = null) {
+  const d1 = new Date(dataEntrada)
+  if (isNaN(d1)) return null
+  const d2 = dataExecucao ? new Date(dataExecucao) : new Date()
+  if (isNaN(d2)) return null
+  return Math.max(0, Math.round((d2 - d1) / 86400000))
+}
+
+function applyFilterSort(list, filter, sortState, fields) {
+  let r = list
+  if (filter.trim()) {
+    const q = filter.toLowerCase()
+    r = r.filter(m => fields.some(f => (m[f] || '').toLowerCase().includes(q)))
+  }
+  if (sortState.col) {
+    const { col, dir } = sortState
+    r = [...r].sort((a, b) => {
+      const av = a[col] ?? '', bv = b[col] ?? ''
+      const an = parseFloat(av), bn = parseFloat(bv)
+      if (!isNaN(an) && !isNaN(bn)) return dir === 'asc' ? an - bn : bn - an
+      const as = av.toString().toLowerCase(), bs = bv.toString().toLowerCase()
+      return dir === 'asc' ? (as < bs ? -1 : as > bs ? 1 : 0) : (as > bs ? -1 : as < bs ? 1 : 0)
+    })
+  }
+  return r
+}
+
+function SortableHeader({ label, col, sortState, onSort, className = '' }) {
+  const active = sortState.col === col
+  return (
+    <th
+      className={`th th-left cursor-pointer select-none hover:text-g-300 transition-colors ${active ? 'text-g-200' : ''} ${className}`}
+      onClick={() => onSort(col)}
+    >
+      <span className="flex items-center gap-1">
+        {label}
+        {active
+          ? (sortState.dir === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)
+          : <ChevronDown className="w-3 h-3 opacity-20" />}
+      </span>
+    </th>
+  )
+}
+
 // ════════════════════════════════════════════════════════════════════
 // ABA GESTÃO — tabelas CRUD
 // ════════════════════════════════════════════════════════════════════
-function GestaoTab({ novaOSTrigger = 0 }) {
+function GestaoTab() {
   const [abertas,      setAbertas]      = useState([])
   const [finalizadas,  setFinalizadas]  = useState([])
   const [loading,      setLoading]      = useState(true)
   const [subTab,       setSubTab]       = useState('em_andamento')
   const [modalAbrir,   setModalAbrir]   = useState(false)
-  const [modalFin,     setModalFin]     = useState(null)   // manutencao selecionada
+  const [modalFin,     setModalFin]     = useState(null)
+  const [modalEdit,    setModalEdit]    = useState(null)
+  const [modalInsert,  setModalInsert]  = useState(false)
   const [confirmDel,   setConfirmDel]   = useState(null)
+  const [filterAberta, setFilterAberta] = useState('')
+  const [filterFin,    setFilterFin]    = useState('')
+  const [sortAberta,   setSortAberta]   = useState({ col: null, dir: 'asc' })
+  const [sortFin,      setSortFin]      = useState({ col: null, dir: 'asc' })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -91,12 +143,13 @@ function GestaoTab({ novaOSTrigger = 0 }) {
 
   useEffect(() => { load() }, [load])
 
-  // Botão "Nova OS" no header superior abre o modal
-  useEffect(() => {
-    if (novaOSTrigger > 0) setModalAbrir(true)
-  }, [novaOSTrigger])
-
-  const handleSaved = () => { setModalAbrir(false); setModalFin(null); load() }
+  const handleSaved = () => {
+    setModalAbrir(false)
+    setModalFin(null)
+    setModalEdit(null)
+    setModalInsert(false)
+    load()
+  }
 
   const handleStatusChange = async (manut, newStatus) => {
     await dbAtualizarManutencao(manut.id, { status_manutencao: newStatus })
@@ -109,10 +162,23 @@ function GestaoTab({ novaOSTrigger = 0 }) {
     load()
   }
 
+  const sortAbertaBy = col => setSortAberta(s => s.col !== col ? { col, dir: 'asc' } : s.dir === 'asc' ? { col, dir: 'desc' } : { col: null, dir: 'asc' })
+  const sortFinBy    = col => setSortFin(s => s.col !== col ? { col, dir: 'asc' } : s.dir === 'asc' ? { col, dir: 'desc' } : { col: null, dir: 'asc' })
+
   const emAndamento = abertas.filter(m => m.status_manutencao === 'em_andamento')
   const aguardando  = abertas.filter(m => m.status_manutencao === 'aguardando_peca')
   const pendente    = abertas.filter(m => m.status_manutencao === 'pendente')
   const todasAbertas = abertas
+
+  const filteredAbertas = useMemo(() =>
+    applyFilterSort(todasAbertas, filterAberta, sortAberta, ['placa', 'fornecedor', 'status_manutencao', 'modelo', 'sistema', 'servico']),
+    [todasAbertas, filterAberta, sortAberta]
+  )
+
+  const filteredFin = useMemo(() =>
+    applyFilterSort(finalizadas, filterFin, sortFin, ['placa', 'fornecedor', 'modelo', 'sistema', 'servico', 'id_ord_serv']),
+    [finalizadas, filterFin, sortFin]
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -157,7 +223,7 @@ function GestaoTab({ novaOSTrigger = 0 }) {
         </div>
       </div>
 
-      {/* Sub-tabs + botão nova OS */}
+      {/* Sub-tabs + botões de ação */}
       <div className="flex items-center justify-between">
         <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1">
           {[
@@ -177,163 +243,240 @@ function GestaoTab({ novaOSTrigger = 0 }) {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setModalAbrir(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-g-100 text-white rounded-lg text-sm font-medium hover:bg-g-50 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Nova OS
-        </button>
+        <div className="flex items-center gap-2">
+          {subTab === 'em_andamento' && (
+            <button
+              onClick={() => setModalAbrir(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-g-100 text-white rounded-lg text-sm font-medium hover:bg-g-50 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Nova OS
+            </button>
+          )}
+          {subTab === 'finalizadas' && (
+            <button
+              onClick={() => setModalInsert(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-g-100 text-white rounded-lg text-sm font-medium hover:bg-g-50 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Inserir OS
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabela Em Andamento */}
       {subTab === 'em_andamento' && (
-        <div className="card overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
-            </div>
-          ) : todasAbertas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 gap-2 text-g-600">
-              <Truck className="w-8 h-8 opacity-30" />
-              <p className="text-sm">Nenhuma manutenção em andamento</p>
-              <button onClick={() => setModalAbrir(true)} className="text-g-100 text-xs font-medium hover:underline">
-                Registrar nova OS
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-600" />
+            <input
+              value={filterAberta}
+              onChange={e => setFilterAberta(e.target.value)}
+              placeholder="Filtrar por placa, fornecedor, status, modelo, sistema, serviço…"
+              className="w-full pl-9 pr-9 py-2 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors"
+            />
+            {filterAberta && (
+              <button onClick={() => setFilterAberta('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                <X className="w-3.5 h-3.5 text-g-600 hover:text-g-400" />
               </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
-                <thead className="bg-g-850 border-b border-g-800">
-                  <tr>
-                    <th className="th th-left">Placa</th>
-                    <th className="th th-left">Modelo</th>
-                    <th className="th th-left">Fornecedor</th>
-                    <th className="th th-left">Sistema / Serviço</th>
-                    <th className="th th-left">Status</th>
-                    <th className="th">Entrada</th>
-                    <th className="th">Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {todasAbertas.map(m => (
-                    <tr key={m.id} className="table-row">
-                      <td className="td td-left font-mono font-bold text-g-200">{m.placa}</td>
-                      <td className="td td-left text-g-500">{m.modelo || '—'}</td>
-                      <td className="td td-left text-g-500">{m.fornecedor || '—'}</td>
-                      <td className="td td-left">
-                        <p className="text-g-400 text-xs">{m.sistema || '—'}</p>
-                        <p className="text-g-600 text-xs truncate max-w-[180px]">{m.servico || '—'}</p>
-                      </td>
-                      <td className="td td-left">
-                        <StatusBadge status={m.status_manutencao} />
-                      </td>
-                      <td className="td text-xs text-g-500 tabular-nums">
-                        {m.data_entrada || '—'}
-                      </td>
-                      <td className="td">
-                        <div className="flex items-center justify-end gap-1">
-                          {/* Alternar status */}
-                          {m.status_manutencao === 'em_andamento' && (
-                            <button
-                              onClick={() => handleStatusChange(m, 'aguardando_peca')}
-                              title="Marcar como aguardando peça"
-                              className="px-2 py-1 text-xs text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors"
-                            >
-                              Ag. peça
-                            </button>
-                          )}
-                          {m.status_manutencao === 'aguardando_peca' && (
-                            <button
-                              onClick={() => handleStatusChange(m, 'em_andamento')}
-                              title="Retomar andamento"
-                              className="px-2 py-1 text-xs text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors"
-                            >
-                              Retomar
-                            </button>
-                          )}
-                          {/* Finalizar */}
-                          <button
-                            onClick={() => setModalFin(m)}
-                            className="px-2 py-1 text-xs text-g-100 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
-                          >
-                            Finalizar
-                          </button>
-                          {/* Excluir */}
-                          <button
-                            onClick={() => setConfirmDel(m.id)}
-                            className="p-1.5 text-g-700 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
+            )}
+          </div>
+          <div className="card overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
+              </div>
+            ) : todasAbertas.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 gap-2 text-g-600">
+                <Truck className="w-8 h-8 opacity-30" />
+                <p className="text-sm">Nenhuma manutenção em andamento</p>
+                <button onClick={() => setModalAbrir(true)} className="text-g-100 text-xs font-medium hover:underline">
+                  Registrar nova OS
+                </button>
+              </div>
+            ) : filteredAbertas.length === 0 ? (
+              <div className="flex items-center justify-center h-24 gap-2 text-g-600 text-sm">
+                <Search className="w-4 h-4" /> Nenhum resultado para "{filterAberta}"
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[860px]">
+                  <thead className="bg-g-850 border-b border-g-800">
+                    <tr>
+                      <SortableHeader label="Placa"     col="placa"             sortState={sortAberta} onSort={sortAbertaBy} />
+                      <SortableHeader label="Modelo"    col="modelo"            sortState={sortAberta} onSort={sortAbertaBy} />
+                      <SortableHeader label="Fornecedor" col="fornecedor"       sortState={sortAberta} onSort={sortAbertaBy} />
+                      <SortableHeader label="Sistema / Serviço" col="sistema"   sortState={sortAberta} onSort={sortAbertaBy} />
+                      <SortableHeader label="Status"    col="status_manutencao" sortState={sortAberta} onSort={sortAbertaBy} />
+                      <SortableHeader label="Entrada"   col="data_entrada"      sortState={sortAberta} onSort={sortAbertaBy} className="text-center" />
+                      <th className="th">Dias</th>
+                      <th className="th">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                  </thead>
+                  <tbody>
+                    {filteredAbertas.map(m => {
+                      const dias = m.indisponivel && m.data_entrada ? diasParados(m.data_entrada) : null
+                      return (
+                        <tr key={m.id} className="table-row">
+                          <td className="td td-left font-mono font-bold text-g-200">{m.placa}</td>
+                          <td className="td td-left text-g-500">{m.modelo || '—'}</td>
+                          <td className="td td-left text-g-500">{m.fornecedor || '—'}</td>
+                          <td className="td td-left">
+                            <p className="text-g-400 text-xs">{m.sistema || '—'}</p>
+                            <p className="text-g-600 text-xs truncate max-w-[180px]">{m.servico || '—'}</p>
+                          </td>
+                          <td className="td td-left">
+                            <StatusBadge status={m.status_manutencao} />
+                          </td>
+                          <td className="td text-xs text-g-500 tabular-nums">
+                            {m.data_entrada || '—'}
+                          </td>
+                          <td className="td tabular-nums text-xs">
+                            {dias !== null
+                              ? <span className={dias > 30 ? 'text-red-500 font-semibold' : dias > 7 ? 'text-amber-500 font-medium' : 'text-g-500'}>{dias}</span>
+                              : <span className="text-g-700">—</span>
+                            }
+                          </td>
+                          <td className="td">
+                            <div className="flex items-center justify-end gap-1">
+                              {m.status_manutencao === 'em_andamento' && (
+                                <button
+                                  onClick={() => handleStatusChange(m, 'aguardando_peca')}
+                                  title="Marcar como aguardando peça"
+                                  className="px-2 py-1 text-xs text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors"
+                                >
+                                  Ag. peça
+                                </button>
+                              )}
+                              {m.status_manutencao === 'aguardando_peca' && (
+                                <button
+                                  onClick={() => handleStatusChange(m, 'em_andamento')}
+                                  title="Retomar andamento"
+                                  className="px-2 py-1 text-xs text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors"
+                                >
+                                  Retomar
+                                </button>
+                              )}
+                              {/* Editar */}
+                              <button
+                                onClick={() => setModalEdit(m)}
+                                title="Editar OS"
+                                className="p-1.5 text-g-600 hover:text-g-100 hover:bg-g-850 rounded-lg transition-colors"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              {/* Finalizar */}
+                              <button
+                                onClick={() => setModalFin(m)}
+                                className="px-2 py-1 text-xs text-g-100 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
+                              >
+                                Finalizar
+                              </button>
+                              {/* Excluir */}
+                              <button
+                                onClick={() => setConfirmDel(m.id)}
+                                className="p-1.5 text-g-700 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Tabela Finalizadas */}
       {subTab === 'finalizadas' && (
-        <div className="card overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
-            </div>
-          ) : finalizadas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 gap-2 text-g-600">
-              <CheckCircle className="w-8 h-8 opacity-30" />
-              <p className="text-sm">Nenhuma OS finalizada registrada</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px]">
-                <thead className="bg-g-850 border-b border-g-800">
-                  <tr>
-                    <th className="th th-left">Placa</th>
-                    <th className="th th-left">Modelo</th>
-                    <th className="th th-left">Nº OS</th>
-                    <th className="th th-left">Fornecedor</th>
-                    <th className="th th-left">Sistema / Serviço</th>
-                    <th className="th">Total OS</th>
-                    <th className="th">Parcelas</th>
-                    <th className="th">Execução</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {finalizadas.map(m => (
-                    <tr key={m.id} className="table-row">
-                      <td className="td td-left font-mono font-bold text-g-200">{m.placa}</td>
-                      <td className="td td-left text-g-500">{m.modelo || '—'}</td>
-                      <td className="td td-left font-mono text-xs text-g-400">{m.id_ord_serv || '—'}</td>
-                      <td className="td td-left text-g-500">{m.fornecedor || '—'}</td>
-                      <td className="td td-left">
-                        <p className="text-g-400 text-xs">{m.sistema || '—'}</p>
-                        <p className="text-g-600 text-xs truncate max-w-[160px]">{m.servico || '—'}</p>
-                      </td>
-                      <td className="td font-mono font-semibold text-g-300 tabular-nums">
-                        {m.total_os ? brl(m.total_os) : '—'}
-                      </td>
-                      <td className="td text-xs text-g-500 tabular-nums">
-                        {m.parcelas?.length || 0}x
-                        {m.parcelas?.length > 0 && (
-                          <span className="block text-g-700">
-                            {m.parcelas.filter(p => p.status_pagamento === 'Pago').length}/{m.parcelas.length} pagas
-                          </span>
-                        )}
-                      </td>
-                      <td className="td text-xs text-g-500 tabular-nums">{m.data_execucao || '—'}</td>
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-600" />
+            <input
+              value={filterFin}
+              onChange={e => setFilterFin(e.target.value)}
+              placeholder="Filtrar por placa, fornecedor, modelo, sistema, serviço, nº OS…"
+              className="w-full pl-9 pr-9 py-2 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors"
+            />
+            {filterFin && (
+              <button onClick={() => setFilterFin('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                <X className="w-3.5 h-3.5 text-g-600 hover:text-g-400" />
+              </button>
+            )}
+          </div>
+          <div className="card overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
+              </div>
+            ) : finalizadas.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 gap-2 text-g-600">
+                <CheckCircle className="w-8 h-8 opacity-30" />
+                <p className="text-sm">Nenhuma OS finalizada registrada</p>
+              </div>
+            ) : filteredFin.length === 0 ? (
+              <div className="flex items-center justify-center h-24 gap-2 text-g-600 text-sm">
+                <Search className="w-4 h-4" /> Nenhum resultado para "{filterFin}"
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[960px]">
+                  <thead className="bg-g-850 border-b border-g-800">
+                    <tr>
+                      <SortableHeader label="Placa"      col="placa"        sortState={sortFin} onSort={sortFinBy} />
+                      <SortableHeader label="Modelo"     col="modelo"       sortState={sortFin} onSort={sortFinBy} />
+                      <SortableHeader label="Nº OS"      col="id_ord_serv"  sortState={sortFin} onSort={sortFinBy} />
+                      <SortableHeader label="Fornecedor" col="fornecedor"   sortState={sortFin} onSort={sortFinBy} />
+                      <SortableHeader label="Sistema / Serviço" col="sistema" sortState={sortFin} onSort={sortFinBy} />
+                      <SortableHeader label="Total OS"   col="total_os"     sortState={sortFin} onSort={sortFinBy} className="text-right" />
+                      <th className="th">Parcelas</th>
+                      <SortableHeader label="Execução"   col="data_execucao" sortState={sortFin} onSort={sortFinBy} className="text-center" />
+                      <th className="th">Dias</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                  </thead>
+                  <tbody>
+                    {filteredFin.map(m => {
+                      const dias = m.data_execucao && m.data_entrada ? diasParados(m.data_entrada, m.data_execucao) : null
+                      return (
+                        <tr key={m.id} className="table-row">
+                          <td className="td td-left font-mono font-bold text-g-200">{m.placa}</td>
+                          <td className="td td-left text-g-500">{m.modelo || '—'}</td>
+                          <td className="td td-left font-mono text-xs text-g-400">{m.id_ord_serv || '—'}</td>
+                          <td className="td td-left text-g-500">{m.fornecedor || '—'}</td>
+                          <td className="td td-left">
+                            <p className="text-g-400 text-xs">{m.sistema || '—'}</p>
+                            <p className="text-g-600 text-xs truncate max-w-[160px]">{m.servico || '—'}</p>
+                          </td>
+                          <td className="td font-mono font-semibold text-g-300 tabular-nums">
+                            {m.total_os ? brl(m.total_os) : '—'}
+                          </td>
+                          <td className="td text-xs text-g-500 tabular-nums">
+                            {m.parcelas?.length || 0}x
+                            {m.parcelas?.length > 0 && (
+                              <span className="block text-g-700">
+                                {m.parcelas.filter(p => p.status_pagamento === 'Pago').length}/{m.parcelas.length} pagas
+                              </span>
+                            )}
+                          </td>
+                          <td className="td text-xs text-g-500 tabular-nums">{m.data_execucao || '—'}</td>
+                          <td className="td tabular-nums text-xs text-g-500">
+                            {dias !== null ? dias : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Modal confirmação exclusão */}
@@ -356,6 +499,12 @@ function GestaoTab({ novaOSTrigger = 0 }) {
       )}
       {modalFin && (
         <FinalizarManutencaoModal manutencao={modalFin} onClose={() => setModalFin(null)} onSaved={handleSaved} />
+      )}
+      {modalEdit && (
+        <AbrirManutencaoModal manutencao={modalEdit} onClose={() => setModalEdit(null)} onSaved={handleSaved} />
+      )}
+      {modalInsert && (
+        <FinalizarManutencaoModal manutencao={null} onClose={() => setModalInsert(false)} onSaved={handleSaved} />
       )}
     </div>
   )
@@ -438,6 +587,15 @@ function AnaliseTab({ year, vehicles }) {
 
       {!loading && data && (
         <>
+          {/* Custo Mensal — primeiro destaque */}
+          {data.monthly?.length > 0 && (
+            <Section title="Custo Mensal" icon={DollarSign}>
+              <ChartCard title="Custo Mensal de Manutenção" subtitle="Valor total das OS finalizadas por mês">
+                <MonthlyBarChart data={data.monthly} />
+              </ChartCard>
+            </Section>
+          )}
+
           <Section title="Resumo de Manutenção" icon={Wrench}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <KPICard icon={Hash}       label="Ordens de Serviço" rawValue={s.total_os}    formatter={num}      sub="OS únicas no período" delay={0} />
@@ -562,13 +720,8 @@ function AnaliseTab({ year, vehicles }) {
 // ════════════════════════════════════════════════════════════════════
 // PÁGINA PRINCIPAL
 // ════════════════════════════════════════════════════════════════════
-export default function MaintenancePage({ year, vehicles = [], headerTrigger = {} }) {
+export default function MaintenancePage({ year, vehicles = [] }) {
   const [tab, setTab] = useState('gestao')
-
-  // Quando o header aciona "Nova OS", garante tab Gestão ativa
-  useEffect(() => {
-    if (headerTrigger.nova_os > 0) setTab('gestao')
-  }, [headerTrigger.nova_os])
 
   return (
     <div className="flex flex-col gap-6">
@@ -593,7 +746,7 @@ export default function MaintenancePage({ year, vehicles = [], headerTrigger = {
         ))}
       </div>
 
-      {tab === 'gestao'  && <GestaoTab novaOSTrigger={headerTrigger.nova_os || 0} />}
+      {tab === 'gestao'  && <GestaoTab />}
       {tab === 'analise' && <AnaliseTab year={year} vehicles={vehicles} />}
     </div>
   )

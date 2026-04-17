@@ -272,3 +272,20 @@ export function ServicosChart({ data = [] }) {
     </ResponsiveContainer>
   )
 }
+
+// ── 8. Custo mensal (bar simples) ─────────────────────────
+export function MonthlyBarChart({ data = [] }) {
+  return (
+    <ResponsiveContainer width="100%" height={240}>
+      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+        <XAxis dataKey="name" tick={TICK} axisLine={false} tickLine={false} />
+        <YAxis tickFormatter={brlShort} tick={TICK} axisLine={false} tickLine={false} width={64} />
+        <Tooltip content={<TipContent />} />
+        <Bar dataKey="total" name="Custo" radius={[3, 3, 0, 0]} maxBarSize={32}>
+          {data.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}

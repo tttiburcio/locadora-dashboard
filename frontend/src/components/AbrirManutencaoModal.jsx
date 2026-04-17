@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Loader2, Wrench } from 'lucide-react'
-import { dbListFrota, dbAbrirManutencao } from '../utils/api'
+import { dbListFrota, dbAbrirManutencao, dbAtualizarManutencao } from '../utils/api'
 
 const STATUS_OPTS = [
   { value: 'em_andamento',    label: 'Em andamento' },
@@ -19,27 +19,49 @@ const SISTEMAS = [
 const FIELD = 'w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors'
 const LABEL = 'text-g-600 text-xs font-medium mb-1 block'
 
-export default function AbrirManutencaoModal({ onClose, onSaved }) {
+export default function AbrirManutencaoModal({ onClose, onSaved, manutencao = null }) {
+  const isEditMode = manutencao !== null
+
   const [frota,        setFrota]        = useState([])
   const [loadingFrota, setLoadingFrota] = useState(true)
   const [saving,       setSaving]       = useState(false)
   const [error,        setError]        = useState(null)
 
-  const [form, setForm] = useState({
-    id_veiculo:      '',
-    placa:           '',
-    modelo:          '',
-    fornecedor:      '',
-    tipo_manutencao: 'Corretiva',
-    sistema:         '',
-    servico:         '',
-    descricao:       '',
-    km:              '',
-    responsavel_tec: '',
-    indisponivel:    true,
-    data_entrada:    new Date().toISOString().slice(0, 10),
-    status_manutencao: '',
-    observacoes:     '',
+  const [form, setForm] = useState(() => {
+    if (manutencao) {
+      return {
+        id_veiculo:        manutencao.id_veiculo ?? '',
+        placa:             manutencao.placa ?? '',
+        modelo:            manutencao.modelo ?? '',
+        fornecedor:        manutencao.fornecedor ?? '',
+        tipo_manutencao:   manutencao.tipo_manutencao ?? 'Corretiva',
+        sistema:           manutencao.sistema ?? '',
+        servico:           manutencao.servico ?? '',
+        descricao:         manutencao.descricao ?? '',
+        km:                manutencao.km ?? '',
+        responsavel_tec:   manutencao.responsavel_tec ?? '',
+        indisponivel:      manutencao.indisponivel ?? true,
+        data_entrada:      manutencao.data_entrada ?? new Date().toISOString().slice(0, 10),
+        status_manutencao: manutencao.status_manutencao ?? '',
+        observacoes:       manutencao.observacoes ?? '',
+      }
+    }
+    return {
+      id_veiculo:      '',
+      placa:           '',
+      modelo:          '',
+      fornecedor:      '',
+      tipo_manutencao: 'Corretiva',
+      sistema:         '',
+      servico:         '',
+      descricao:       '',
+      km:              '',
+      responsavel_tec: '',
+      indisponivel:    true,
+      data_entrada:    new Date().toISOString().slice(0, 10),
+      status_manutencao: '',
+      observacoes:     '',
+    }
   })
 
   useEffect(() => {
@@ -71,11 +93,16 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
     setSaving(true)
     setError(null)
     try {
-      await dbAbrirManutencao({
+      const payload = {
         ...form,
         id_veiculo: parseInt(form.id_veiculo),
         km: form.km ? parseFloat(form.km) : null,
-      })
+      }
+      if (isEditMode) {
+        await dbAtualizarManutencao(manutencao.id, payload)
+      } else {
+        await dbAbrirManutencao(payload)
+      }
       onSaved()
     } catch (err) {
       setError(err.response?.data?.detail || 'Erro ao salvar')
@@ -95,8 +122,12 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
               <Wrench className="w-4 h-4 text-g-100" />
             </div>
             <div>
-              <h2 className="text-g-200 font-semibold text-sm">Registrar Manutenção</h2>
-              <p className="text-g-600 text-xs">Veículo entrando em manutenção</p>
+              <h2 className="text-g-200 font-semibold text-sm">
+                {isEditMode ? 'Editar Manutenção' : 'Registrar Manutenção'}
+              </h2>
+              <p className="text-g-600 text-xs">
+                {isEditMode ? `Editando OS · ${manutencao.placa}` : 'Veículo entrando em manutenção'}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 transition-colors">
@@ -111,7 +142,7 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={LABEL}>Placa *</label>
-              <select value={form.placa} onChange={handlePlaca} className={`${FIELD} font-mono`} required disabled={loadingFrota}>
+              <select value={form.placa} onChange={handlePlaca} className={`${FIELD} font-mono`} required disabled={loadingFrota || isEditMode}>
                 <option value="">{loadingFrota ? 'Carregando…' : frota.length === 0 ? 'Nenhum veículo encontrado' : 'Selecione…'}</option>
                 {frota.map(v => (
                   <option key={v.id} value={v.placa}>{v.placa}</option>
@@ -144,7 +175,7 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
               <input
                 placeholder="Nome da oficina…"
                 value={form.fornecedor}
-                onChange={e => set('fornecedor', e.target.value)}
+                onChange={e => set('fornecedor', e.target.value.toUpperCase().replace(/[^A-Z\s]/g, ''))}
                 className={FIELD}
               />
             </div>
@@ -260,7 +291,7 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
             className="px-5 py-2 rounded-lg bg-g-100 text-white text-sm font-medium hover:bg-g-50 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
             {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Registrar OS
+            {isEditMode ? 'Salvar Alterações' : 'Registrar OS'}
           </button>
         </div>
       </div>

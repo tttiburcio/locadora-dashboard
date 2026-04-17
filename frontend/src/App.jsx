@@ -7,9 +7,7 @@ import MaintenancePage from './pages/MaintenancePage'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { Loader2, Plus } from 'lucide-react'
 
-const HEADER_ACTIONS = {
-  maintenance: [{ key: 'nova_os', label: '+ Nova OS' }],
-}
+const HEADER_ACTIONS = {}
 
 export default function App() {
   const [page, setPage]           = useState('overview')
