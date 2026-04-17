@@ -37,7 +37,7 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
     responsavel_tec: '',
     indisponivel:    true,
     data_entrada:    new Date().toISOString().slice(0, 10),
-    status_manutencao: 'em_andamento',
+    status_manutencao: '',
     observacoes:     '',
   })
 
@@ -60,8 +60,9 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.placa) { setError('Informe a placa do veículo'); return }
-    if (!form.id_veiculo) { setError('Placa não encontrada na frota. Verifique o cadastro.'); return }
+    if (!form.placa)             { setError('Selecione a placa do veículo'); return }
+    if (!form.id_veiculo)        { setError('Placa não encontrada na frota'); return }
+    if (!form.status_manutencao) { setError('Selecione o status inicial'); return }
     setSaving(true)
     setError(null)
     try {
@@ -105,29 +106,22 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={LABEL}>Placa *</label>
-              <input
-                list="frota-placas"
-                placeholder="Ex: ABC1D23"
-                value={form.placa}
-                onChange={handlePlaca}
-                className={`${FIELD} font-mono uppercase`}
-                required
-              />
-              <datalist id="frota-placas">
+              <select value={form.placa} onChange={handlePlaca} className={`${FIELD} font-mono`} required>
+                <option value="">Selecione…</option>
                 {frota.map(v => (
                   <option key={v.id} value={v.placa}>
-                    {v.placa} — {v.modelo || '—'}
+                    {v.placa}{v.modelo ? ` — ${v.modelo}` : ''}
                   </option>
                 ))}
-              </datalist>
+              </select>
             </div>
             <div>
               <label className={LABEL}>Modelo</label>
               <input
                 value={form.modelo}
-                onChange={e => set('modelo', e.target.value)}
-                placeholder="Preenchido automaticamente"
-                className={FIELD}
+                readOnly
+                placeholder="Preenchido ao selecionar placa"
+                className={`${FIELD} bg-g-850 text-g-500 cursor-default`}
               />
             </div>
             <div>
@@ -213,7 +207,8 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
             </div>
             <div>
               <label className={LABEL}>Status Inicial</label>
-              <select value={form.status_manutencao} onChange={e => set('status_manutencao', e.target.value)} className={FIELD}>
+              <select value={form.status_manutencao} onChange={e => set('status_manutencao', e.target.value)} className={FIELD} required>
+                <option value="">Selecione…</option>
                 {STATUS_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
