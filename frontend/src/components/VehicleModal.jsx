@@ -1,12 +1,78 @@
 import { useEffect, useState } from 'react'
 import { getVehicle } from '../utils/api'
-import { brl, pct, dias, brlShort } from '../utils/format'
+import { brl, pct, dias, brlShort, num } from '../utils/format'
 import { VehicleMonthlyChart, VehicleCostPie } from './charts/VehicleCharts'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+} from 'recharts'
 import {
   X, TrendingUp, TrendingDown, Wrench, Shield, FileText,
   MapPin, Calendar, DollarSign, Percent, Clock, AlertTriangle,
   ChevronRight, Loader2,
 } from 'lucide-react'
+
+const TOOLTIP_STYLE = {
+  background: '#18181b', border: '1px solid #3f3f46',
+  borderRadius: 8, fontSize: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+}
+
+function ContractBreakdown({ contracts = [] }) {
+  if (!contracts.length) return (
+    <p className="text-g-700 text-sm text-center py-8">Sem dados de contratos para este veículo.</p>
+  )
+  const max = Math.max(...contracts.map(c => c.receita), 1)
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Bar chart */}
+      <ResponsiveContainer width="100%" height={Math.min(contracts.length * 42 + 40, 300)}>
+        <BarChart
+          data={contracts}
+          layout="vertical"
+          margin={{ top: 4, right: 12, bottom: 4, left: 80 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+          <XAxis type="number" tickFormatter={brlShort}
+            tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
+          <YAxis type="category" dataKey="contrato" width={78}
+            tick={{ fill: '#a1a1aa', fontSize: 10.5 }} axisLine={false} tickLine={false} />
+          <Tooltip
+            contentStyle={TOOLTIP_STYLE}
+            formatter={v => [brl(v), 'Receita']}
+          />
+          <Bar dataKey="receita" name="Receita" radius={[0, 4, 4, 0]} maxBarSize={22}>
+            {contracts.map((_, i) => (
+              <Cell key={i} fill={`hsl(${230 + i * 28}, 70%, ${55 + i * 4}%)`} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+
+      {/* Detail table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-g-800">
+              <th className="th th-left text-xs py-2">Contrato / Região</th>
+              <th className="th text-xs py-2">Receita</th>
+              <th className="th text-xs py-2">Dias Trab.</th>
+              <th className="th text-xs py-2">Diária Média</th>
+            </tr>
+          </thead>
+          <tbody>
+            {contracts.map((c, i) => (
+              <tr key={i} className="border-b border-g-900 hover:bg-g-900/60">
+                <td className="td td-left py-2 font-semibold text-g-200">{c.contrato}</td>
+                <td className="td py-2 font-mono tabular-nums text-white">{brl(c.receita)}</td>
+                <td className="td py-2 tabular-nums text-g-400">{dias(c.dias_trabalhado)}</td>
+                <td className="td py-2 font-mono tabular-nums text-g-300">{brl(c.diaria_media)}/dia</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
 
 function MiniKPI({ label, value, sub, color = 'text-g-100', icon: Icon }) {
   return (
@@ -38,11 +104,13 @@ function SectionTitle({ icon: Icon, children }) {
 }
 
 export default function VehicleModal({ placa, year, onClose }) {
-  const [data, setData]     = useState(null)
+  const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
+  const [tab, setTab]         = useState('kpis')  // 'kpis' | 'contratos' | 'manut'
 
   useEffect(() => {
     setLoading(true)
+    setTab('kpis')
     getVehicle(placa, year).then(setData).finally(() => setLoading(false))
   }, [placa, year])
 
@@ -96,6 +164,29 @@ export default function VehicleModal({ placa, year, onClose }) {
           </button>
         </div>
 
+        {/* Tabs */}
+        {!loading && data && (
+          <div className="flex border-b border-g-900 px-6">
+            {[
+              { key: 'kpis',      label: 'KPIs & Financeiro' },
+              { key: 'contratos', label: 'Por Contrato / Região' },
+              { key: 'manut',     label: 'Manutenção' },
+            ].map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors -mb-px ${
+                  tab === t.key
+                    ? 'border-white text-white'
+                    : 'border-transparent text-g-600 hover:text-g-300'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {loading && (
           <div className="flex-1 flex flex-col items-center justify-center gap-3">
             <Loader2 className="w-6 h-6 animate-spin text-g-600" />
@@ -105,6 +196,69 @@ export default function VehicleModal({ placa, year, onClose }) {
 
         {!loading && data && k && (
           <div className="p-6 flex flex-col gap-6">
+            {/* ── Tab: Por Contrato / Região ── */}
+            {tab === 'contratos' && (
+              <div>
+                <p className="text-g-600 text-xs mb-4">
+                  Distribuição de receita e dias trabalhados por contrato/região de operação neste exercício.
+                </p>
+                <ContractBreakdown contracts={data.by_contract || []} />
+              </div>
+            )}
+
+            {/* ── Tab: Manutenção detalhada ── */}
+            {tab === 'manut' && (
+              <div>
+                {data.maintenance?.length > 0 ? (
+                  <div className="card overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-g-900 border-b border-g-800">
+                        <tr>
+                          <th className="th th-left text-xs">OS</th>
+                          <th className="th text-xs">Data</th>
+                          <th className="th th-left text-xs">Serviço / Sistema</th>
+                          <th className="th text-xs">Tipo</th>
+                          <th className="th th-left text-xs">Fornecedor</th>
+                          <th className="th text-xs">KM</th>
+                          <th className="th text-xs">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.maintenance.map((m, i) => (
+                          <tr key={i} className="border-b border-g-900 hover:bg-g-900/60 transition-colors">
+                            <td className="td td-left text-xs font-mono text-g-500">{m.ordem}</td>
+                            <td className="td text-xs text-g-500 tabular-nums">{m.data}</td>
+                            <td className="td td-left text-xs">
+                              <p className="text-g-200">{m.servico?.length > 22 ? m.servico.slice(0,21)+'…' : m.servico}</p>
+                              {m.sistema && m.sistema !== '—' && (
+                                <p className="text-g-600 text-[10px]">{m.sistema}</p>
+                              )}
+                            </td>
+                            <td className="td text-xs">
+                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                                m.tipo === 'Preventiva' ? 'bg-indigo-950/50 text-indigo-300' :
+                                m.tipo === 'Corretiva'  ? 'bg-red-950/50 text-red-300' :
+                                'bg-g-800 text-g-400'
+                              }`}>{m.tipo}</span>
+                            </td>
+                            <td className="td td-left text-xs text-g-400">
+                              {m.fornecedor?.length > 16 ? m.fornecedor.slice(0,15)+'…' : m.fornecedor}
+                            </td>
+                            <td className="td text-xs text-g-500 tabular-nums">{m.km ? num(m.km) + ' km' : '—'}</td>
+                            <td className="td text-xs text-orange-300 font-mono font-semibold tabular-nums">{brl(m.valor)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-g-700 text-sm text-center py-8">Sem ordens de serviço para este veículo no período.</p>
+                )}
+              </div>
+            )}
+
+            {/* ── Tab: KPIs (default) ── */}
+            {tab === 'kpis' && (<>
 
             {/* Margin highlight */}
             <div className={`rounded-xl p-5 border ${
@@ -226,41 +380,7 @@ export default function VehicleModal({ placa, year, onClose }) {
               </div>
             </div>
 
-            {/* Maintenance table */}
-            {data.maintenance?.length > 0 && (
-              <div>
-                <SectionTitle icon={Wrench}>
-                  Histórico de Manutenção ({data.maintenance.length} OS)
-                </SectionTitle>
-                <div className="card overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-g-900 border-b border-g-800">
-                      <tr>
-                        <th className="th th-left text-xs">OS</th>
-                        <th className="th text-xs">Data</th>
-                        <th className="th text-xs">Fornecedor</th>
-                        <th className="th text-xs">Valor</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.maintenance.slice(0, 20).map((m, i) => (
-                        <tr key={i} className="border-b border-g-900 hover:bg-g-900/60 transition-colors">
-                          <td className="td td-left text-xs font-mono text-g-500">{m.ordem}</td>
-                          <td className="td text-xs text-g-500">{m.data}</td>
-                          <td className="td text-xs text-g-300 text-right truncate max-w-[120px]">{m.fornecedor}</td>
-                          <td className="td text-xs text-orange-300 font-mono font-semibold">{brl(m.valor)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {data.maintenance.length > 20 && (
-                    <div className="px-4 py-2.5 text-g-600 text-xs text-center border-t border-g-900">
-                      +{data.maintenance.length - 20} ordens de serviço
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            </>)}
           </div>
         )}
       </div>

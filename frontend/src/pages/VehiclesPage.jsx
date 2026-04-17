@@ -3,7 +3,7 @@ import { brl, pct, dias, brlShort } from '../utils/format'
 import VehicleModal from '../components/VehicleModal'
 import {
   Search, ChevronUp, ChevronDown, ChevronsUpDown,
-  TrendingUp, TrendingDown, Filter, X,
+  Filter, X, MapPin,
 } from 'lucide-react'
 
 const STATUS_COLORS = {
@@ -53,7 +53,7 @@ const COLUMNS = [
     : <span className="text-g-800">—</span> },
 ]
 
-export default function VehiclesPage({ vehicles, year }) {
+export default function VehiclesPage({ vehicles, year, regions = [], region, onRegionChange }) {
   const [selectedPlaca, setSelectedPlaca] = useState(null)
   const [search, setSearch]               = useState('')
   const [sortCol, setSortCol]             = useState('margem')
@@ -108,6 +108,21 @@ export default function VehiclesPage({ vehicles, year }) {
     <div className="flex flex-col gap-4">
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
+        {/* Region/contract filter */}
+        {regions.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-g-700" />
+            <select
+              value={region || ''}
+              onChange={e => onRegionChange && onRegionChange(e.target.value || null)}
+              className="bg-g-900 border border-g-800 rounded-lg text-g-300 text-xs px-3 py-2 focus:outline-none focus:border-g-600"
+            >
+              <option value="">Todas as regiões</option>
+              {regions.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+        )}
+
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-700" />
           <input

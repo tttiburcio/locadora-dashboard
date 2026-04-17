@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-app = FastAPI(title="Locadora API", version="1.0.0")
+app = FastAPI(title="TKJ Locadora API", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,6 +25,8 @@ SHEETS = {
     "seguro_mensal": "📋 SEGURO_MENSAL",
     "impostos":      "📋 IMPOSTOS",
     "rastreamento":  "📍RASTREAMENTO",
+    "contratos":     "📄 CONTRATOS",
+    "clientes":      "🏢 CLIENTES",
 }
 
 _cache: dict = {}
@@ -67,6 +69,14 @@ MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
             "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
 
+def _dedup_manut(manut_raw: pd.DataFrame) -> pd.DataFrame:
+    if not manut_raw.empty and "IDOrdServ" in manut_raw.columns:
+        com_os = manut_raw.dropna(subset=["IDOrdServ"]).drop_duplicates(subset=["IDOrdServ"])
+        sem_os = manut_raw[manut_raw["IDOrdServ"].isna()]
+        return pd.concat([com_os, sem_os], ignore_index=True)
+    return manut_raw.copy()
+
+
 def compute(year: int):
     data = load_raw()
 
@@ -82,14 +92,7 @@ def compute(year: int):
         imp = imp[imp["AnoImposto"] == year].copy()
 
     manut_raw = _filter_year(_parse(data["manutencoes"].copy(), "DataExecução"), "DataExecução", year)
-
-    # Deduplica OS — TotalOS é repetido por categoria da OS
-    if not manut_raw.empty and "IDOrdServ" in manut_raw.columns:
-        com_os  = manut_raw.dropna(subset=["IDOrdServ"]).drop_duplicates(subset=["IDOrdServ"])
-        sem_os  = manut_raw[manut_raw["IDOrdServ"].isna()]
-        manut   = pd.concat([com_os, sem_os], ignore_index=True)
-    else:
-        manut = manut_raw.copy()
+    manut     = _dedup_manut(manut_raw)
 
     # ── Receitas por veículo ─────────────────────────────────
     rev_loc  = fat.groupby("IDVeiculo")["Medicao"].sum().rename("ReceitaLocacao") if not fat.empty else pd.Series(dtype=float, name="ReceitaLocacao")
@@ -119,8 +122,18 @@ def compute(year: int):
     else:
         dias = pd.DataFrame(columns=["Trabalhado", "Parado"])
 
+    # ── Contrato principal por veículo (mais recente) ────────
+    contrato_info = pd.DataFrame(columns=["IDVeiculo", "Contrato", "CidadeOp"])
+    if not fat.empty and "Contrato" in fat.columns:
+        contrato_info = (fat.dropna(subset=["IDVeiculo", "Contrato"])
+                         .groupby("IDVeiculo")["Contrato"]
+                         .agg(lambda x: x.value_counts().index[0] if len(x) > 0 else "—")
+                         .rename("Contrato")
+                         .reset_index())
+
     # ── Consolidar na frota ──────────────────────────────────
-    base_cols = ["IDVeiculo", "Placa", "Marca", "Modelo", "Status"]
+    base_cols = ["IDVeiculo", "Placa", "Marca", "Modelo", "Status", "Tipagem", "Implemento"]
+    base_cols = [c for c in base_cols if c in frota.columns]
     if "ValorTotal" in frota.columns:
         base_cols.append("ValorTotal")
 
@@ -137,6 +150,12 @@ def compute(year: int):
         .fillna(0)
         .reset_index()
     )
+
+    if not contrato_info.empty:
+        df = df.merge(contrato_info, on="IDVeiculo", how="left")
+        df["Contrato"] = df["Contrato"].fillna("—")
+    else:
+        df["Contrato"] = "—"
 
     df["ReceitaTotal"] = df["ReceitaLocacao"] + df["ReceitaReembolso"]
     df["CustoTotal"]   = df["CustoManutencao"] + df["CustoSeguro"] + df["CustoImpostos"] + df["CustoRastreamento"]
@@ -159,12 +178,9 @@ def compute(year: int):
         base = pd.DataFrame({"Mes": range(1, 13)})
         return base.merge(grp, on="Mes", how="left").fillna(0)
 
-    # Filter maintenance to only vehicles present in frota for monthly chart consistency
-    frota_ids = set(frota["IDVeiculo"].dropna().tolist())
-    manut_frota = (
-        manut[manut["IDVeiculo"].isin(frota_ids)].dropna(subset=["IDVeiculo"])
-        if not manut.empty else manut
-    )
+    frota_ids     = set(frota["IDVeiculo"].dropna().tolist())
+    manut_frota   = (manut[manut["IDVeiculo"].isin(frota_ids)].dropna(subset=["IDVeiculo"])
+                     if not manut.empty else manut)
 
     ml   = monthly_group(fat,         "Mes",          "Medicao",        "Locacao")
     mr   = monthly_group(reimb,       "Emissão",       "ValorReembolso", "Reembolso")
@@ -172,11 +188,7 @@ def compute(year: int):
     mcs  = monthly_group(seg,         "Vencimento",    "Valor",          "CustoSeguro")
     mcr  = monthly_group(rast,        "Vencimento",    "Valor",          "CustoRastreamento")
 
-    monthly = (ml
-               .merge(mr,  on="Mes")
-               .merge(mcm, on="Mes")
-               .merge(mcs, on="Mes")
-               .merge(mcr, on="Mes"))
+    monthly = (ml.merge(mr, on="Mes").merge(mcm, on="Mes").merge(mcs, on="Mes").merge(mcr, on="Mes"))
     monthly["ReceitaTotal"] = monthly["Locacao"] + monthly["Reembolso"]
     monthly["CustoTotal"]   = monthly["CustoManutencao"] + monthly["CustoSeguro"] + monthly["CustoRastreamento"]
     monthly["Margem"]       = monthly["ReceitaTotal"] - monthly["CustoTotal"]
@@ -208,39 +220,38 @@ def compute(year: int):
         worst_v = {"placa": str(df_active.loc[wi, "Placa"]), "modelo": str(df_active.loc[wi, "Modelo"]), "margem": safe(df_active.loc[wi, "Margem"])}
 
     kpis = {
-        "veiculos_ativos":    veiculos_ativos,
-        "veiculos_total":     int(len(frota)),
-        "veiculos_lucrativos": veiculos_lucr,
+        "veiculos_ativos":      veiculos_ativos,
+        "veiculos_total":       int(len(frota)),
+        "veiculos_lucrativos":  veiculos_lucr,
         "veiculos_deficitarios": veiculos_ativos - veiculos_lucr,
-        "faturado":           faturado,
-        "recebido":           recebido,
-        "receita_locacao":    safe(df_active["ReceitaLocacao"].sum()),
-        "receita_reembolso":  reembolsos,
-        "receita_total":      receita_total,
-        "custo_manutencao":   safe(df_active["CustoManutencao"].sum()),
-        "custo_seguro":       safe(df_active["CustoSeguro"].sum()),
-        "custo_impostos":     safe(df_active["CustoImpostos"].sum()),
-        "custo_rastreamento": safe(df_active["CustoRastreamento"].sum()),
-        "custo_total":        custo_total,
-        "margem":             margem,
-        "margem_pct":         margem_pct,
-        "taxa_utilizacao":    taxa_util,
-        "melhor_veiculo":     best_v,
-        "pior_veiculo":       worst_v,
-        "receita_por_veiculo": round(receita_total / veiculos_ativos, 2) if veiculos_ativos else 0.0,
-        "margem_por_veiculo":  round(margem / veiculos_ativos, 2) if veiculos_ativos else 0.0,
-        "custo_sobre_receita": round(custo_total / receita_total * 100, 1) if receita_total > 0 else 0.0,
-        "inconsistencias": _check_inconsistencias(df_active, year),
+        "faturado":             faturado,
+        "recebido":             recebido,
+        "receita_locacao":      safe(df_active["ReceitaLocacao"].sum()),
+        "receita_reembolso":    reembolsos,
+        "receita_total":        receita_total,
+        "custo_manutencao":     safe(df_active["CustoManutencao"].sum()),
+        "custo_seguro":         safe(df_active["CustoSeguro"].sum()),
+        "custo_impostos":       safe(df_active["CustoImpostos"].sum()),
+        "custo_rastreamento":   safe(df_active["CustoRastreamento"].sum()),
+        "custo_total":          custo_total,
+        "margem":               margem,
+        "margem_pct":           margem_pct,
+        "taxa_utilizacao":      taxa_util,
+        "melhor_veiculo":       best_v,
+        "pior_veiculo":         worst_v,
+        "receita_por_veiculo":  round(receita_total / veiculos_ativos, 2) if veiculos_ativos else 0.0,
+        "margem_por_veiculo":   round(margem / veiculos_ativos, 2) if veiculos_ativos else 0.0,
+        "custo_sobre_receita":  round(custo_total / receita_total * 100, 1) if receita_total > 0 else 0.0,
+        "inconsistencias":      _check_inconsistencias(df_active, year),
     }
 
     return df_active, monthly, kpis, fat, reimb, manut, seg, rast, imp
 
 
-def _check_inconsistencias(df_active: "pd.DataFrame", year: int) -> list:
+def _check_inconsistencias(df_active, year):
     issues = []
     if df_active.empty:
         return issues
-    # Sold vehicles with billing activity
     sold = df_active[df_active["Status"].str.upper().str.contains("VEND", na=False)]
     for _, row in sold.iterrows():
         issues.append({
@@ -255,9 +266,35 @@ def _check_inconsistencias(df_active: "pd.DataFrame", year: int) -> list:
     return issues
 
 
+def _linear_projection(monthly_data: list, n_future: int = 4) -> list:
+    """Simple linear regression projection on non-zero months."""
+    pts = [(i + 1, v) for i, v in enumerate(monthly_data) if v > 0]
+    if len(pts) < 2:
+        return []
+    xs = np.array([p[0] for p in pts])
+    ys = np.array([p[1] for p in pts])
+    coeffs = np.polyfit(xs, ys, 1)
+    slope, intercept = coeffs
+    resid  = ys - np.polyval(coeffs, xs)
+    std    = float(np.std(resid))
+    last_x = int(xs[-1])
+    proj   = []
+    for i in range(1, n_future + 1):
+        x   = last_x + i
+        val = float(np.polyval(coeffs, x))
+        proj.append({
+            "x": x,
+            "projected": max(0.0, round(val, 2)),
+            "low":       max(0.0, round(val - std, 2)),
+            "high":      max(0.0, round(val + std, 2)),
+        })
+    return proj
+
+
 # ─────────────────────────────────────────────────────────
 # ENDPOINTS
 # ─────────────────────────────────────────────────────────
+
 @app.get("/api/years")
 def get_years():
     data = load_raw()
@@ -287,36 +324,55 @@ def get_monthly(year: int = Query(...)):
 
 
 @app.get("/api/vehicles")
-def get_vehicles(year: int = Query(...)):
-    df, *_ = compute(year)
+def get_vehicles(year: int = Query(...), region: str = Query(None)):
+    df, _, _, fat, *_ = compute(year)
+
+    # Optional region/contract filter
+    if region and not fat.empty and "Contrato" in fat.columns:
+        ids_region = set(fat[fat["Contrato"] == region]["IDVeiculo"].dropna().astype(int).tolist())
+        df = df[df["IDVeiculo"].isin(ids_region)]
+
     vehicles = []
     for rank, (_, row) in enumerate(df.sort_values("Margem", ascending=False).iterrows(), 1):
         vehicles.append({
-            "rank":              rank,
-            "id":                int(row.get("IDVeiculo", 0)),
-            "placa":             str(row.get("Placa", "")),
-            "marca":             str(row.get("Marca", "")),
-            "modelo":            str(row.get("Modelo", "")),
-            "status":            str(row.get("Status", "")),
-            "valor_total":       safe(row.get("ValorTotal", 0)),
-            "receita_locacao":   safe(row["ReceitaLocacao"]),
-            "receita_reembolso": safe(row["ReceitaReembolso"]),
-            "receita_total":     safe(row["ReceitaTotal"]),
-            "custo_manutencao":  safe(row["CustoManutencao"]),
-            "custo_seguro":      safe(row["CustoSeguro"]),
-            "custo_impostos":    safe(row["CustoImpostos"]),
-            "custo_rastreamento":safe(row["CustoRastreamento"]),
-            "custo_total":       safe(row["CustoTotal"]),
-            "margem":            safe(row["Margem"]),
-            "margem_pct":        safe(row["MargemPct"]),
-            "dias_trabalhado":   safe(row["Trabalhado"]),
-            "dias_parado":       safe(row["Parado"]),
-            "receita_por_dia":   safe(row["ReceitaPorDia"]),
-            "custo_por_dia":     safe(row["CustoPorDia"]),
-            "margem_por_dia":    safe(row["MargemPorDia"]),
-            "roi":               safe(row.get("ROI", 0)),
+            "rank":               rank,
+            "id":                 int(row.get("IDVeiculo", 0)),
+            "placa":              str(row.get("Placa", "")),
+            "marca":              str(row.get("Marca", "")),
+            "modelo":             str(row.get("Modelo", "")),
+            "tipagem":            str(row.get("Tipagem", "")),
+            "implemento":         str(row.get("Implemento", "")),
+            "status":             str(row.get("Status", "")),
+            "contrato":           str(row.get("Contrato", "—")),
+            "valor_total":        safe(row.get("ValorTotal", 0)),
+            "receita_locacao":    safe(row["ReceitaLocacao"]),
+            "receita_reembolso":  safe(row["ReceitaReembolso"]),
+            "receita_total":      safe(row["ReceitaTotal"]),
+            "custo_manutencao":   safe(row["CustoManutencao"]),
+            "custo_seguro":       safe(row["CustoSeguro"]),
+            "custo_impostos":     safe(row["CustoImpostos"]),
+            "custo_rastreamento": safe(row["CustoRastreamento"]),
+            "custo_total":        safe(row["CustoTotal"]),
+            "margem":             safe(row["Margem"]),
+            "margem_pct":         safe(row["MargemPct"]),
+            "dias_trabalhado":    safe(row["Trabalhado"]),
+            "dias_parado":        safe(row["Parado"]),
+            "receita_por_dia":    safe(row["ReceitaPorDia"]),
+            "custo_por_dia":      safe(row["CustoPorDia"]),
+            "margem_por_dia":     safe(row["MargemPorDia"]),
+            "roi":                safe(row.get("ROI", 0)),
         })
     return {"vehicles": vehicles}
+
+
+@app.get("/api/regions")
+def get_regions(year: int = Query(...)):
+    data  = load_raw()
+    fat   = _filter_year(_parse(data["fat_unitario"].copy(), "Mes"), "Mes", year)
+    if fat.empty or "Contrato" not in fat.columns:
+        return {"regions": []}
+    regions = sorted(fat["Contrato"].dropna().unique().tolist())
+    return {"regions": regions}
 
 
 @app.get("/api/vehicle/{placa}")
@@ -327,14 +383,17 @@ def get_vehicle(placa: str, year: int = Query(...)):
     if not mask.any():
         return {"error": "Vehicle not found"}
 
-    row = df[mask].iloc[0]
+    row  = df[mask].iloc[0]
     id_v = row["IDVeiculo"]
 
     info = {
         "placa":      str(row["Placa"]),
         "marca":      str(row["Marca"]),
         "modelo":     str(row["Modelo"]),
+        "tipagem":    str(row.get("Tipagem", "")),
+        "implemento": str(row.get("Implemento", "")),
         "status":     str(row["Status"]),
+        "contrato":   str(row.get("Contrato", "—")),
         "valor_total": safe(row.get("ValorTotal", 0)),
     }
 
@@ -357,16 +416,18 @@ def get_vehicle(placa: str, year: int = Query(...)):
         "roi":                safe(row.get("ROI", 0)),
     }
 
-    def vf(df_s, date_col, id_col="IDVeiculo"):
-        if df_s.empty or id_col not in df_s.columns: return df_s
+    def vf(df_s, id_col="IDVeiculo"):
+        if df_s.empty or id_col not in df_s.columns:
+            return df_s
         return df_s[df_s[id_col] == id_v]
 
-    fat_v   = vf(fat,   "Mes")
-    reimb_v = vf(reimb, "Emissão")
-    manut_v = vf(manut, "DataExecução")
-    seg_v   = vf(seg,   "Vencimento")
-    rast_v  = vf(rast,  "Vencimento")
+    fat_v   = vf(fat)
+    reimb_v = vf(reimb)
+    manut_v = vf(manut)
+    seg_v   = vf(seg)
+    rast_v  = vf(rast)
 
+    # Monthly breakdown
     monthly = []
     for m in range(1, 13):
         mr = {"month": m, "monthName": MESES_PT[m - 1]}
@@ -381,20 +442,143 @@ def get_vehicle(placa: str, year: int = Query(...)):
         mr["dias_trabalhado"]    = safe(fat_v[fat_v["Mes"].dt.month == m]["Trabalhado"].sum()) if not fat_v.empty and "Mes" in fat_v.columns else 0.0
         monthly.append(mr)
 
+    # Contract/region breakdown
+    by_contract = []
+    if not fat_v.empty and "Contrato" in fat_v.columns:
+        grp = (fat_v.dropna(subset=["Contrato"])
+               .groupby("Contrato", dropna=False)
+               .agg(receita=("Medicao", "sum"),
+                    dias_trab=("Trabalhado", "sum"),
+                    dias_parado=("Parado", "sum"))
+               .reset_index())
+        for _, crow in grp.sort_values("receita", ascending=False).iterrows():
+            by_contract.append({
+                "contrato":       str(crow["Contrato"]),
+                "receita":        safe(crow["receita"]),
+                "dias_trabalhado": safe(crow["dias_trab"]),
+                "dias_parado":    safe(crow["dias_parado"]),
+                "diaria_media":   round(safe(crow["receita"]) / max(safe(crow["dias_trab"]), 1), 2),
+            })
+
+    # Maintenance detail
     maintenance = []
     if not manut_v.empty:
         for _, mrow in manut_v.iterrows():
             dt = mrow.get("DataExecução")
             maintenance.append({
-                "ordem":      str(mrow.get("IDOrdServ", "—")),
-                "data":       str(dt)[:10] if pd.notna(dt) else "—",
-                "valor":      safe(mrow.get("TotalOS", 0)),
-                "fornecedor": str(mrow.get("Fornecedor", "—")),
+                "ordem":           str(mrow.get("IDOrdServ", "—")),
+                "data":            str(dt)[:10] if pd.notna(dt) else "—",
+                "valor":           safe(mrow.get("TotalOS", 0)),
+                "fornecedor":      str(mrow.get("Fornecedor", "—")),
+                "sistema":         str(mrow.get("Sistema", "—")),
+                "servico":         str(mrow.get("Serviço", "—")),
+                "tipo":            str(mrow.get("TipoManutencao", "—")),
+                "km":              safe(mrow.get("KM", 0)) if pd.notna(mrow.get("KM")) else None,
+                "prox_km":         safe(mrow.get("ProxKM", 0)) if pd.notna(mrow.get("ProxKM")) else None,
+                "prox_data":       str(mrow.get("ProxData", ""))[:10] if pd.notna(mrow.get("ProxData")) else None,
             })
 
     return {
         "info":        info,
         "kpis":        kpis_v,
         "monthly":     monthly,
+        "by_contract": by_contract,
         "maintenance": sorted(maintenance, key=lambda x: x["data"], reverse=True),
     }
+
+
+@app.get("/api/maintenance_analysis")
+def get_maintenance_analysis(year: int = Query(...), placa: str = Query(None)):
+    data = load_raw()
+    manut_all = _parse(data["manutencoes"].copy(), "DataExecução")
+    manut_yr  = _filter_year(manut_all, "DataExecução", year)
+    manut     = _dedup_manut(manut_yr)
+
+    if placa and "Placa" in manut.columns:
+        manut = manut[manut["Placa"] == placa]
+
+    result: dict = {}
+
+    def _groupby_cost(df, col):
+        if df.empty or col not in df.columns:
+            return []
+        g = (df.dropna(subset=[col])
+             .groupby(col)
+             .agg(total=("TotalOS", "sum"), count=("IDOrdServ", "nunique"))
+             .reset_index()
+             .sort_values("total", ascending=False))
+        return [{"name": str(r[col]), "total": safe(r["total"]), "count": int(r["count"])} for _, r in g.iterrows()]
+
+    result["by_fornecedor"] = _groupby_cost(manut, "Fornecedor")
+    result["by_sistema"]    = _groupby_cost(manut, "Sistema")
+    result["by_implemento"] = _groupby_cost(manut, "Implemento")
+    result["by_servico"]    = _groupby_cost(manut, "Serviço")
+
+    # Tipo (Preventiva/Corretiva)
+    if not manut.empty and "TipoManutencao" in manut.columns:
+        bt = (manut.dropna(subset=["TipoManutencao"])
+              .groupby("TipoManutencao")["TotalOS"].sum().reset_index())
+        result["by_tipo"] = [{"name": str(r["TipoManutencao"]), "total": safe(r["TotalOS"])} for _, r in bt.iterrows()]
+    else:
+        result["by_tipo"] = []
+
+    # Categoria (Serviço/Compra)
+    if not manut.empty and "Categoria" in manut.columns:
+        bc = (manut.dropna(subset=["Categoria"])
+              .groupby("Categoria")["TotalOS"].sum().reset_index())
+        result["by_categoria"] = [{"name": str(r["Categoria"]), "total": safe(r["TotalOS"])} for _, r in bc.iterrows()]
+    else:
+        result["by_categoria"] = []
+
+    # Monthly trend
+    monthly_vals = []
+    for m in range(1, 13):
+        mv = 0.0
+        if not manut.empty and "DataExecução" in manut.columns:
+            mv = safe(manut[manut["DataExecução"].dt.month == m]["TotalOS"].sum())
+        monthly_vals.append({"month": m, "name": MESES_PT[m - 1], "total": mv})
+    result["monthly"] = monthly_vals
+
+    # Linear projection (next 4 months)
+    proj_input = [m["total"] for m in monthly_vals]
+    result["projection"] = _linear_projection(proj_input, n_future=4)
+
+    # KPI totals
+    total_os_count = int(manut["IDOrdServ"].nunique()) if not manut.empty and "IDOrdServ" in manut.columns else 0
+    total_cost     = safe(manut["TotalOS"].sum()) if not manut.empty else 0.0
+    avg_per_os     = round(total_cost / total_os_count, 2) if total_os_count > 0 else 0.0
+    top_forn       = result["by_fornecedor"][0]["name"] if result["by_fornecedor"] else "—"
+    result["summary"] = {
+        "total_os": total_os_count,
+        "total_cost": total_cost,
+        "avg_per_os": avg_per_os,
+        "top_fornecedor": top_forn,
+    }
+
+    # Upcoming scheduled maintenance (ProxData or ProxKM)
+    upcoming = []
+    src = manut_all.copy()
+    if placa and "Placa" in src.columns:
+        src = src[src["Placa"] == placa]
+    has_prox = src[(src["ProxData"].notna()) | (src["ProxKM"].notna())] if "ProxData" in src.columns else pd.DataFrame()
+    if not has_prox.empty:
+        seen = set()
+        for _, mrow in has_prox.iterrows():
+            key = (str(mrow.get("Placa", "")), str(mrow.get("Serviço", "")))
+            if key in seen:
+                continue
+            seen.add(key)
+            upcoming.append({
+                "placa":      str(mrow.get("Placa", "—")),
+                "modelo":     str(mrow.get("Modelo", "—")),
+                "servico":    str(mrow.get("Serviço", "—")),
+                "sistema":    str(mrow.get("Sistema", "—")),
+                "km_atual":   safe(mrow["KM"]) if pd.notna(mrow.get("KM")) else None,
+                "prox_km":    safe(mrow["ProxKM"]) if pd.notna(mrow.get("ProxKM")) else None,
+                "prox_data":  str(mrow["ProxData"])[:10] if pd.notna(mrow.get("ProxData")) else None,
+            })
+            if len(upcoming) >= 30:
+                break
+    result["upcoming"] = upcoming
+
+    return result
