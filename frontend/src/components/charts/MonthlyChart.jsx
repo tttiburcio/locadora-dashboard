@@ -4,14 +4,13 @@ import {
 } from 'recharts'
 import { brlShort, brl } from '../../utils/format'
 
-// B&W-friendly palette — indigo/violet for revenue, warm for costs
 const COLORS = {
-  locacao:      '#6366f1',   // indigo-500
-  reembolso:    '#8b5cf6',   // violet-500
+  locacao:      '#22c55e',   // green-500
+  reembolso:    '#34d399',   // emerald-400
   manutencao:   '#f97316',   // orange-500
   seguro:       '#ef4444',   // red-500
   rastreamento: '#f59e0b',   // amber-500
-  total:        '#e4e4e7',   // zinc-200 (white-ish line)
+  total:        '#bbf7d0',   // green-200 line
 }
 
 const TOOLTIP_STYLE = {

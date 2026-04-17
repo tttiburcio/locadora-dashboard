@@ -4,21 +4,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        // B&W palette mapped to zinc — all existing g-* classes now render monochrome
+        // CSS-variable driven palette — defined per theme in index.css
         g: {
-          950: '#09090b',  // zinc-950
-          900: '#18181b',  // zinc-900
-          850: '#1e1e21',
-          800: '#27272a',  // zinc-800
-          750: '#303034',
-          700: '#3f3f46',  // zinc-700
-          600: '#52525b',  // zinc-600
-          500: '#71717a',  // zinc-500
-          400: '#a1a1aa',  // zinc-400
-          300: '#d4d4d8',  // zinc-300
-          200: '#e4e4e7',  // zinc-200
-          100: '#f4f4f5',  // zinc-100
-          50:  '#fafafa',  // zinc-50
+          950: 'rgb(var(--g-950) / <alpha-value>)',
+          900: 'rgb(var(--g-900) / <alpha-value>)',
+          850: 'rgb(var(--g-850) / <alpha-value>)',
+          800: 'rgb(var(--g-800) / <alpha-value>)',
+          750: 'rgb(var(--g-750) / <alpha-value>)',
+          700: 'rgb(var(--g-700) / <alpha-value>)',
+          600: 'rgb(var(--g-600) / <alpha-value>)',
+          500: 'rgb(var(--g-500) / <alpha-value>)',
+          400: 'rgb(var(--g-400) / <alpha-value>)',
+          300: 'rgb(var(--g-300) / <alpha-value>)',
+          200: 'rgb(var(--g-200) / <alpha-value>)',
+          100: 'rgb(var(--g-100) / <alpha-value>)',
+          50:  'rgb(var(--g-50)  / <alpha-value>)',
         },
       },
       fontFamily: {

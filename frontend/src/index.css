@@ -2,6 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Dark theme (default) — deep forest green ─────────────────── */
+:root,
+[data-theme="dark"] {
+  --g-950: 3 26 14;
+  --g-900: 5 43 23;
+  --g-850: 8 53 32;
+  --g-800: 15 74 44;
+  --g-750: 22 92 56;
+  --g-700: 30 116 71;
+  --g-600: 47 158 101;
+  --g-500: 69 196 126;
+  --g-400: 114 212 154;
+  --g-300: 162 228 188;
+  --g-200: 200 240 216;
+  --g-100: 224 248 235;
+  --g-50:  240 253 244;
+
+  color-scheme: dark;
+}
+
+/* ── Light theme — white with green accents ───────────────────── */
+[data-theme="light"] {
+  --g-950: 255 255 255;
+  --g-900: 240 253 244;
+  --g-850: 220 252 231;
+  --g-800: 187 247 208;
+  --g-750: 134 239 172;
+  --g-700: 74 222 128;
+  --g-600: 22 163 74;
+  --g-500: 21 128 61;
+  --g-400: 22 101 52;
+  --g-300: 20 83 45;
+  --g-200: 14 64 35;
+  --g-100: 5 46 22;
+  --g-50:  2 26 13;
+
+  color-scheme: light;
+}
+
 @layer base {
   * { box-sizing: border-box; }
 
@@ -12,16 +51,17 @@
   }
 
   body {
-    background-color: #09090b;
-    color: #fafafa;
+    background-color: rgb(var(--g-950));
+    color: rgb(var(--g-50));
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: #09090b; }
-  ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #71717a; }
+  ::-webkit-scrollbar-track { background: rgb(var(--g-950)); }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--g-700)); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--g-600)); }
 }
 
 @layer components {
@@ -33,9 +73,8 @@
     @apply hover:border-g-700 hover:bg-g-850 transition-all duration-200;
   }
 
-  /* Active/good status — white text on dark bg with subtle white border */
   .badge-green {
-    @apply bg-g-800 text-g-100 border border-g-600 text-xs font-medium px-2 py-0.5 rounded-full;
+    @apply bg-g-800 text-g-50 border border-g-600 text-xs font-medium px-2 py-0.5 rounded-full;
   }
 
   .badge-red {
@@ -46,8 +85,7 @@
     @apply bg-amber-950/60 text-amber-300 border border-amber-800/60 text-xs font-medium px-2 py-0.5 rounded-full;
   }
 
-  /* Positive = white; neutral = zinc-200; negative = red */
-  .value-pos     { @apply text-white font-semibold; }
+  .value-pos     { @apply text-g-50 font-semibold; }
   .value-neg     { @apply text-red-400 font-semibold; }
   .value-neutral { @apply text-g-200; }
 
@@ -67,20 +105,18 @@
 
   .td-left { @apply text-left; }
 
-  /* Nav: inactive = muted gray; active = white text + bright left accent */
   .nav-item {
     @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150;
   }
 
   .nav-item-active {
-    @apply bg-white/10 text-white border border-white/15 shadow-sm;
+    @apply bg-g-700/25 text-g-50 border border-g-600/40 shadow-sm;
   }
 
   .nav-item-inactive {
     @apply text-g-500 hover:text-g-200 hover:bg-g-800/60;
   }
 
-  /* Stagger utilities — set --i via inline style to delay children */
   .stagger-child {
     animation: fadeUp 0.4s ease-out both;
     animation-delay: calc(var(--i, 0) * 55ms);
@@ -89,10 +125,6 @@
 
 /* Recharts overrides */
 .recharts-tooltip-wrapper { outline: none !important; }
-.recharts-cartesian-grid-horizontal line,
-.recharts-cartesian-grid-vertical line {
-  stroke: rgba(255,255,255,0.06) !important;
-}
 
 /* Skeleton shimmer */
 @keyframes shimmer {
@@ -100,7 +132,7 @@
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, #27272a 25%, #3f3f46 50%, #27272a 75%);
+  background: linear-gradient(90deg, rgb(var(--g-800)) 25%, rgb(var(--g-700)) 50%, rgb(var(--g-800)) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
   border-radius: 4px;

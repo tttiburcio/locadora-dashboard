@@ -30,17 +30,26 @@ SHEETS = {
 }
 
 _cache: dict = {}
+_cache_mtime: float = 0.0
 
 
 def load_raw() -> dict:
-    if not _cache:
-        xl = pd.ExcelFile(EXCEL_PATH)
-        for key, name in SHEETS.items():
-            try:
-                _cache[key] = xl.parse(name)
-            except Exception as e:
-                print(f"Warning: sheet '{name}' not found: {e}")
-                _cache[key] = pd.DataFrame()
+    global _cache_mtime
+    try:
+        mtime = EXCEL_PATH.stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    if _cache and mtime == _cache_mtime:
+        return _cache
+    _cache.clear()
+    _cache_mtime = mtime
+    xl = pd.ExcelFile(EXCEL_PATH)
+    for key, name in SHEETS.items():
+        try:
+            _cache[key] = xl.parse(name)
+        except Exception as e:
+            print(f"Warning: sheet '{name}' not found: {e}")
+            _cache[key] = pd.DataFrame()
     return _cache
 
 

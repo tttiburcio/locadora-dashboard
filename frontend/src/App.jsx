@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import OverviewPage from './pages/OverviewPage'
 import VehiclesPage from './pages/VehiclesPage'
 import MaintenancePage from './pages/MaintenancePage'
+import { ThemeProvider } from './contexts/ThemeContext'
 import { Loader2 } from 'lucide-react'
 
 export default function App() {
@@ -55,10 +56,11 @@ export default function App() {
 
   if (error && !year) {
     return (
+      <ThemeProvider>
       <div className="flex h-screen items-center justify-center bg-g-950">
         <div className="text-center p-8 card rounded-2xl max-w-md animate-fade-in">
           <div className="w-16 h-16 mx-auto mb-4">
-            <img src="/icon.png" alt="TKJ" className="w-full h-full object-contain" style={{ filter: 'grayscale(1) brightness(0.4)' }} />
+            <img src="/icon.png" alt="TKJ" className="w-full h-full object-contain opacity-40" />
           </div>
           <h2 className="text-g-100 text-xl font-semibold mb-2">Erro de Conexão</h2>
           <p className="text-g-400 text-sm">{error}</p>
@@ -70,6 +72,7 @@ export default function App() {
           </p>
         </div>
       </div>
+      </ThemeProvider>
     )
   }
 
@@ -80,6 +83,7 @@ export default function App() {
   }
 
   return (
+    <ThemeProvider>
     <div className="flex h-screen overflow-hidden bg-g-950">
       <Sidebar page={page} setPage={setPage} years={years} year={year} setYear={setYear} />
 
@@ -143,5 +147,6 @@ export default function App() {
         </div>
       </main>
     </div>
+    </ThemeProvider>
   )
 }

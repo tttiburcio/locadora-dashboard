@@ -239,7 +239,7 @@ export default function MaintenancePage({ year, vehicles = [] }) {
                           const dateAlert = u.prox_data && new Date(u.prox_data) <= new Date(Date.now() + 30 * 86400000)
                           return (
                             <tr key={i} className={`border-b border-g-900 hover:bg-g-900/60 transition-colors ${kmAlert || dateAlert ? 'bg-amber-950/10' : ''}`}>
-                              <td className="td td-left text-xs font-mono font-bold text-white">{u.placa}</td>
+                              <td className="td td-left text-xs font-mono font-bold text-g-50">{u.placa}</td>
                               <td className="td td-left text-xs text-g-400">{u.modelo?.length > 18 ? u.modelo.slice(0,17)+'…' : u.modelo}</td>
                               <td className="td td-left text-xs text-g-300">{u.servico?.length > 22 ? u.servico.slice(0,21)+'…' : u.servico}</td>
                               <td className="td td-left text-xs text-g-500">{u.sistema}</td>

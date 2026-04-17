@@ -129,7 +129,7 @@ export default function OverviewPage({ kpis: k, monthly, vehicles }) {
               </div>
               <div>
                 <p className="text-g-600 text-xs uppercase tracking-widest">Melhor Resultado</p>
-                <p className="text-white font-bold font-mono mt-0.5">{k.melhor_veiculo.placa}</p>
+                <p className="text-g-50 font-bold font-mono mt-0.5">{k.melhor_veiculo.placa}</p>
                 <p className="text-g-500 text-xs">{k.melhor_veiculo.modelo}</p>
                 <p className="text-g-200 text-sm font-semibold mt-1 tabular-nums">{brl(k.melhor_veiculo.margem)}</p>
               </div>
@@ -143,7 +143,7 @@ export default function OverviewPage({ kpis: k, monthly, vehicles }) {
               </div>
               <div>
                 <p className="text-g-600 text-xs uppercase tracking-widest">Menor Resultado</p>
-                <p className="text-white font-bold font-mono mt-0.5">{k.pior_veiculo.placa}</p>
+                <p className="text-g-50 font-bold font-mono mt-0.5">{k.pior_veiculo.placa}</p>
                 <p className="text-g-500 text-xs">{k.pior_veiculo.modelo}</p>
                 <p className={`text-sm font-semibold mt-1 tabular-nums ${k.pior_veiculo.margem < 0 ? 'text-red-300' : 'text-g-200'}`}>
                   {brl(k.pior_veiculo.margem)}

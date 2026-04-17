@@ -29,13 +29,13 @@ function SortIcon({ col, sortCol, sortDir }) {
 
 const COLUMNS = [
   { key: 'rank',               label: '#',           align: 'right', fmt: v => <span className="text-g-700 tabular-nums">{v}</span> },
-  { key: 'placa',              label: 'Placa',        align: 'left',  fmt: v => <span className="font-mono font-bold text-white tracking-wide">{v}</span> },
+  { key: 'placa',              label: 'Placa',        align: 'left',  fmt: v => <span className="font-mono font-bold text-g-50 tracking-wide">{v}</span> },
   { key: 'modelo',             label: 'Modelo',       align: 'left',  fmt: v => <span className="text-g-300">{v}</span> },
   { key: 'status',             label: 'Status',       align: 'left',  fmt: v => statusBadge(v) },
   { key: 'receita_total',      label: 'Receita',      align: 'right', fmt: v => <span className="font-mono text-g-200 tabular-nums">{brl(v)}</span> },
   { key: 'custo_total',        label: 'Custo',        align: 'right', fmt: v => <span className="font-mono text-orange-300 tabular-nums">{brl(v)}</span> },
   { key: 'margem',             label: 'Margem',       align: 'right', fmt: v => (
-    <span className={`font-mono font-semibold tabular-nums ${v >= 0 ? 'text-white' : 'text-red-300'}`}>{brl(v)}</span>
+    <span className={`font-mono font-semibold tabular-nums ${v >= 0 ? 'text-g-50' : 'text-red-300'}`}>{brl(v)}</span>
   )},
   { key: 'margem_pct',         label: '% Margem',     align: 'right', fmt: v => (
     <span className={`text-xs font-semibold tabular-nums ${v >= 0 ? 'text-g-300' : 'text-red-400'}`}>{pct(v)}</span>
@@ -162,7 +162,7 @@ export default function VehiclesPage({ vehicles, year, regions = [], region, onR
               onClick={() => setShowOnly(o.val)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                 showOnly === o.val
-                  ? 'bg-white/10 text-white'
+                  ? 'bg-g-700/30 text-g-50'
                   : 'text-g-600 hover:text-g-300'
               }`}
             >
@@ -188,7 +188,7 @@ export default function VehiclesPage({ vehicles, year, regions = [], region, onR
         </div>
         <div className="card p-3 flex flex-col gap-0.5">
           <span className="text-g-700 text-xs">Margem</span>
-          <span className={`font-semibold font-mono text-sm tabular-nums ${totals.margem >= 0 ? 'text-white' : 'text-red-300'}`}>
+          <span className={`font-semibold font-mono text-sm tabular-nums ${totals.margem >= 0 ? 'text-g-50' : 'text-red-300'}`}>
             {brl(totals.margem)}
           </span>
         </div>
@@ -251,7 +251,7 @@ export default function VehiclesPage({ vehicles, year, regions = [], region, onR
                   </td>
                   <td className="td"><span className="font-mono text-g-200 font-semibold tabular-nums">{brl(totals.receita_total)}</span></td>
                   <td className="td"><span className="font-mono text-orange-300 font-semibold tabular-nums">{brl(totals.custo_total)}</span></td>
-                  <td className="td"><span className={`font-mono font-bold tabular-nums ${totals.margem >= 0 ? 'text-white' : 'text-red-300'}`}>{brl(totals.margem)}</span></td>
+                  <td className="td"><span className={`font-mono font-bold tabular-nums ${totals.margem >= 0 ? 'text-g-50' : 'text-red-300'}`}>{brl(totals.margem)}</span></td>
                   <td className="td"><span className={`text-xs font-bold tabular-nums ${totals.margem >= 0 ? 'text-g-300' : 'text-red-400'}`}>{totals.receita_total > 0 ? pct(totals.margem / totals.receita_total * 100) : '—'}</span></td>
                   <td className="td"><span className="text-g-600 text-xs tabular-nums">{dias(totals.dias_trabalhado)}</span></td>
                   <td className="td text-g-800">—</td>

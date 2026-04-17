@@ -62,7 +62,7 @@ function ContractBreakdown({ contracts = [] }) {
             {contracts.map((c, i) => (
               <tr key={i} className="border-b border-g-900 hover:bg-g-900/60">
                 <td className="td td-left py-2 font-semibold text-g-200">{c.contrato}</td>
-                <td className="td py-2 font-mono tabular-nums text-white">{brl(c.receita)}</td>
+                <td className="td py-2 font-mono tabular-nums text-g-50">{brl(c.receita)}</td>
                 <td className="td py-2 tabular-nums text-g-400">{dias(c.dias_trabalhado)}</td>
                 <td className="td py-2 font-mono tabular-nums text-g-300">{brl(c.diaria_media)}/dia</td>
               </tr>
@@ -146,7 +146,7 @@ export default function VehicleModal({ placa, year, onClose }) {
             ) : (
               <>
                 <div className="flex items-center gap-2.5 mb-1">
-                  <h2 className="text-white font-bold text-xl font-mono tracking-wide">{info.placa}</h2>
+                  <h2 className="text-g-50 font-bold text-xl font-mono tracking-wide">{info.placa}</h2>
                   <StatusBadge status={info.status} />
                 </div>
                 <p className="text-g-500 text-sm">{info.marca} · {info.modelo}</p>
@@ -177,7 +177,7 @@ export default function VehicleModal({ placa, year, onClose }) {
                 onClick={() => setTab(t.key)}
                 className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors -mb-px ${
                   tab === t.key
-                    ? 'border-white text-white'
+                    ? 'border-g-500 text-g-50'
                     : 'border-transparent text-g-600 hover:text-g-300'
                 }`}
               >
@@ -262,19 +262,19 @@ export default function VehicleModal({ placa, year, onClose }) {
 
             {/* Margin highlight */}
             <div className={`rounded-xl p-5 border ${
-              isLucr ? 'bg-white/[0.02] border-g-700' : 'bg-red-950/30 border-red-900/50'
+              isLucr ? 'bg-g-700/10 border-g-700' : 'bg-red-950/30 border-red-900/50'
             }`}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-g-600 text-xs uppercase tracking-widest mb-1.5">Margem Líquida</p>
-                  <p className={`text-3xl font-bold tabular-nums ${isLucr ? 'text-white' : 'text-red-300'}`}>
+                  <p className={`text-3xl font-bold tabular-nums ${isLucr ? 'text-g-50' : 'text-red-300'}`}>
                     {brl(k.margem)}
                   </p>
                   <p className={`text-sm mt-1.5 ${isLucr ? 'text-g-400' : 'text-red-400'}`}>
                     {pct(k.margem_pct)} sobre receita total
                   </p>
                 </div>
-                <div className={`p-3 rounded-xl ${isLucr ? 'bg-white/5 border border-white/10' : 'bg-red-900/30 border border-red-800/40'}`}>
+                <div className={`p-3 rounded-xl ${isLucr ? 'bg-g-700/15 border border-g-600/20' : 'bg-red-900/30 border border-red-800/40'}`}>
                   {isLucr
                     ? <TrendingUp  className="w-8 h-8 text-g-300" />
                     : <TrendingDown className="w-8 h-8 text-red-400" />}
@@ -286,7 +286,7 @@ export default function VehicleModal({ placa, year, onClose }) {
             <div>
               <SectionTitle icon={DollarSign}>Receita</SectionTitle>
               <div className="grid grid-cols-3 gap-2">
-                <MiniKPI label="Total"     value={brl(k.receita_total)}     color="text-white"  icon={DollarSign} />
+                <MiniKPI label="Total"     value={brl(k.receita_total)}     color="text-g-50"   icon={DollarSign} />
                 <MiniKPI label="Locação"   value={brl(k.receita_locacao)}   color="text-g-200"  icon={FileText} />
                 <MiniKPI label="Reembolso" value={brl(k.receita_reembolso)} color="text-g-300"  icon={ChevronRight} />
               </div>
@@ -328,13 +328,13 @@ export default function VehicleModal({ placa, year, onClose }) {
                 <MiniKPI label="Custo / Dia"   value={k.custo_por_dia > 0   ? brlShort(k.custo_por_dia)   : '—'} color="text-red-300" />
                 <MiniKPI label="Margem / Dia"
                   value={k.margem_por_dia !== 0 ? brlShort(k.margem_por_dia) : '—'}
-                  color={k.margem_por_dia >= 0 ? 'text-white' : 'text-red-300'}
+                  color={k.margem_por_dia >= 0 ? 'text-g-50' : 'text-red-300'}
                 />
               </div>
               {k.roi !== 0 && (
                 <div className="mt-2 bg-g-950 rounded-lg p-3 border border-g-800 flex justify-between items-center">
                   <span className="text-g-600 text-xs uppercase tracking-wide font-medium">ROI sobre Valor do Ativo</span>
-                  <span className={`font-bold tabular-nums ${k.roi >= 0 ? 'text-white' : 'text-red-300'}`}>
+                  <span className={`font-bold tabular-nums ${k.roi >= 0 ? 'text-g-50' : 'text-red-300'}`}>
                     {pct(k.roi)}
                   </span>
                 </div>
