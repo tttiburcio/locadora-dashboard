@@ -62,7 +62,7 @@ function ChartCard({ title, subtitle, children, className = '' }) {
 // ════════════════════════════════════════════════════════════════════
 // ABA GESTÃO — tabelas CRUD
 // ════════════════════════════════════════════════════════════════════
-function GestaoTab() {
+function GestaoTab({ novaOSTrigger = 0 }) {
   const [abertas,      setAbertas]      = useState([])
   const [finalizadas,  setFinalizadas]  = useState([])
   const [loading,      setLoading]      = useState(true)
@@ -88,6 +88,11 @@ function GestaoTab() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Botão "Nova OS" no header superior abre o modal
+  useEffect(() => {
+    if (novaOSTrigger > 0) setModalAbrir(true)
+  }, [novaOSTrigger])
 
   const handleSaved = () => { setModalAbrir(false); setModalFin(null); load() }
 
@@ -544,8 +549,13 @@ function AnaliseTab({ year, vehicles }) {
 // ════════════════════════════════════════════════════════════════════
 // PÁGINA PRINCIPAL
 // ════════════════════════════════════════════════════════════════════
-export default function MaintenancePage({ year, vehicles = [] }) {
+export default function MaintenancePage({ year, vehicles = [], headerTrigger = {} }) {
   const [tab, setTab] = useState('gestao')
+
+  // Quando o header aciona "Nova OS", garante tab Gestão ativa
+  useEffect(() => {
+    if (headerTrigger.nova_os > 0) setTab('gestao')
+  }, [headerTrigger.nova_os])
 
   return (
     <div className="flex flex-col gap-6">
@@ -570,7 +580,7 @@ export default function MaintenancePage({ year, vehicles = [] }) {
         ))}
       </div>
 
-      {tab === 'gestao'  && <GestaoTab />}
+      {tab === 'gestao'  && <GestaoTab novaOSTrigger={headerTrigger.nova_os || 0} />}
       {tab === 'analise' && <AnaliseTab year={year} vehicles={vehicles} />}
     </div>
   )

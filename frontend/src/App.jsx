@@ -5,10 +5,15 @@ import OverviewPage from './pages/OverviewPage'
 import VehiclesPage from './pages/VehiclesPage'
 import MaintenancePage from './pages/MaintenancePage'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
+
+const HEADER_ACTIONS = {
+  maintenance: [{ key: 'nova_os', label: '+ Nova OS' }],
+}
 
 export default function App() {
-  const [page, setPage]         = useState('overview')
+  const [page, setPage]           = useState('overview')
+  const [headerTrigger, setHeaderTrigger] = useState({})
   const [years, setYears]       = useState([])
   const [year, setYear]         = useState(null)
   const [kpis, setKpis]         = useState(null)
@@ -110,6 +115,18 @@ export default function App() {
               </div>
             )}
             {error && !loading && <span className="text-red-500 text-xs">{error}</span>}
+
+            {/* Ações contextuais por página */}
+            {HEADER_ACTIONS[page]?.map(action => (
+              <button
+                key={action.key}
+                onClick={() => setHeaderTrigger(t => ({ ...t, [action.key]: (t[action.key] || 0) + 1 }))}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-g-100 text-white text-xs font-semibold rounded-lg hover:bg-g-50 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {action.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -141,7 +158,7 @@ export default function App() {
 
           {!loading && page === 'maintenance' && (
             <div key={`maintenance-${year}`} className="animate-page-fade">
-              <MaintenancePage year={year} vehicles={vehicles} />
+              <MaintenancePage year={year} vehicles={vehicles} headerTrigger={headerTrigger} />
             </div>
           )}
         </div>
