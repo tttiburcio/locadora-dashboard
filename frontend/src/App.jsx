@@ -6,16 +6,15 @@ import VehiclesPage from './pages/VehiclesPage'
 import { Loader2 } from 'lucide-react'
 
 export default function App() {
-  const [page, setPage]           = useState('overview')
-  const [years, setYears]         = useState([])
-  const [year, setYear]           = useState(null)
-  const [kpis, setKpis]           = useState(null)
-  const [monthly, setMonthly]     = useState([])
-  const [vehicles, setVehicles]   = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState(null)
+  const [page, setPage]         = useState('overview')
+  const [years, setYears]       = useState([])
+  const [year, setYear]         = useState(null)
+  const [kpis, setKpis]         = useState(null)
+  const [monthly, setMonthly]   = useState([])
+  const [vehicles, setVehicles] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(null)
 
-  // Load year list once
   useEffect(() => {
     getYears()
       .then(d => {
@@ -25,7 +24,6 @@ export default function App() {
       .catch(() => setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.'))
   }, [])
 
-  // Load data when year changes
   const loadData = useCallback(async (y) => {
     if (!y) return
     setLoading(true)
@@ -42,18 +40,21 @@ export default function App() {
     }
   }, [])
 
-  useEffect(() => {
-    loadData(year)
-  }, [year, loadData])
+  useEffect(() => { loadData(year) }, [year, loadData])
 
   if (error && !year) {
     return (
       <div className="flex h-screen items-center justify-center bg-g-950">
-        <div className="text-center p-8 card rounded-2xl max-w-md">
+        <div className="text-center p-8 card rounded-2xl max-w-md animate-fade-in">
           <div className="text-4xl mb-4">⚠️</div>
           <h2 className="text-g-100 text-xl font-semibold mb-2">Erro de Conexão</h2>
           <p className="text-g-400 text-sm">{error}</p>
-          <p className="text-g-500 text-xs mt-4">Inicie o backend com: <code className="text-g-300 bg-g-900 px-1 rounded">uvicorn main:app --reload</code></p>
+          <p className="text-g-600 text-xs mt-4">
+            Inicie o backend com:{' '}
+            <code className="text-g-300 bg-g-800 px-1.5 py-0.5 rounded font-mono text-xs">
+              uvicorn main:app --reload
+            </code>
+          </p>
         </div>
       </div>
     )
@@ -61,47 +62,50 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-g-950">
-      <Sidebar
-        page={page}
-        setPage={setPage}
-        years={years}
-        year={year}
-        setYear={setYear}
-      />
+      <Sidebar page={page} setPage={setPage} years={years} year={year} setYear={setYear} />
 
       <main className="flex-1 overflow-y-auto">
-        {/* Header bar */}
-        <div className="sticky top-0 z-10 bg-g-950/90 backdrop-blur-sm border-b border-g-900 px-6 py-3 flex items-center justify-between">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-g-950/95 backdrop-blur-sm border-b border-g-900 px-6 py-3.5 flex items-center justify-between">
           <div>
-            <h1 className="text-g-100 font-semibold text-base">
+            <h1 className="text-g-50 font-semibold text-sm tracking-wide">
               {page === 'overview' ? 'Visão Geral' : 'Frota — Detalhamento'}
             </h1>
-            <p className="text-g-500 text-xs mt-0.5">
+            <p className="text-g-600 text-xs mt-0.5">
               Dashboard Financeiro · Exercício {year}
             </p>
           </div>
-          {loading && (
-            <div className="flex items-center gap-2 text-g-400 text-xs">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Atualizando dados…
-            </div>
-          )}
-          {error && !loading && (
-            <span className="text-red-400 text-xs">{error}</span>
-          )}
+          <div className="flex items-center gap-3">
+            {loading && (
+              <div className="flex items-center gap-2 text-g-500 text-xs">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Atualizando…
+              </div>
+            )}
+            {error && !loading && (
+              <span className="text-red-400 text-xs">{error}</span>
+            )}
+          </div>
         </div>
 
+        {/* Page content — key triggers re-animation on page change */}
         <div className="p-6">
-          {!loading && kpis && page === 'overview' && (
-            <OverviewPage kpis={kpis} monthly={monthly} vehicles={vehicles} year={year} />
-          )}
-          {!loading && page === 'vehicles' && (
-            <VehiclesPage vehicles={vehicles} year={year} />
-          )}
           {loading && (
-            <div className="flex flex-col items-center justify-center h-96 gap-4">
-              <Loader2 className="w-8 h-8 animate-spin text-g-500" />
-              <p className="text-g-400 text-sm">Processando dados de {year}…</p>
+            <div className="flex flex-col items-center justify-center h-96 gap-4 animate-fade-in">
+              <Loader2 className="w-7 h-7 animate-spin text-g-600" />
+              <p className="text-g-500 text-sm">Carregando dados de {year}…</p>
+            </div>
+          )}
+
+          {!loading && kpis && page === 'overview' && (
+            <div key={`overview-${year}`} className="animate-page-fade">
+              <OverviewPage kpis={kpis} monthly={monthly} vehicles={vehicles} year={year} />
+            </div>
+          )}
+
+          {!loading && page === 'vehicles' && (
+            <div key={`vehicles-${year}`} className="animate-page-fade">
+              <VehiclesPage vehicles={vehicles} year={year} />
             </div>
           )}
         </div>

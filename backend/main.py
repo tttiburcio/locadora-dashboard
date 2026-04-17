@@ -159,11 +159,18 @@ def compute(year: int):
         base = pd.DataFrame({"Mes": range(1, 13)})
         return base.merge(grp, on="Mes", how="left").fillna(0)
 
-    ml   = monthly_group(fat,   "Mes",          "Medicao",        "Locacao")
-    mr   = monthly_group(reimb, "Emissão",       "ValorReembolso", "Reembolso")
-    mcm  = monthly_group(manut.dropna(subset=["IDVeiculo"]) if not manut.empty else manut, "DataExecução", "TotalOS", "CustoManutencao")
-    mcs  = monthly_group(seg,   "Vencimento",    "Valor",          "CustoSeguro")
-    mcr  = monthly_group(rast,  "Vencimento",    "Valor",          "CustoRastreamento")
+    # Filter maintenance to only vehicles present in frota for monthly chart consistency
+    frota_ids = set(frota["IDVeiculo"].dropna().tolist())
+    manut_frota = (
+        manut[manut["IDVeiculo"].isin(frota_ids)].dropna(subset=["IDVeiculo"])
+        if not manut.empty else manut
+    )
+
+    ml   = monthly_group(fat,         "Mes",          "Medicao",        "Locacao")
+    mr   = monthly_group(reimb,       "Emissão",       "ValorReembolso", "Reembolso")
+    mcm  = monthly_group(manut_frota, "DataExecução",  "TotalOS",        "CustoManutencao")
+    mcs  = monthly_group(seg,         "Vencimento",    "Valor",          "CustoSeguro")
+    mcr  = monthly_group(rast,        "Vencimento",    "Valor",          "CustoRastreamento")
 
     monthly = (ml
                .merge(mr,  on="Mes")
@@ -223,9 +230,29 @@ def compute(year: int):
         "receita_por_veiculo": round(receita_total / veiculos_ativos, 2) if veiculos_ativos else 0.0,
         "margem_por_veiculo":  round(margem / veiculos_ativos, 2) if veiculos_ativos else 0.0,
         "custo_sobre_receita": round(custo_total / receita_total * 100, 1) if receita_total > 0 else 0.0,
+        "inconsistencias": _check_inconsistencias(df_active, year),
     }
 
     return df_active, monthly, kpis, fat, reimb, manut, seg, rast, imp
+
+
+def _check_inconsistencias(df_active: "pd.DataFrame", year: int) -> list:
+    issues = []
+    if df_active.empty:
+        return issues
+    # Sold vehicles with billing activity
+    sold = df_active[df_active["Status"].str.upper().str.contains("VEND", na=False)]
+    for _, row in sold.iterrows():
+        issues.append({
+            "tipo": "vendido_com_movimento",
+            "placa": str(row["Placa"]),
+            "descricao": (
+                f"{row['Placa']} ({row.get('Modelo','')}) consta como vendido "
+                f"mas possui lançamentos em {year} "
+                f"(receita {safe(row['ReceitaTotal']):.2f} / custo {safe(row['CustoTotal']):.2f})"
+            ),
+        })
+    return issues
 
 
 # ─────────────────────────────────────────────────────────
