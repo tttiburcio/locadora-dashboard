@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Loader2, CheckCircle, Plus, Trash2 } from 'lucide-react'
-import { dbFinalizarManutencao, dbAbrirManutencao, dbListFrota } from '../utils/api'
+import { dbFinalizarManutencao, dbAbrirManutencao, dbListFrota, dbAtualizarManutencao } from '../utils/api'
 import { brl } from '../utils/format'
 
 const CATEGORIAS  = ['Serviço', 'Compra', 'Ambos']
@@ -22,36 +22,54 @@ const PARCELA_VAZIA = {
   valor_parcela: '', forma_pgto: 'Faturado', status_pagamento: 'Pago',
 }
 
-export default function FinalizarManutencaoModal({ manutencao = null, onClose, onSaved }) {
-  const isFromScratch = manutencao === null
+export default function FinalizarManutencaoModal({ manutencao = null, onClose, onSaved, editData = null, suggestedOsNumber = '' }) {
+  const isFromScratch = manutencao === null && editData === null
+  const isEditFin     = editData !== null
 
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState(null)
   const [frota,  setFrota]  = useState([])
   const [loadingFrota, setLoadingFrota] = useState(false)
 
-  const [form, setForm] = useState({
-    id_ord_serv:   '',
-    total_os:      '',
-    data_execucao: new Date().toISOString().slice(0, 10),
-    categoria:     'Serviço',
-    qtd_itens:     '',
-    prox_km:       '',
-    prox_data:     '',
-    posicao_pneu:  '', qtd_pneu: '', espec_pneu: '',
-    marca_pneu:    '', manejo_pneu: '',
-    // from-scratch fields
-    placa:           '',
-    id_veiculo:      '',
-    modelo:          '',
-    fornecedor:      '',
-    tipo_manutencao: 'Corretiva',
-    sistema:         '',
-    servico:         '',
-    data_entrada:    new Date().toISOString().slice(0, 10),
-  })
+  const [form, setForm] = useState(() => ({
+    id_ord_serv:   isEditFin ? (editData.id_ord_serv ?? '')  : suggestedOsNumber,
+    total_os:      isEditFin ? (editData.total_os    ?? '')  : '',
+    data_execucao: isEditFin ? (editData.data_execucao ?? new Date().toISOString().slice(0, 10)) : new Date().toISOString().slice(0, 10),
+    categoria:     isEditFin ? (editData.categoria   ?? 'Serviço') : 'Serviço',
+    qtd_itens:     isEditFin ? (editData.qtd_itens   ?? '') : '',
+    prox_km:       isEditFin ? (editData.prox_km     ?? '') : '',
+    prox_data:     isEditFin ? (editData.prox_data   ?? '') : '',
+    posicao_pneu:  isEditFin ? (editData.posicao_pneu  ?? '') : '',
+    qtd_pneu:      isEditFin ? (editData.qtd_pneu      ?? '') : '',
+    espec_pneu:    isEditFin ? (editData.espec_pneu    ?? '') : '',
+    marca_pneu:    isEditFin ? (editData.marca_pneu    ?? '') : '',
+    manejo_pneu:   isEditFin ? (editData.manejo_pneu   ?? '') : '',
+    // from-scratch fields (also used to show context in edit mode)
+    placa:           isEditFin ? (editData.placa           ?? '') : '',
+    id_veiculo:      isEditFin ? (editData.id_veiculo      ?? '') : '',
+    modelo:          isEditFin ? (editData.modelo          ?? '') : '',
+    fornecedor:      isEditFin ? (editData.fornecedor      ?? '') : '',
+    tipo_manutencao: isEditFin ? (editData.tipo_manutencao ?? 'Corretiva') : 'Corretiva',
+    sistema:         isEditFin ? (editData.sistema         ?? '') : '',
+    servico:         isEditFin ? (editData.servico         ?? '') : '',
+    data_entrada:    isEditFin ? (editData.data_entrada    ?? new Date().toISOString().slice(0, 10)) : new Date().toISOString().slice(0, 10),
+  }))
 
-  const [parcelas, setParcelas] = useState([{ ...PARCELA_VAZIA }])
+  const [parcelas, setParcelas] = useState(() => {
+    if (isEditFin && editData.parcelas?.length) {
+      return editData.parcelas.map(p => ({
+        nf_ordem:        p.nf_ordem        ?? '',
+        nota:            p.nota            ?? '',
+        data_vencimento: p.data_vencimento ?? '',
+        parcela_atual:   p.parcela_atual   ?? '',
+        parcela_total:   p.parcela_total   ?? '',
+        valor_parcela:   p.valor_parcela   ?? '',
+        forma_pgto:      p.forma_pgto      ?? 'Faturado',
+        status_pagamento: p.status_pagamento ?? 'Pago',
+      }))
+    }
+    return [{ ...PARCELA_VAZIA }]
+  })
   const [showPneu, setShowPneu] = useState(false)
 
   useEffect(() => {
@@ -123,7 +141,9 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
     setSaving(true)
     setError(null)
     try {
-      if (isFromScratch) {
+      if (isEditFin) {
+        await dbAtualizarManutencao(editData.id, buildFinPayload())
+      } else if (isFromScratch) {
         const newManut = await dbAbrirManutencao({
           id_veiculo:        parseInt(form.id_veiculo),
           placa:             form.placa,
@@ -169,12 +189,14 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
             </div>
             <div>
               <h2 className="text-g-200 font-semibold text-sm">
-                {isFromScratch ? 'Inserir OS Finalizada' : 'Finalizar OS'}
+                {isEditFin ? 'Editar OS Finalizada' : isFromScratch ? 'Inserir OS Finalizada' : 'Finalizar OS'}
               </h2>
               <p className="text-g-600 text-xs font-mono">
-                {isFromScratch
-                  ? 'Inserção direta de OS finalizada'
-                  : `${manutencao.placa} — ${manutencao.servico || manutencao.sistema || '—'}`}
+                {isEditFin
+                  ? `${editData.placa} — ${editData.id_ord_serv || '—'}`
+                  : isFromScratch
+                    ? 'Inserção direta de OS finalizada'
+                    : `${manutencao.placa} — ${manutencao.servico || manutencao.sistema || '—'}`}
               </p>
             </div>
           </div>
@@ -444,7 +466,7 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
             className="px-5 py-2 rounded-lg bg-g-100 text-white text-sm font-medium hover:bg-g-50 disabled:opacity-50 transition-colors flex items-center gap-2"
           >
             {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {isFromScratch ? 'Inserir OS' : 'Finalizar OS'}
+            {isEditFin ? 'Salvar Alterações' : isFromScratch ? 'Inserir OS' : 'Finalizar OS'}
           </button>
         </div>
       </div>

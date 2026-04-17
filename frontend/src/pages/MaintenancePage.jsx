@@ -90,6 +90,16 @@ function applyFilterSort(list, filter, sortState, fields) {
   return r
 }
 
+function nextOsNumber(finalizadas) {
+  const pattern = /^OS-\d{4}-(\d+)$/
+  const nums = finalizadas
+    .map(f => f.id_ord_serv?.match(pattern)?.[1])
+    .filter(Boolean)
+    .map(Number)
+  const max = nums.length > 0 ? Math.max(...nums) : 0
+  return `OS-${new Date().getFullYear()}-${String(max + 1).padStart(4, '0')}`
+}
+
 function SortableHeader({ label, col, sortState, onSort, className = '' }) {
   const active = sortState.col === col
   return (
@@ -119,6 +129,7 @@ function GestaoTab() {
   const [modalFin,     setModalFin]     = useState(null)
   const [modalEdit,    setModalEdit]    = useState(null)
   const [modalInsert,  setModalInsert]  = useState(false)
+  const [modalEditFin, setModalEditFin] = useState(null)
   const [confirmDel,   setConfirmDel]   = useState(null)
   const [filterAberta, setFilterAberta] = useState('')
   const [filterFin,    setFilterFin]    = useState('')
@@ -148,6 +159,7 @@ function GestaoTab() {
     setModalFin(null)
     setModalEdit(null)
     setModalInsert(false)
+    setModalEditFin(null)
     load()
   }
 
@@ -309,7 +321,7 @@ function GestaoTab() {
                       <SortableHeader label="Fornecedor" col="fornecedor"       sortState={sortAberta} onSort={sortAbertaBy} />
                       <SortableHeader label="Sistema / Serviço" col="sistema"   sortState={sortAberta} onSort={sortAbertaBy} />
                       <SortableHeader label="Status"    col="status_manutencao" sortState={sortAberta} onSort={sortAbertaBy} />
-                      <SortableHeader label="Entrada"   col="data_entrada"      sortState={sortAberta} onSort={sortAbertaBy} className="text-center" />
+                      <SortableHeader label="Entrada"   col="data_entrada"      sortState={sortAberta} onSort={sortAbertaBy} />
                       <th className="th">Dias</th>
                       <th className="th">Ações</th>
                     </tr>
@@ -329,7 +341,7 @@ function GestaoTab() {
                           <td className="td td-left">
                             <StatusBadge status={m.status_manutencao} />
                           </td>
-                          <td className="td text-xs text-g-500 tabular-nums">
+                          <td className="td td-left text-xs text-g-500 tabular-nums">
                             {dateBR(m.data_entrada)}
                           </td>
                           <td className="td tabular-nums text-xs">
@@ -436,8 +448,9 @@ function GestaoTab() {
                       <SortableHeader label="Sistema / Serviço" col="sistema" sortState={sortFin} onSort={sortFinBy} />
                       <SortableHeader label="Total OS"   col="total_os"     sortState={sortFin} onSort={sortFinBy} className="text-right" />
                       <th className="th">Parcelas</th>
-                      <SortableHeader label="Execução"   col="data_execucao" sortState={sortFin} onSort={sortFinBy} className="text-center" />
+                      <SortableHeader label="Execução"   col="data_execucao" sortState={sortFin} onSort={sortFinBy} />
                       <th className="th">Dias</th>
+                      <th className="th">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -464,9 +477,20 @@ function GestaoTab() {
                               </span>
                             )}
                           </td>
-                          <td className="td text-xs text-g-500 tabular-nums">{dateBR(m.data_execucao)}</td>
+                          <td className="td td-left text-xs text-g-500 tabular-nums">{dateBR(m.data_execucao)}</td>
                           <td className="td tabular-nums text-xs text-g-500">
                             {dias !== null ? dias : '—'}
+                          </td>
+                          <td className="td">
+                            <div className="flex items-center justify-end">
+                              <button
+                                onClick={() => setModalEditFin(m)}
+                                title="Editar OS finalizada"
+                                className="p-1.5 text-g-600 hover:text-g-100 hover:bg-g-850 rounded-lg transition-colors"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
@@ -498,13 +522,16 @@ function GestaoTab() {
         <AbrirManutencaoModal onClose={() => setModalAbrir(false)} onSaved={handleSaved} />
       )}
       {modalFin && (
-        <FinalizarManutencaoModal manutencao={modalFin} onClose={() => setModalFin(null)} onSaved={handleSaved} />
+        <FinalizarManutencaoModal manutencao={modalFin} suggestedOsNumber={nextOsNumber(finalizadas)} onClose={() => setModalFin(null)} onSaved={handleSaved} />
       )}
       {modalEdit && (
         <AbrirManutencaoModal manutencao={modalEdit} onClose={() => setModalEdit(null)} onSaved={handleSaved} />
       )}
       {modalInsert && (
         <FinalizarManutencaoModal manutencao={null} onClose={() => setModalInsert(false)} onSaved={handleSaved} />
+      )}
+      {modalEditFin && (
+        <FinalizarManutencaoModal editData={modalEditFin} onClose={() => setModalEditFin(null)} onSaved={handleSaved} />
       )}
     </div>
   )
