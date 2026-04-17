@@ -44,7 +44,7 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
           </button>
         </div>
         <p className="text-g-700 text-[10px] mt-1.5 uppercase tracking-widest font-medium pl-0.5">
-          Fleet Analytics
+          Dados Analíticos
         </p>
       </div>
 
