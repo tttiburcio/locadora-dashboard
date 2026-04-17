@@ -2,14 +2,32 @@ import { LayoutDashboard, Truck, Wrench, ChevronDown, Sun, Moon } from 'lucide-r
 import { useState } from 'react'
 import { useTheme } from '../contexts/ThemeContext'
 
-const LEGEND = [
-  { color: '#22c55e', label: 'Locação' },
-  { color: '#34d399', label: 'Reembolsos' },
-  { color: '#f97316', label: 'Manutenção' },
-  { color: '#ef4444', label: 'Seguro' },
-  { color: '#a855f7', label: 'Impostos' },
-  { color: '#f59e0b', label: 'Rastreamento' },
-]
+const LEGENDS = {
+  overview: [
+    { color: '#22c55e', label: 'Locação' },
+    { color: '#34d399', label: 'Reembolsos' },
+    { color: '#f97316', label: 'Manutenção' },
+    { color: '#ef4444', label: 'Seguro' },
+    { color: '#a855f7', label: 'Impostos' },
+    { color: '#f59e0b', label: 'Rastreamento' },
+  ],
+  vehicles: [
+    { color: '#22c55e', label: 'Locação' },
+    { color: '#34d399', label: 'Reembolsos' },
+    { color: '#f97316', label: 'Manutenção' },
+    { color: '#ef4444', label: 'Seguro' },
+    { color: '#a855f7', label: 'Impostos' },
+    { color: '#f59e0b', label: 'Rastreamento' },
+  ],
+  maintenance: [
+    { color: '#f59e0b', label: 'Em andamento' },
+    { color: '#f97316', label: 'Aguardando peça' },
+    { color: '#94a3b8', label: 'Pendente' },
+    { color: '#10b981', label: 'Finalizada' },
+    { color: '#22c55e', label: 'Preventiva' },
+    { color: '#ef4444', label: 'Corretiva' },
+  ],
+}
 
 const NAV = [
   { key: 'overview',     label: 'Visão Geral',  icon: LayoutDashboard },
@@ -18,6 +36,7 @@ const NAV = [
 ]
 
 export default function Sidebar({ page, setPage, years, year, setYear }) {
+  const legend = LEGENDS[page] || LEGENDS.overview
   const [showYears, setShowYears] = useState(false)
   const { theme, toggle } = useTheme()
 
@@ -98,7 +117,7 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
       <div className="mt-auto px-3 py-4 border-t border-g-900">
         <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-3 px-1">Categorias</p>
         <div className="space-y-2">
-          {LEGEND.map(({ color, label }) => (
+          {legend.map(({ color, label }) => (
             <div key={label} className="flex items-center gap-2.5">
               <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: color }} />
               <span className="text-g-600 text-xs">{label}</span>

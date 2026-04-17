@@ -6,13 +6,14 @@ import { dbListFrota, dbAbrirManutencao } from '../utils/api'
 const STATUS_OPTS = [
   { value: 'em_andamento',    label: 'Em andamento' },
   { value: 'aguardando_peca', label: 'Aguardando peça' },
+  { value: 'pendente',        label: 'Pendente' },
 ]
 
 const TIPO_OPTS = ['Preventiva', 'Corretiva']
 
 const SISTEMAS = [
   'Motor', 'Freio', 'Suspensão', 'Elétrico', 'Transmissão',
-  'Carroceria', 'Pneu', 'Hidráulico', 'Arrefecimento', 'Outro',
+  'Carroceria', 'Implemento', 'Pneu', 'Hidráulico', 'Arrefecimento', 'Outro',
 ]
 
 const FIELD = 'w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors'
@@ -46,20 +47,21 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const handleVeiculo = (e) => {
-    const id = parseInt(e.target.value)
-    const v  = frota.find(f => f.id === id)
+  const handlePlaca = (e) => {
+    const placa = e.target.value.toUpperCase()
+    const v = frota.find(f => f.placa === placa)
     setForm(f => ({
       ...f,
-      id_veiculo: id || '',
-      placa:  v?.placa  || '',
-      modelo: v?.modelo || '',
+      placa,
+      id_veiculo: v?.id   || '',
+      modelo:     v?.modelo || f.modelo,
     }))
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.id_veiculo) { setError('Selecione o veículo'); return }
+    if (!form.placa) { setError('Informe a placa do veículo'); return }
+    if (!form.id_veiculo) { setError('Placa não encontrada na frota. Verifique o cadastro.'); return }
     setSaving(true)
     setError(null)
     try {
@@ -101,20 +103,32 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
 
           {/* Veículo */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-1">
-              <label className={LABEL}>Veículo *</label>
-              <select value={form.id_veiculo} onChange={handleVeiculo} className={FIELD} required>
-                <option value="">Selecione…</option>
+            <div>
+              <label className={LABEL}>Placa *</label>
+              <input
+                list="frota-placas"
+                placeholder="Ex: ABC1D23"
+                value={form.placa}
+                onChange={handlePlaca}
+                className={`${FIELD} font-mono uppercase`}
+                required
+              />
+              <datalist id="frota-placas">
                 {frota.map(v => (
-                  <option key={v.id} value={v.id}>
+                  <option key={v.id} value={v.placa}>
                     {v.placa} — {v.modelo || '—'}
                   </option>
                 ))}
-              </select>
+              </datalist>
             </div>
             <div>
-              <label className={LABEL}>Placa</label>
-              <input value={form.placa} readOnly className={`${FIELD} bg-g-850 text-g-500 cursor-default`} />
+              <label className={LABEL}>Modelo</label>
+              <input
+                value={form.modelo}
+                onChange={e => set('modelo', e.target.value)}
+                placeholder="Preenchido automaticamente"
+                className={FIELD}
+              />
             </div>
             <div>
               <label className={LABEL}>Data de Entrada *</label>
