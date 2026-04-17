@@ -757,9 +757,11 @@ def atualizar_parcela(
 
 @app.get("/api/db/frota", response_model=list[schemas.FrotaResponse])
 def listar_frota_db(db: Session = Depends(get_db)):
+    ids_ativos = db.query(models.FatUnitario.id_veiculo).distinct().scalar_subquery()
     return (
         db.query(models.Frota)
-        .filter(models.Frota.status == "Frota")
+        .filter(models.Frota.status.in_(["Frota", "Sublocado"]))
+        .filter(models.Frota.id.in_(ids_ativos))
         .order_by(models.Frota.placa)
         .all()
     )
