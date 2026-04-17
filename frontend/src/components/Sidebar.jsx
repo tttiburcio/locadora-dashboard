@@ -44,10 +44,14 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
     <aside className="w-56 shrink-0 flex flex-col bg-g-950 border-r border-g-900 h-screen">
       {/* Topo */}
       <div className="px-4 pt-4 pb-3 border-b border-g-900">
-        <div className="flex items-center justify-between">
-          <p className="text-g-700 text-[10px] uppercase tracking-widest font-medium">
-            Dados Analíticos
-          </p>
+        <div className="flex items-center justify-between mb-3">
+          <div className="bg-white rounded-xl px-3 py-2 inline-flex">
+            <img
+              src="/logo.png"
+              alt="TKJ Gerenciamento"
+              className="h-12 w-auto object-contain"
+            />
+          </div>
           <button
             onClick={toggle}
             className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 border border-transparent hover:border-g-800 transition-colors"
@@ -58,6 +62,9 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
               : <Moon className="w-4 h-4" />}
           </button>
         </div>
+        <p className="text-g-700 text-[10px] uppercase tracking-widest font-medium">
+          Dados Analíticos
+        </p>
       </div>
 
       {/* Year selector */}
@@ -119,16 +126,6 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
         </div>
       </div>
 
-      {/* Logo rodapé */}
-      <div className="px-4 pb-5 pt-4 flex justify-center border-t border-g-900">
-        <div className="bg-white rounded-xl px-3 py-2 inline-flex">
-          <img
-            src="/logo.png"
-            alt="TKJ Gerenciamento"
-            className="h-12 w-auto object-contain"
-          />
-        </div>
-      </div>
     </aside>
   )
 }
