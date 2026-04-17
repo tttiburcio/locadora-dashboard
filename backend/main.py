@@ -757,4 +757,9 @@ def atualizar_parcela(
 
 @app.get("/api/db/frota", response_model=list[schemas.FrotaResponse])
 def listar_frota_db(db: Session = Depends(get_db)):
-    return db.query(models.Frota).order_by(models.Frota.placa).all()
+    return (
+        db.query(models.Frota)
+        .filter(models.Frota.status == "Frota")
+        .order_by(models.Frota.placa)
+        .all()
+    )

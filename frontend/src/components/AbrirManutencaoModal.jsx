@@ -114,9 +114,7 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
               <select value={form.placa} onChange={handlePlaca} className={`${FIELD} font-mono`} required disabled={loadingFrota}>
                 <option value="">{loadingFrota ? 'Carregando…' : frota.length === 0 ? 'Nenhum veículo encontrado' : 'Selecione…'}</option>
                 {frota.map(v => (
-                  <option key={v.id} value={v.placa}>
-                    {v.placa}{v.modelo ? ` — ${v.modelo}` : ''}
-                  </option>
+                  <option key={v.id} value={v.placa}>{v.placa}</option>
                 ))}
               </select>
             </div>
@@ -124,9 +122,9 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
               <label className={LABEL}>Modelo</label>
               <input
                 value={form.modelo}
-                readOnly
+                disabled
                 placeholder="Preenchido ao selecionar placa"
-                className={`${FIELD} bg-g-850 text-g-500 cursor-default`}
+                className={`${FIELD} bg-g-850 text-g-500 cursor-default opacity-70`}
               />
             </div>
             <div>
