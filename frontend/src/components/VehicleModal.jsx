@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getVehicle } from '../utils/api'
-import { brl, pct, dias, brlShort, num } from '../utils/format'
+import { brl, pct, dias, brlShort, num, dateBR } from '../utils/format'
 import { VehicleMonthlyChart, VehicleCostPie } from './charts/VehicleCharts'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -227,7 +227,7 @@ export default function VehicleModal({ placa, year, onClose }) {
                         {data.maintenance.map((m, i) => (
                           <tr key={i} className="border-b border-g-900 hover:bg-g-900/60 transition-colors">
                             <td className="td td-left text-xs font-mono text-g-500">{m.ordem}</td>
-                            <td className="td text-xs text-g-500 tabular-nums">{m.data}</td>
+                            <td className="td text-xs text-g-500 tabular-nums">{dateBR(m.data)}</td>
                             <td className="td td-left text-xs">
                               <p className="text-g-200">{m.servico?.length > 22 ? m.servico.slice(0,21)+'…' : m.servico}</p>
                               {m.sistema && m.sistema !== '—' && (

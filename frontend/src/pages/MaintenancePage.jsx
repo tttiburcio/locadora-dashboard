@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { getMaintenanceAnalysis, dbListManutencoes, dbAtualizarManutencao, dbDeletarManutencao } from '../utils/api'
-import { brl, brlShort, num } from '../utils/format'
+import { brl, brlShort, num, dateBR } from '../utils/format'
 import KPICard from '../components/KPICard'
 import AbrirManutencaoModal   from '../components/AbrirManutencaoModal'
 import FinalizarManutencaoModal from '../components/FinalizarManutencaoModal'
@@ -330,7 +330,7 @@ function GestaoTab() {
                             <StatusBadge status={m.status_manutencao} />
                           </td>
                           <td className="td text-xs text-g-500 tabular-nums">
-                            {m.data_entrada || '—'}
+                            {dateBR(m.data_entrada)}
                           </td>
                           <td className="td tabular-nums text-xs">
                             {dias !== null
@@ -464,7 +464,7 @@ function GestaoTab() {
                               </span>
                             )}
                           </td>
-                          <td className="td text-xs text-g-500 tabular-nums">{m.data_execucao || '—'}</td>
+                          <td className="td text-xs text-g-500 tabular-nums">{dateBR(m.data_execucao)}</td>
                           <td className="td tabular-nums text-xs text-g-500">
                             {dias !== null ? dias : '—'}
                           </td>
@@ -698,7 +698,7 @@ function AnaliseTab({ year, vehicles }) {
                               <td className="td text-xs tabular-nums text-g-500">{u.km_atual?num(u.km_atual)+' km':'—'}</td>
                               <td className={`td text-xs tabular-nums font-semibold ${kmAlert?'text-amber-600':'text-g-400'}`}>{u.prox_km?num(u.prox_km)+' km':'—'}</td>
                               <td className={`td text-xs tabular-nums ${dateAlert?'text-amber-600 font-semibold':'text-g-400'}`}>
-                                {u.prox_data||'—'}
+                                {dateBR(u.prox_data)}
                                 {(kmAlert||dateAlert)&&<AlertTriangle className="inline w-3 h-3 ml-1 text-amber-500"/>}
                               </td>
                             </tr>

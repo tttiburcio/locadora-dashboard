@@ -34,3 +34,10 @@ export function dias(v) {
 export function isNeg(v) {
   return typeof v === 'number' && v < 0
 }
+
+export function dateBR(v) {
+  if (!v) return '—'
+  const [y, m, d] = String(v).split('-')
+  if (!y || !m || !d) return v
+  return `${d}/${m}/${y}`
+}
