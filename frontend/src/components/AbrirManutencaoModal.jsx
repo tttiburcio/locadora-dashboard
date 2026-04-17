@@ -20,9 +20,10 @@ const FIELD = 'w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-3
 const LABEL = 'text-g-600 text-xs font-medium mb-1 block'
 
 export default function AbrirManutencaoModal({ onClose, onSaved }) {
-  const [frota, setFrota]     = useState([])
-  const [saving, setSaving]   = useState(false)
-  const [error, setError]     = useState(null)
+  const [frota,        setFrota]        = useState([])
+  const [loadingFrota, setLoadingFrota] = useState(true)
+  const [saving,       setSaving]       = useState(false)
+  const [error,        setError]        = useState(null)
 
   const [form, setForm] = useState({
     id_veiculo:      '',
@@ -42,7 +43,11 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
   })
 
   useEffect(() => {
-    dbListFrota().then(setFrota).catch(() => {})
+    setLoadingFrota(true)
+    dbListFrota()
+      .then(setFrota)
+      .catch(() => setError('Não foi possível carregar a lista de veículos. Verifique se o backend está rodando.'))
+      .finally(() => setLoadingFrota(false))
   }, [])
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -106,8 +111,8 @@ export default function AbrirManutencaoModal({ onClose, onSaved }) {
           <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={LABEL}>Placa *</label>
-              <select value={form.placa} onChange={handlePlaca} className={`${FIELD} font-mono`} required>
-                <option value="">Selecione…</option>
+              <select value={form.placa} onChange={handlePlaca} className={`${FIELD} font-mono`} required disabled={loadingFrota}>
+                <option value="">{loadingFrota ? 'Carregando…' : frota.length === 0 ? 'Nenhum veículo encontrado' : 'Selecione…'}</option>
                 {frota.map(v => (
                   <option key={v.id} value={v.placa}>
                     {v.placa}{v.modelo ? ` — ${v.modelo}` : ''}
