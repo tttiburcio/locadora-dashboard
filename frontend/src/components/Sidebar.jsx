@@ -42,16 +42,12 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
 
   return (
     <aside className="w-56 shrink-0 flex flex-col bg-g-950 border-r border-g-900 h-screen">
-      {/* Logo */}
+      {/* Topo */}
       <div className="px-4 pt-4 pb-3 border-b border-g-900">
         <div className="flex items-center justify-between">
-          <div className="bg-white rounded-lg px-2 py-1.5 inline-flex">
-            <img
-              src="/logo.png"
-              alt="TKJ Gerenciamento"
-              className="h-7 w-auto object-contain object-left"
-            />
-          </div>
+          <p className="text-g-700 text-[10px] uppercase tracking-widest font-medium">
+            Dados Analíticos
+          </p>
           <button
             onClick={toggle}
             className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 border border-transparent hover:border-g-800 transition-colors"
@@ -62,9 +58,6 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
               : <Moon className="w-4 h-4" />}
           </button>
         </div>
-        <p className="text-g-700 text-[10px] mt-1.5 uppercase tracking-widest font-medium pl-0.5">
-          Dados Analíticos
-        </p>
       </div>
 
       {/* Year selector */}
@@ -114,7 +107,7 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
       </nav>
 
       {/* Legend */}
-      <div className="mt-auto px-3 py-4 border-t border-g-900">
+      <div className="mt-auto px-3 pt-4 pb-3 border-t border-g-900">
         <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-3 px-1">Categorias</p>
         <div className="space-y-2">
           {legend.map(({ color, label }) => (
@@ -123,6 +116,17 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
               <span className="text-g-600 text-xs">{label}</span>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Logo rodapé */}
+      <div className="px-4 pb-5 pt-4 flex justify-center border-t border-g-900">
+        <div className="bg-white rounded-xl px-3 py-2 inline-flex">
+          <img
+            src="/logo.png"
+            alt="TKJ Gerenciamento"
+            className="h-12 w-auto object-contain"
+          />
         </div>
       </div>
     </aside>
