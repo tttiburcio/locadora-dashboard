@@ -43,13 +43,13 @@ def load_raw() -> dict:
         return _cache
     _cache.clear()
     _cache_mtime = mtime
-    xl = pd.ExcelFile(EXCEL_PATH)
-    for key, name in SHEETS.items():
-        try:
-            _cache[key] = xl.parse(name)
-        except Exception as e:
-            print(f"Warning: sheet '{name}' not found: {e}")
-            _cache[key] = pd.DataFrame()
+    with pd.ExcelFile(EXCEL_PATH) as xl:
+        for key, name in SHEETS.items():
+            try:
+                _cache[key] = xl.parse(name)
+            except Exception as e:
+                print(f"Warning: sheet '{name}' not found: {e}")
+                _cache[key] = pd.DataFrame()
     return _cache
 
 
