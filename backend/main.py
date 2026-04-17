@@ -1,10 +1,22 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import io
 
-app = FastAPI(title="TKJ Locadora API", version="2.0.0")
+# ── Banco de dados ────────────────────────────────────────────────
+from database import get_db, init_db
+import models
+import schemas
+
+app = FastAPI(title="TKJ Locadora API", version="2.1.0")
+
+
+@app.on_event("startup")
+def startup():
+    init_db()
 
 app.add_middleware(
     CORSMiddleware,
@@ -591,3 +603,158 @@ def get_maintenance_analysis(year: int = Query(...), placa: str = Query(None)):
     result["upcoming"] = upcoming
 
     return result
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  CRUD — MANUTENÇÕES (banco SQLite)
+# ═══════════════════════════════════════════════════════════════════
+
+@app.get("/api/db/manutencoes", response_model=list[schemas.ManutencaoResponse])
+def list_manutencoes(
+    status: str = Query(None, description="Filtrar por status_manutencao"),
+    placa:  str = Query(None, description="Filtrar por placa"),
+    db: Session = Depends(get_db),
+):
+    """Lista todas as OS. Filtros opcionais: ?status=em_andamento&placa=ABC1234"""
+    q = db.query(models.Manutencao)
+    if status:
+        q = q.filter(models.Manutencao.status_manutencao == status)
+    if placa:
+        q = q.filter(models.Manutencao.placa == placa.upper())
+    return q.order_by(models.Manutencao.criado_em.desc()).all()
+
+
+@app.get("/api/db/manutencoes/{manutencao_id}", response_model=schemas.ManutencaoResponse)
+def get_manutencao(manutencao_id: int, db: Session = Depends(get_db)):
+    obj = db.get(models.Manutencao, manutencao_id)
+    if not obj:
+        raise HTTPException(404, "Manutenção não encontrada")
+    return obj
+
+
+@app.post("/api/db/manutencoes", response_model=schemas.ManutencaoResponse, status_code=201)
+def abrir_manutencao(payload: schemas.ManutencaoAbrir, db: Session = Depends(get_db)):
+    """Abre uma nova OS (veículo entrou em manutenção)."""
+    veiculo = db.get(models.Frota, payload.id_veiculo)
+    if not veiculo:
+        raise HTTPException(404, f"Veículo {payload.id_veiculo} não encontrado na frota")
+
+    obj = models.Manutencao(**payload.model_dump())
+    if not obj.placa:
+        obj.placa = veiculo.placa
+    if not obj.modelo:
+        obj.modelo = veiculo.modelo
+
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@app.patch("/api/db/manutencoes/{manutencao_id}", response_model=schemas.ManutencaoResponse)
+def atualizar_manutencao(
+    manutencao_id: int,
+    payload: schemas.ManutencaoUpdate,
+    db: Session = Depends(get_db),
+):
+    """Atualiza status ou dados gerais de uma OS em andamento."""
+    obj = db.get(models.Manutencao, manutencao_id)
+    if not obj:
+        raise HTTPException(404, "Manutenção não encontrada")
+    if obj.status_manutencao == "finalizada":
+        raise HTTPException(400, "OS já finalizada — use o endpoint de finalização para editar dados financeiros")
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(obj, field, value)
+
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@app.post("/api/db/manutencoes/{manutencao_id}/finalizar", response_model=schemas.ManutencaoResponse)
+def finalizar_manutencao(
+    manutencao_id: int,
+    payload: schemas.ManutencaoFinalizar,
+    db: Session = Depends(get_db),
+):
+    """Finaliza a OS: preenche dados financeiros e cria as parcelas de pagamento."""
+    obj = db.get(models.Manutencao, manutencao_id)
+    if not obj:
+        raise HTTPException(404, "Manutenção não encontrada")
+    if obj.status_manutencao == "finalizada":
+        raise HTTPException(400, "OS já está finalizada")
+
+    # Atualiza campos da OS
+    for field in ("id_ord_serv", "total_os", "data_execucao", "categoria",
+                  "qtd_itens", "prox_km", "prox_data",
+                  "posicao_pneu", "qtd_pneu", "espec_pneu", "marca_pneu", "manejo_pneu"):
+        val = getattr(payload, field, None)
+        if val is not None:
+            setattr(obj, field, val)
+
+    obj.status_manutencao = "finalizada"
+    obj.indisponivel = False
+
+    # Cria parcelas
+    for p in payload.parcelas:
+        parcela = models.ManutencaoParcela(manutencao_id=obj.id, **p.model_dump())
+        db.add(parcela)
+
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@app.delete("/api/db/manutencoes/{manutencao_id}", status_code=204)
+def deletar_manutencao(manutencao_id: int, db: Session = Depends(get_db)):
+    """Remove uma OS (somente se ainda não finalizada)."""
+    obj = db.get(models.Manutencao, manutencao_id)
+    if not obj:
+        raise HTTPException(404, "Manutenção não encontrada")
+    if obj.status_manutencao == "finalizada":
+        raise HTTPException(400, "Não é possível excluir uma OS finalizada")
+    db.delete(obj)
+    db.commit()
+
+
+# ── Parcelas ─────────────────────────────────────────────────────────
+
+@app.post("/api/db/manutencoes/{manutencao_id}/parcelas",
+          response_model=schemas.ParcelaResponse, status_code=201)
+def adicionar_parcela(
+    manutencao_id: int,
+    payload: schemas.ParcelaCreate,
+    db: Session = Depends(get_db),
+):
+    obj = db.get(models.Manutencao, manutencao_id)
+    if not obj:
+        raise HTTPException(404, "Manutenção não encontrada")
+    parcela = models.ManutencaoParcela(manutencao_id=manutencao_id, **payload.model_dump())
+    db.add(parcela)
+    db.commit()
+    db.refresh(parcela)
+    return parcela
+
+
+@app.patch("/api/db/parcelas/{parcela_id}", response_model=schemas.ParcelaResponse)
+def atualizar_parcela(
+    parcela_id: int,
+    payload: schemas.ParcelaUpdate,
+    db: Session = Depends(get_db),
+):
+    parcela = db.get(models.ManutencaoParcela, parcela_id)
+    if not parcela:
+        raise HTTPException(404, "Parcela não encontrada")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(parcela, field, value)
+    db.commit()
+    db.refresh(parcela)
+    return parcela
+
+
+# ── Frota (para preencher selects no frontend) ────────────────────────
+
+@app.get("/api/db/frota", response_model=list[schemas.FrotaResponse])
+def listar_frota_db(db: Session = Depends(get_db)):
+    return db.query(models.Frota).order_by(models.Frota.placa).all()
