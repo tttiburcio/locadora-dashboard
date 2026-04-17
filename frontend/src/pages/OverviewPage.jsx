@@ -13,10 +13,10 @@ function Section({ title, icon: Icon, children }) {
     <section>
       <div className="flex items-center gap-2.5 mb-4">
         <div className="p-1.5 bg-g-850 border border-g-800 rounded-lg">
-          <Icon className="w-4 h-4 text-g-500" />
+          <Icon className="w-4 h-4 text-g-600" />
         </div>
-        <h2 className="text-g-300 font-semibold text-xs uppercase tracking-widest">{title}</h2>
-        <div className="flex-1 h-px bg-g-900" />
+        <h2 className="text-g-500 font-semibold text-xs uppercase tracking-widest">{title}</h2>
+        <div className="flex-1 h-px bg-g-800" />
       </div>
       {children}
     </section>
@@ -34,7 +34,7 @@ function ChartCard({ title, children, className = '' }) {
 
 function SummaryRow({ label, value, valueClass = 'text-g-200', pctVal }) {
   return (
-    <div className="flex items-center justify-between py-2 border-b border-g-900 last:border-0">
+    <div className="flex items-center justify-between py-2 border-b border-g-800 last:border-0">
       <span className="text-g-600 text-xs">{label}</span>
       <div className="flex items-center gap-2">
         {pctVal !== undefined && (
@@ -49,15 +49,15 @@ function SummaryRow({ label, value, valueClass = 'text-g-200', pctVal }) {
 function InconsistencyBanner({ items }) {
   if (!items?.length) return null
   return (
-    <div className="flex flex-col gap-2 p-4 bg-amber-950/30 border border-amber-800/40 rounded-xl animate-fade-in">
+    <div className="flex flex-col gap-2 p-4 bg-amber-50 border border-amber-200 rounded-xl animate-fade-in">
       <div className="flex items-center gap-2 mb-1">
-        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-        <p className="text-amber-300 text-xs font-semibold uppercase tracking-wider">
+        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+        <p className="text-amber-700 text-xs font-semibold uppercase tracking-wider">
           Inconsistências detectadas nos dados
         </p>
       </div>
       {items.map((issue, i) => (
-        <p key={i} className="text-amber-400/80 text-xs pl-6">{issue.descricao}</p>
+        <p key={i} className="text-amber-600 text-xs pl-6">{issue.descricao}</p>
       ))}
     </div>
   )

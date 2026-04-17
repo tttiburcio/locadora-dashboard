@@ -89,16 +89,16 @@ export default function App() {
 
       <main className="flex-1 overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-g-950/95 backdrop-blur-sm border-b border-g-900 px-6 py-3.5 flex items-center justify-between">
+        <div className="sticky top-0 z-10 bg-g-900/95 backdrop-blur-sm border-b border-g-800 px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/icon.png" alt="" className="w-5 h-5 object-contain opacity-60" />
+            <img src="/icon.png" alt="" className="w-5 h-5 object-contain opacity-50" />
             <div>
-              <h1 className="text-g-50 font-semibold text-sm tracking-wide">
+              <h1 className="text-g-200 font-semibold text-sm tracking-wide">
                 {pageTitle[page]}
               </h1>
-              <p className="text-g-700 text-xs mt-0.5">
+              <p className="text-g-600 text-xs mt-0.5">
                 TKJ Gerenciamento · Exercício {year}
-                {region && <span className="ml-2 text-indigo-400">· {region}</span>}
+                {region && <span className="ml-2 text-g-100">· {region}</span>}
               </p>
             </div>
           </div>
@@ -109,7 +109,7 @@ export default function App() {
                 Atualizando…
               </div>
             )}
-            {error && !loading && <span className="text-red-400 text-xs">{error}</span>}
+            {error && !loading && <span className="text-red-500 text-xs">{error}</span>}
           </div>
         </div>
 
@@ -117,7 +117,7 @@ export default function App() {
           {loading && (
             <div className="flex flex-col items-center justify-center h-96 gap-4 animate-fade-in">
               <img src="/icon.png" alt="" className="w-12 h-12 object-contain opacity-30 animate-pulse-slow" />
-              <p className="text-g-600 text-sm">Carregando dados de {year}…</p>
+              <p className="text-g-500 text-sm">Carregando dados de {year}…</p>
             </div>
           )}
 

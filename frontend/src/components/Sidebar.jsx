@@ -35,7 +35,7 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
           </div>
           <button
             onClick={toggle}
-            className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-800 transition-colors"
+            className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 border border-transparent hover:border-g-800 transition-colors"
             title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
           >
             {theme === 'dark'
@@ -43,32 +43,32 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
               : <Moon className="w-4 h-4" />}
           </button>
         </div>
-        <p className="text-g-600 text-[10px] mt-1.5 uppercase tracking-widest font-medium pl-0.5">
+        <p className="text-g-700 text-[10px] mt-1.5 uppercase tracking-widest font-medium pl-0.5">
           Fleet Analytics
         </p>
       </div>
 
       {/* Year selector */}
       <div className="px-3 pt-4 pb-2">
-        <p className="text-g-600 text-[10px] uppercase tracking-widest font-semibold mb-2 px-1">Período</p>
+        <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-2 px-1">Período</p>
         <div className="relative">
           <button
             onClick={() => setShowYears(v => !v)}
-            className="w-full flex items-center justify-between px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-200 text-sm hover:border-g-700 transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm hover:border-g-750 transition-colors shadow-sm"
           >
             <span className="font-semibold font-mono">{year || '—'}</span>
             <ChevronDown className={`w-3.5 h-3.5 text-g-600 transition-transform duration-200 ${showYears ? 'rotate-180' : ''}`} />
           </button>
           {showYears && (
-            <div className="absolute top-full mt-1 left-0 right-0 bg-g-900 border border-g-700 rounded-lg shadow-2xl z-20 overflow-hidden animate-fade-in">
+            <div className="absolute top-full mt-1 left-0 right-0 bg-g-900 border border-g-800 rounded-lg shadow-lg z-20 overflow-hidden animate-fade-in">
               {years.map(y => (
                 <button
                   key={y}
                   onClick={() => { setYear(y); setShowYears(false) }}
                   className={`w-full text-left px-3 py-2 text-sm transition-colors font-mono ${
                     y === year
-                      ? 'bg-g-700/30 text-g-50 font-bold'
-                      : 'text-g-400 hover:bg-g-800 hover:text-g-100'
+                      ? 'text-g-100 font-bold bg-g-850'
+                      : 'text-g-500 hover:bg-g-850 hover:text-g-300'
                   }`}
                 >
                   {y}
@@ -81,7 +81,7 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
 
       {/* Navigation */}
       <nav className="px-3 pt-2 flex flex-col gap-0.5">
-        <p className="text-g-600 text-[10px] uppercase tracking-widest font-semibold mb-1.5 px-1 mt-2">Menu</p>
+        <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-1.5 px-1 mt-2">Menu</p>
         {NAV.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -96,12 +96,12 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
 
       {/* Legend */}
       <div className="mt-auto px-3 py-4 border-t border-g-900">
-        <p className="text-g-600 text-[10px] uppercase tracking-widest font-semibold mb-3 px-1">Categorias</p>
+        <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-3 px-1">Categorias</p>
         <div className="space-y-2">
           {LEGEND.map(({ color, label }) => (
             <div key={label} className="flex items-center gap-2.5">
               <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: color }} />
-              <span className="text-g-500 text-xs">{label}</span>
+              <span className="text-g-600 text-xs">{label}</span>
             </div>
           ))}
         </div>
