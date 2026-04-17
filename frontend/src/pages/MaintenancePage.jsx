@@ -111,13 +111,14 @@ function GestaoTab({ novaOSTrigger = 0 }) {
 
   const emAndamento = abertas.filter(m => m.status_manutencao === 'em_andamento')
   const aguardando  = abertas.filter(m => m.status_manutencao === 'aguardando_peca')
+  const pendente    = abertas.filter(m => m.status_manutencao === 'pendente')
   const todasAbertas = abertas
 
   return (
     <div className="flex flex-col gap-6">
 
       {/* KPIs rápidos */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div className="card p-4 flex items-center gap-3">
           <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg">
             <Clock className="w-4 h-4 text-amber-600" />
@@ -134,6 +135,15 @@ function GestaoTab({ novaOSTrigger = 0 }) {
           <div>
             <p className="text-g-600 text-xs uppercase tracking-wider">Aguardando peça</p>
             <p className="text-g-200 font-bold text-xl">{aguardando.length}</p>
+          </div>
+        </div>
+        <div className="card p-4 flex items-center gap-3">
+          <div className="p-2 bg-slate-100 border border-slate-300 rounded-lg">
+            <AlertTriangle className="w-4 h-4 text-slate-500" />
+          </div>
+          <div>
+            <p className="text-g-600 text-xs uppercase tracking-wider">Pendente</p>
+            <p className="text-g-200 font-bold text-xl">{pendente.length}</p>
           </div>
         </div>
         <div className="card p-4 flex items-center gap-3">
