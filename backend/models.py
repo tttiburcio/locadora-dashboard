@@ -106,6 +106,18 @@ class ManutencaoParcela(Base):
     forma_pgto       = Column(String(50))
     status_pagamento = Column(String(20), default="Pendente")  # Pago | Pendente
 
+    # Prorrogação
+    data_vencimento_original = Column(Date)
+    prorrogada               = Column(Boolean, default=False)
+    isento_encargos          = Column(Boolean)
+    tipo_pgto_prorrogacao    = Column(String(20))   # boleto | pix
+    chave_pix                = Column(String(100))
+    multa_pct                = Column(Numeric(6, 2))
+    juros_diario_pct         = Column(Numeric(6, 4))
+    data_prevista_pagamento  = Column(Date)
+    dias_cartorio            = Column(Integer)
+    valor_atualizado         = Column(Numeric(14, 2))
+
     manutencao = relationship("Manutencao", back_populates="parcelas")
 
 

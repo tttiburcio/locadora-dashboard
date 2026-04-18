@@ -9,8 +9,8 @@ const FORMAS_PGTO = ['Faturado', 'Boleto', 'PIX', 'Cartão', 'Dinheiro']
 const STATUS_PARC = ['Pago', 'Pendente']
 const TIPO_OPTS   = ['Preventiva', 'Corretiva']
 const SISTEMAS    = [
-  'Motor', 'Freio', 'Suspensão', 'Elétrico', 'Transmissão',
-  'Carroceria', 'Implemento', 'Pneu', 'Hidráulico', 'Arrefecimento', 'Outro',
+  'Motor', 'Freio', 'Suspensão', 'Elétrico', 'Câmbio', 'Diferencial',
+  'Direção', 'Implemento', 'Guincho', 'Pneu', 'Hidráulico', 'Arrefecimento', 'Outro',
 ]
 
 const FIELD = 'w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors'
@@ -18,7 +18,6 @@ const LABEL = 'text-g-600 text-xs font-medium mb-1 block'
 
 const PARCELA_VAZIA = {
   nf_ordem: '', nota: '', data_vencimento: '',
-  parcela_atual: '', parcela_total: '',
   valor_parcela: '', forma_pgto: 'Faturado', status_pagamento: 'Pago',
 }
 
@@ -35,6 +34,7 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
     id_ord_serv:   isEditFin ? (editData.id_ord_serv ?? '')  : suggestedOsNumber,
     total_os:      isEditFin ? (editData.total_os    ?? '')  : '',
     data_execucao: isEditFin ? (editData.data_execucao ?? new Date().toISOString().slice(0, 10)) : new Date().toISOString().slice(0, 10),
+    km:            isEditFin ? (editData.km           ?? '') : '',
     categoria:     isEditFin ? (editData.categoria   ?? 'Serviço') : 'Serviço',
     qtd_itens:     isEditFin ? (editData.qtd_itens   ?? '') : '',
     prox_km:       isEditFin ? (editData.prox_km     ?? '') : '',
@@ -61,8 +61,6 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
         nf_ordem:        p.nf_ordem        ?? '',
         nota:            p.nota            ?? '',
         data_vencimento: p.data_vencimento ?? '',
-        parcela_atual:   p.parcela_atual   ?? '',
-        parcela_total:   p.parcela_total   ?? '',
         valor_parcela:   p.valor_parcela   ?? '',
         forma_pgto:      p.forma_pgto      ?? 'Faturado',
         status_pagamento: p.status_pagamento ?? 'Pago',
@@ -95,12 +93,7 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
     setParcelas(ps => ps.map((p, idx) => idx === i ? { ...p, [k]: v } : p))
 
   const addParcela = () => {
-    const last = parcelas[parcelas.length - 1]
-    const total = parseInt(last.parcela_total) || parcelas.length + 1
-    setParcelas(ps => [
-      ...ps,
-      { ...PARCELA_VAZIA, parcela_total: total, parcela_atual: ps.length + 1 },
-    ])
+    setParcelas(ps => [...ps, { ...PARCELA_VAZIA }])
   }
 
   const removeParcela = (i) =>
@@ -108,26 +101,28 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
 
   const totalParcelas = parcelas.reduce((s, p) => s + (parseFloat(p.valor_parcela) || 0), 0)
 
-  const buildFinPayload = () => ({
-    ...form,
-    total_os:  parseFloat(form.total_os),
-    qtd_itens: form.qtd_itens ? parseInt(form.qtd_itens) : null,
-    prox_km:   form.prox_km   ? parseFloat(form.prox_km) : null,
-    prox_data: form.prox_data || null,
-    qtd_pneu:  form.qtd_pneu  ? parseInt(form.qtd_pneu) : null,
-    parcelas: parcelas
-      .filter(p => p.valor_parcela)
-      .map((p, i) => ({
-        nf_ordem:        p.nf_ordem   ? parseInt(p.nf_ordem)     : null,
-        nota:            p.nota       || null,
+  const buildFinPayload = () => {
+    const valid = parcelas.filter(p => p.valor_parcela)
+    return {
+      ...form,
+      total_os:  parseFloat(form.total_os),
+      km:        form.km ? parseFloat(form.km) : null,
+      qtd_itens: form.qtd_itens ? parseInt(form.qtd_itens) : null,
+      prox_km:   form.prox_km   ? parseFloat(form.prox_km) : null,
+      prox_data: form.prox_data || null,
+      qtd_pneu:  form.qtd_pneu  ? parseInt(form.qtd_pneu) : null,
+      parcelas: valid.map((p, i) => ({
+        nf_ordem:        p.nf_ordem ? parseInt(p.nf_ordem) : null,
+        nota:            p.nota || null,
         data_vencimento: p.data_vencimento || null,
-        parcela_atual:   p.parcela_atual   ? parseInt(p.parcela_atual) : i + 1,
-        parcela_total:   p.parcela_total   ? parseInt(p.parcela_total) : parcelas.filter(x => x.valor_parcela).length,
+        parcela_atual:   i + 1,
+        parcela_total:   valid.length,
         valor_parcela:   parseFloat(p.valor_parcela),
         forma_pgto:      p.forma_pgto,
         status_pagamento: p.status_pagamento,
       })),
-  })
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -142,7 +137,7 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
     setError(null)
     try {
       if (isEditFin) {
-        await dbAtualizarManutencao(editData.id, buildFinPayload())
+        await dbFinalizarManutencao(editData.id, buildFinPayload())
       } else if (isFromScratch) {
         const newManut = await dbAbrirManutencao({
           id_veiculo:        parseInt(form.id_veiculo),
@@ -266,8 +261,8 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
             </div>
           )}
 
-          {/* OS + Data + Total */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* OS + Data + Total + KM */}
+          <div className="grid grid-cols-4 gap-3">
             <div>
               <label className={LABEL}>Nº da OS *</label>
               <input
@@ -292,6 +287,15 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
                 value={form.total_os}
                 onChange={e => set('total_os', e.target.value)}
                 className={FIELD} required
+              />
+            </div>
+            <div>
+              <label className={LABEL}>KM na Execução</label>
+              <input
+                type="number" placeholder="Ex: 125000"
+                value={form.km}
+                onChange={e => set('km', e.target.value)}
+                className={FIELD}
               />
             </div>
           </div>
@@ -384,28 +388,16 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
               </button>
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {parcelas.map((p, i) => (
-                <div key={i} className="bg-g-850 border border-g-800 rounded-xl p-3 grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-1">
-                    <label className={LABEL}>NF</label>
-                    <input type="number" value={p.nf_ordem} onChange={e => setParc(i, 'nf_ordem', e.target.value)} className={`${FIELD} bg-g-900`} placeholder="—" />
+                <div key={i} className="bg-g-850 border border-g-800 rounded-xl p-4 grid grid-cols-12 gap-3 items-end">
+                  <div className="col-span-3">
+                    <label className={LABEL}>Nota Fiscal</label>
+                    <input value={p.nota} onChange={e => setParc(i, 'nota', e.target.value)} className={`${FIELD} bg-g-900`} placeholder="Nº ou referência da NF" />
                   </div>
-                  <div className="col-span-2">
-                    <label className={LABEL}>Nota</label>
-                    <input value={p.nota} onChange={e => setParc(i, 'nota', e.target.value)} className={`${FIELD} bg-g-900`} placeholder="—" />
-                  </div>
-                  <div className="col-span-2">
+                  <div className="col-span-3">
                     <label className={LABEL}>Vencimento</label>
                     <input type="date" value={p.data_vencimento} onChange={e => setParc(i, 'data_vencimento', e.target.value)} className={`${FIELD} bg-g-900`} />
-                  </div>
-                  <div className="col-span-1">
-                    <label className={LABEL}>X/Y</label>
-                    <div className="flex items-center gap-1">
-                      <input type="number" value={p.parcela_atual} onChange={e => setParc(i, 'parcela_atual', e.target.value)} className={`${FIELD} bg-g-900 w-10 px-1 text-center`} placeholder={i+1} />
-                      <span className="text-g-600 text-xs">/</span>
-                      <input type="number" value={p.parcela_total} onChange={e => setParc(i, 'parcela_total', e.target.value)} className={`${FIELD} bg-g-900 w-10 px-1 text-center`} placeholder={parcelas.length} />
-                    </div>
                   </div>
                   <div className="col-span-2">
                     <label className={LABEL}>Valor (R$)</label>
@@ -413,11 +405,11 @@ export default function FinalizarManutencaoModal({ manutencao = null, onClose, o
                   </div>
                   <div className="col-span-2">
                     <label className={LABEL}>Forma Pgto</label>
-                    <select value={p.forma_pgto} onChange={e => setParc(i, 'forma_pgto', e.target.value)} className={`${FIELD} bg-g-900`}>
+                    <select value={p.forma_pgto} onChange={e => setParc(i, 'forma_pgto', e.target.value)} className={`${FIELD} bg-g-900 text-xs`}>
                       {FORMAS_PGTO.map(f => <option key={f}>{f}</option>)}
                     </select>
                   </div>
-                  <div className="col-span-1">
+                  <div className="col-span-2">
                     <label className={LABEL}>Status</label>
                     <select value={p.status_pagamento} onChange={e => setParc(i, 'status_pagamento', e.target.value)} className={`${FIELD} bg-g-900 text-xs`}>
                       {STATUS_PARC.map(s => <option key={s}>{s}</option>)}

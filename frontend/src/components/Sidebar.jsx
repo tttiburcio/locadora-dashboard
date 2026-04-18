@@ -49,7 +49,7 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
             <img
               src="/logo.png"
               alt="TKJ Gerenciamento"
-              className="h-12 w-auto object-contain"
+              className="h-22 w-auto object-contain"
             />
           </div>
           <button

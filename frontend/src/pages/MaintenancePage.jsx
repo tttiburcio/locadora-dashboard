@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { getMaintenanceAnalysis, dbListManutencoes, dbAtualizarManutencao, dbDeletarManutencao } from '../utils/api'
+import { getMaintenanceAnalysis, dbListManutencoes, dbAtualizarManutencao, dbDeletarManutencao, dbAtualizarParcela, dbListParcelas } from '../utils/api'
 import { brl, brlShort, num, dateBR } from '../utils/format'
 import KPICard from '../components/KPICard'
 import AbrirManutencaoModal   from '../components/AbrirManutencaoModal'
@@ -14,7 +14,8 @@ import {
   Wrench, DollarSign, Hash, Award, Search, X,
   Calendar, AlertTriangle, ChevronDown, ChevronUp,
   Activity, Loader2, TrendingUp, Plus, CheckCircle,
-  Truck, Clock, AlertCircle, Trash2, BarChart2, Pencil,
+  Truck, Clock, AlertCircle, Trash2, BarChart2, Pencil, Bell,
+  CreditCard, CalendarClock, Ban,
 } from 'lucide-react'
 
 // ── Status helpers ────────────────────────────────────────────────────
@@ -117,6 +118,199 @@ function SortableHeader({ label, col, sortState, onSort, className = '' }) {
   )
 }
 
+// ── Modal de detalhes (somente leitura) ──────────────────────────────
+function Field({ label, value, mono = false, full = false }) {
+  return (
+    <div className={full ? 'col-span-2' : ''}>
+      <p className="text-g-700 text-xs mb-0.5">{label}</p>
+      <p className={`text-g-300 text-sm ${mono ? 'font-mono' : ''} break-words`}>{value || '—'}</p>
+    </div>
+  )
+}
+
+function DetalhesManutencaoModal({ manutencao: m, onClose, onDeleted }) {
+  const isFinalizada = m.status_manutencao === 'finalizada'
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting,      setDeleting]      = useState(false)
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try {
+      await dbDeletarManutencao(m.id)
+      onDeleted()
+    } catch {
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
+  const dias = m.data_entrada
+    ? diasParados(m.data_entrada, isFinalizada ? m.data_execucao : null)
+    : null
+  const hasPneu    = m.posicao_pneu || m.espec_pneu || m.marca_pneu
+  const hasParcelas = m.parcelas?.length > 0
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="bg-g-900 border border-g-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-fade-up"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-g-800">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-g-850 border border-g-800 rounded-lg">
+              <Wrench className="w-4 h-4 text-g-600" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-g-100 font-bold font-mono text-base">{m.placa}</span>
+                <StatusBadge status={m.status_manutencao} />
+              </div>
+              <p className="text-g-600 text-xs mt-0.5">{m.modelo || '—'}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto px-5 py-5 flex flex-col gap-6">
+
+          {/* Identificação */}
+          <div>
+            <p className="text-g-600 text-xs font-semibold uppercase tracking-wider mb-3">Identificação</p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+              <Field label="Fornecedor / Oficina" value={m.fornecedor} />
+              <Field label="Tipo de Manutenção"   value={m.tipo_manutencao} />
+              <Field label="Sistema"              value={m.sistema} />
+              <Field label="Serviço"              value={m.servico} />
+              <Field label="Data de Entrada"      value={dateBR(m.data_entrada)} />
+              <Field label="KM"                   value={m.km ? `${num(m.km)} km` : null} />
+              <Field label="Responsável Técnico"  value={m.responsavel_tec} />
+              <div>
+                <p className="text-g-700 text-xs mb-0.5">Veículo Indisponível</p>
+                <p className={`text-sm font-medium ${m.indisponivel ? 'text-amber-500' : 'text-g-500'}`}>
+                  {m.indisponivel ? 'Sim' : 'Não'}
+                </p>
+              </div>
+              {dias !== null && (
+                <div>
+                  <p className="text-g-700 text-xs mb-0.5">Dias Parados</p>
+                  <p className={`text-sm font-semibold ${dias > 30 ? 'text-red-400' : dias > 7 ? 'text-amber-400' : 'text-g-300'}`}>
+                    {dias} dias
+                  </p>
+                </div>
+              )}
+              {m.descricao  && <Field label="Descrição"   value={m.descricao}   full />}
+              {m.observacoes && <Field label="Observações" value={m.observacoes} full />}
+            </div>
+          </div>
+
+          {/* OS Finalizada */}
+          {isFinalizada && (
+            <div className="border-t border-g-800 pt-5">
+              <p className="text-g-600 text-xs font-semibold uppercase tracking-wider mb-3">Ordem de Serviço</p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                <Field label="Nº da OS"          value={m.id_ord_serv}              mono />
+                <Field label="Data de Execução"  value={dateBR(m.data_execucao)} />
+                <Field label="Valor Total"        value={m.total_os ? brl(m.total_os) : null} mono />
+                <Field label="Categoria"          value={m.categoria} />
+                {m.qtd_itens && <Field label="Qtd. Itens" value={String(m.qtd_itens)} />}
+                {m.prox_km   && <Field label="Próx. KM"   value={`${num(m.prox_km)} km`} />}
+                {m.prox_data && <Field label="Próx. Data" value={dateBR(m.prox_data)} />}
+              </div>
+            </div>
+          )}
+
+          {/* Pneu */}
+          {hasPneu && (
+            <div className="border-t border-g-800 pt-5">
+              <p className="text-g-600 text-xs font-semibold uppercase tracking-wider mb-3">Dados de Pneu</p>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                <Field label="Posição"       value={m.posicao_pneu} />
+                <Field label="Qtd."          value={m.qtd_pneu ? String(m.qtd_pneu) : null} />
+                <Field label="Especificação" value={m.espec_pneu} />
+                <Field label="Marca"         value={m.marca_pneu} />
+                <Field label="Manejo"        value={m.manejo_pneu} />
+              </div>
+            </div>
+          )}
+
+          {/* Parcelas */}
+          {hasParcelas && (
+            <div className="border-t border-g-800 pt-5">
+              <p className="text-g-600 text-xs font-semibold uppercase tracking-wider mb-3">
+                Parcelas de Pagamento
+                <span className="ml-2 text-g-700 normal-case font-normal">
+                  ({m.parcelas.filter(p => p.status_pagamento === 'Pago').length}/{m.parcelas.length} pagas)
+                </span>
+              </p>
+              <div className="flex flex-col gap-2">
+                {m.parcelas.map((p, i) => (
+                  <div key={i} className="bg-g-850 border border-g-800 rounded-xl px-4 py-2.5 flex items-center justify-between gap-4 text-xs">
+                    <div className="flex items-center gap-3">
+                      {p.parcela_atual && <span className="text-g-600 font-mono text-xs">Parcela {p.parcela_atual}/{p.parcela_total}</span>}
+                      {p.nota && <span className="text-g-500">{p.nota}</span>}
+                      {p.data_vencimento && <span className="text-g-600">Venc. {dateBR(p.data_vencimento)}</span>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-g-400">{p.forma_pgto}</span>
+                      <span className="font-mono font-semibold text-g-200">{brl(p.valor_parcela)}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium border ${p.status_pagamento === 'Pago' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                        {p.status_pagamento}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-g-800 flex items-center justify-between">
+          <div>
+            {isFinalizada && !confirmDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-500 text-xs hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Excluir OS
+              </button>
+            )}
+            {confirmDelete && (
+              <div className="flex items-center gap-2">
+                <span className="text-red-500 text-xs">Confirmar exclusão permanente?</span>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-500 disabled:opacity-50 transition-colors"
+                >
+                  {deleting ? 'Excluindo…' : 'Confirmar'}
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="px-3 py-1.5 rounded-lg border border-g-800 text-g-500 text-xs hover:bg-g-850 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+          </div>
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-g-800 text-g-500 text-sm hover:bg-g-850 transition-colors">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ════════════════════════════════════════════════════════════════════
 // ABA GESTÃO — tabelas CRUD
 // ════════════════════════════════════════════════════════════════════
@@ -130,6 +324,7 @@ function GestaoTab() {
   const [modalEdit,    setModalEdit]    = useState(null)
   const [modalInsert,  setModalInsert]  = useState(false)
   const [modalEditFin, setModalEditFin] = useState(null)
+  const [modalDetalhe, setModalDetalhe] = useState(null)
   const [confirmDel,   setConfirmDel]   = useState(null)
   const [filterAberta, setFilterAberta] = useState('')
   const [filterFin,    setFilterFin]    = useState('')
@@ -160,6 +355,7 @@ function GestaoTab() {
     setModalEdit(null)
     setModalInsert(false)
     setModalEditFin(null)
+    setModalDetalhe(null)
     load()
   }
 
@@ -330,7 +526,7 @@ function GestaoTab() {
                     {filteredAbertas.map(m => {
                       const dias = m.indisponivel && m.data_entrada ? diasParados(m.data_entrada) : null
                       return (
-                        <tr key={m.id} className="table-row">
+                        <tr key={m.id} className="table-row cursor-pointer" onClick={() => setModalDetalhe(m)}>
                           <td className="td td-left font-mono font-bold text-g-200">{m.placa}</td>
                           <td className="td td-left text-g-500">{m.modelo || '—'}</td>
                           <td className="td td-left text-g-500">{m.fornecedor || '—'}</td>
@@ -350,7 +546,7 @@ function GestaoTab() {
                               : <span className="text-g-700">—</span>
                             }
                           </td>
-                          <td className="td">
+                          <td className="td" onClick={e => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
                               {m.status_manutencao === 'em_andamento' && (
                                 <button
@@ -457,7 +653,7 @@ function GestaoTab() {
                     {filteredFin.map(m => {
                       const dias = m.data_execucao && m.data_entrada ? diasParados(m.data_entrada, m.data_execucao) : null
                       return (
-                        <tr key={m.id} className="table-row">
+                        <tr key={m.id} className="table-row cursor-pointer" onClick={() => setModalDetalhe(m)}>
                           <td className="td td-left font-mono font-bold text-g-200">{m.placa}</td>
                           <td className="td td-left text-g-500">{m.modelo || '—'}</td>
                           <td className="td td-left font-mono text-xs text-g-400">{m.id_ord_serv || '—'}</td>
@@ -481,7 +677,7 @@ function GestaoTab() {
                           <td className="td tabular-nums text-xs text-g-500">
                             {dias !== null ? dias : '—'}
                           </td>
-                          <td className="td">
+                          <td className="td" onClick={e => e.stopPropagation()}>
                             <div className="flex items-center justify-end">
                               <button
                                 onClick={() => setModalEditFin(m)}
@@ -532,6 +728,632 @@ function GestaoTab() {
       )}
       {modalEditFin && (
         <FinalizarManutencaoModal editData={modalEditFin} onClose={() => setModalEditFin(null)} onSaved={handleSaved} />
+      )}
+      {modalDetalhe && (
+        <DetalhesManutencaoModal manutencao={modalDetalhe} onClose={() => setModalDetalhe(null)} onDeleted={() => { setModalDetalhe(null); load() }} />
+      )}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════
+// ABA FINANCEIRO — helpers
+// ════════════════════════════════════════════════════════════════════
+
+function statusFinanceiro(p) {
+  if (p.status_pagamento === 'Pago') return 'pago'
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+  if (!p.data_vencimento) return 'pendente'
+  const venc = new Date(p.data_vencimento); venc.setHours(0, 0, 0, 0)
+  if (venc < hoje) return 'vencida'
+  if (venc.getTime() === hoje.getTime()) return 'vence_hoje'
+  return 'a_vencer'
+}
+
+function calcValorComEncargos(valorBase, multaPct, jurosDiarioPct, dataVenc) {
+  if (!valorBase) return valorBase
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+  const venc = new Date(dataVenc); venc.setHours(0, 0, 0, 0)
+  const diasAtraso = Math.max(0, Math.round((hoje - venc) / 86400000))
+  const multa = valorBase * ((parseFloat(multaPct) || 0) / 100)
+  const juros = valorBase * ((parseFloat(jurosDiarioPct) || 0) / 100) * diasAtraso
+  return valorBase + multa + juros
+}
+
+function calcDataCartorio(dataVenc, diasCartorio) {
+  if (!dataVenc || !diasCartorio) return null
+  const d = new Date(dataVenc)
+  d.setDate(d.getDate() + parseInt(diasCartorio))
+  return d.toISOString().slice(0, 10)
+}
+
+const FIN_STATUS = {
+  pago:       { label: 'Pago',         color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  a_vencer:   { label: 'A vencer',     color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  vence_hoje: { label: 'Vence hoje',   color: 'bg-orange-50 text-orange-700 border-orange-200' },
+  vencida:    { label: 'Vencida',      color: 'bg-red-50 text-red-700 border-red-200' },
+  pendente:   { label: 'Pendente',     color: 'bg-slate-100 text-slate-600 border-slate-300' },
+}
+
+function FinBadge({ status }) {
+  const s = FIN_STATUS[status] || FIN_STATUS.pendente
+  return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${s.color}`}>{s.label}</span>
+}
+
+// ── Modal: alerta contas do dia ──────────────────────────────────────
+function AlertContasDiaModal({ parcelas, onCiente, onLembrarDepois }) {
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+      <div className="bg-g-900 border border-orange-500/30 rounded-2xl shadow-2xl w-full max-w-lg animate-fade-up">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-g-800">
+          <div className="p-1.5 bg-orange-50 border border-orange-200 rounded-lg">
+            <Bell className="w-4 h-4 text-orange-600" />
+          </div>
+          <div>
+            <h2 className="text-g-200 font-semibold text-sm">Contas com vencimento hoje</h2>
+            <p className="text-g-600 text-xs">{parcelas.length} parcela{parcelas.length !== 1 ? 's' : ''} pendente{parcelas.length !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+        <div className="px-5 py-4 flex flex-col gap-2 max-h-72 overflow-y-auto">
+          {parcelas.map(p => (
+            <div key={p.id} className="bg-g-850 border border-orange-500/20 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-3">
+                <span className="font-mono font-bold text-g-200">{p.placa}</span>
+                {p.id_ord_serv && <span className="text-g-600 font-mono">{p.id_ord_serv}</span>}
+                {p.fornecedor && <span className="text-g-500 truncate max-w-[140px]">{p.fornecedor}</span>}
+              </div>
+              <span className="font-mono font-semibold text-orange-400">{brl(p.valor_parcela)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="px-5 py-4 border-t border-g-800 flex justify-end gap-2">
+          <button
+            onClick={onLembrarDepois}
+            className="px-4 py-2 rounded-lg border border-g-800 text-g-500 text-sm hover:bg-g-850 transition-colors"
+          >
+            Lembrar mais tarde
+          </button>
+          <button
+            onClick={onCiente}
+            className="px-5 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-500 transition-colors"
+          >
+            Ciente
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// ── Modal: prorrogar parcela ─────────────────────────────────────────
+function ProrrogarParcelaModal({ parcela: p, onClose, onSaved }) {
+  const FIELD = 'w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors'
+  const LABEL = 'text-g-600 text-xs font-medium mb-1 block'
+
+  const [modo,   setModo]   = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState(null)
+  const [form,   setForm]   = useState({
+    nova_data: '',
+    tipo_pgto: 'boleto',
+    chave_pix: '',
+    multa_pct: '',
+    juros_diario_pct: '',
+    data_prevista_pagamento: '',
+    dias_cartorio: '',
+  })
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const valorBase = parseFloat(p.valor_parcela) || 0
+  const dataVencRef = p.data_vencimento_original || p.data_vencimento
+
+  const valorEncargos = useMemo(() => {
+    if (modo === 'prorrogada_encargos' || modo === 'cartorio') {
+      return calcValorComEncargos(valorBase, form.multa_pct, form.juros_diario_pct, dataVencRef)
+    }
+    return null
+  }, [modo, form.multa_pct, form.juros_diario_pct, valorBase, dataVencRef])
+
+  const dataCartorio = useMemo(() =>
+    calcDataCartorio(dataVencRef, form.dias_cartorio),
+    [dataVencRef, form.dias_cartorio]
+  )
+
+  const handleSave = async () => {
+    setError(null)
+    let payload = {}
+    if (modo === 'prorrogada_isenta') {
+      if (!form.nova_data) { setError('Informe a nova data de vencimento'); return }
+      payload = {
+        data_vencimento_original: p.data_vencimento_original || p.data_vencimento,
+        data_vencimento: form.nova_data,
+        prorrogada: true,
+        isento_encargos: true,
+        tipo_pgto_prorrogacao: form.tipo_pgto,
+        chave_pix: form.tipo_pgto === 'pix' ? form.chave_pix : null,
+      }
+    } else if (modo === 'prorrogada_encargos') {
+      if (!form.nova_data) { setError('Informe a nova data de vencimento'); return }
+      payload = {
+        data_vencimento_original: p.data_vencimento_original || p.data_vencimento,
+        data_vencimento: form.nova_data,
+        prorrogada: true,
+        isento_encargos: false,
+        multa_pct: parseFloat(form.multa_pct) || null,
+        juros_diario_pct: parseFloat(form.juros_diario_pct) || null,
+        data_prevista_pagamento: form.data_prevista_pagamento || null,
+        valor_atualizado: valorEncargos,
+      }
+    } else if (modo === 'cartorio') {
+      if (!form.dias_cartorio) { setError('Informe a quantidade de dias'); return }
+      payload = {
+        dias_cartorio: parseInt(form.dias_cartorio),
+        data_prevista_pagamento: dataCartorio,
+        multa_pct: parseFloat(form.multa_pct) || null,
+        juros_diario_pct: parseFloat(form.juros_diario_pct) || null,
+        valor_atualizado: valorEncargos,
+      }
+    }
+    setSaving(true)
+    try {
+      await dbAtualizarParcela(p.id, payload)
+      onSaved()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao salvar')
+      setSaving(false)
+    }
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="bg-g-900 border border-g-800 rounded-2xl shadow-2xl w-full max-w-lg animate-fade-up">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-g-800">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-g-850 border border-g-800 rounded-lg">
+              <CalendarClock className="w-4 h-4 text-g-400" />
+            </div>
+            <div>
+              <h2 className="text-g-200 font-semibold text-sm">Prorrogar Parcela</h2>
+              <p className="text-g-600 text-xs font-mono">{p.placa} · {p.id_ord_serv || '—'} · {brl(p.valor_parcela)}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-5 flex flex-col gap-5">
+
+          {/* Seleção de modo */}
+          {!modo && (
+            <div className="flex flex-col gap-3">
+              <p className="text-g-500 text-sm font-medium">A parcela será prorrogada?</p>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => setModo('prorrogada_isenta')}
+                  className="flex items-center gap-3 px-4 py-3 bg-g-850 border border-g-800 rounded-xl hover:border-emerald-500/40 hover:bg-emerald-50/5 transition-colors text-left"
+                >
+                  <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <div>
+                    <p className="text-g-300 text-sm font-medium">Sim, isenta de encargos</p>
+                    <p className="text-g-600 text-xs">Nova data, sem multa ou juros</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setModo('prorrogada_encargos')}
+                  className="flex items-center gap-3 px-4 py-3 bg-g-850 border border-g-800 rounded-xl hover:border-amber-500/40 hover:bg-amber-50/5 transition-colors text-left"
+                >
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <div>
+                    <p className="text-g-300 text-sm font-medium">Sim, com encargos</p>
+                    <p className="text-g-600 text-xs">Multa e/ou juros serão aplicados</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setModo('cartorio')}
+                  className="flex items-center gap-3 px-4 py-3 bg-g-850 border border-g-800 rounded-xl hover:border-red-500/40 hover:bg-red-50/5 transition-colors text-left"
+                >
+                  <Ban className="w-4 h-4 text-red-500 shrink-0" />
+                  <div>
+                    <p className="text-g-300 text-sm font-medium">Não — envio ao cartório</p>
+                    <p className="text-g-600 text-xs">Calcular data de protesto</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Tela: prorrogada isenta */}
+          {modo === 'prorrogada_isenta' && (
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={LABEL}>Nova data de vencimento *</label>
+                  <input type="date" value={form.nova_data} onChange={e => set('nova_data', e.target.value)} className={FIELD} />
+                </div>
+                <div>
+                  <label className={LABEL}>Forma de pagamento</label>
+                  <select value={form.tipo_pgto} onChange={e => set('tipo_pgto', e.target.value)} className={FIELD}>
+                    <option value="boleto">Boleto atualizado</option>
+                    <option value="pix">PIX</option>
+                  </select>
+                </div>
+              </div>
+              {form.tipo_pgto === 'pix' && (
+                <div>
+                  <label className={LABEL}>Chave PIX</label>
+                  <input value={form.chave_pix} onChange={e => set('chave_pix', e.target.value)} placeholder="CPF, CNPJ, e-mail, telefone ou aleatória…" className={FIELD} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tela: prorrogada com encargos */}
+          {modo === 'prorrogada_encargos' && (
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={LABEL}>Nova data de vencimento *</label>
+                  <input type="date" value={form.nova_data} onChange={e => set('nova_data', e.target.value)} className={FIELD} />
+                </div>
+                <div>
+                  <label className={LABEL}>Data prevista de pagamento</label>
+                  <input type="date" value={form.data_prevista_pagamento} onChange={e => set('data_prevista_pagamento', e.target.value)} className={FIELD} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={LABEL}>Multa (%)</label>
+                  <input type="number" step="0.01" placeholder="Ex: 2,00" value={form.multa_pct} onChange={e => set('multa_pct', e.target.value)} className={FIELD} />
+                </div>
+                <div>
+                  <label className={LABEL}>Juros diário (%)</label>
+                  <input type="number" step="0.001" placeholder="Ex: 0,033" value={form.juros_diario_pct} onChange={e => set('juros_diario_pct', e.target.value)} className={FIELD} />
+                </div>
+              </div>
+              {valorEncargos !== null && (
+                <div className="bg-g-850 border border-g-800 rounded-xl px-4 py-3 text-xs flex flex-col gap-1">
+                  <div className="flex justify-between text-g-600"><span>Valor base</span><span className="font-mono">{brl(valorBase)}</span></div>
+                  <div className="flex justify-between text-g-600"><span>Multa ({form.multa_pct || 0}%)</span><span className="font-mono">{brl(valorBase * ((parseFloat(form.multa_pct) || 0) / 100))}</span></div>
+                  <div className="flex justify-between text-g-600 border-t border-g-800 pt-1 mt-1"><span>Valor atualizado</span><span className="font-mono font-semibold text-amber-400">{brl(valorEncargos)}</span></div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tela: cartório */}
+          {modo === 'cartorio' && (
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={LABEL}>Dias corridos para envio *</label>
+                  <input type="number" placeholder="Ex: 15" value={form.dias_cartorio} onChange={e => set('dias_cartorio', e.target.value)} className={FIELD} />
+                </div>
+                <div>
+                  <label className={LABEL}>Data de envio ao cartório</label>
+                  <input
+                    value={dataCartorio ? dateBR(dataCartorio) : '—'}
+                    disabled
+                    className={`${FIELD} bg-g-850 text-g-500 cursor-default opacity-70`}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={LABEL}>Multa (%)</label>
+                  <input type="number" step="0.01" placeholder="Ex: 2,00" value={form.multa_pct} onChange={e => set('multa_pct', e.target.value)} className={FIELD} />
+                </div>
+                <div>
+                  <label className={LABEL}>Juros diário (%)</label>
+                  <input type="number" step="0.001" placeholder="Ex: 0,033" value={form.juros_diario_pct} onChange={e => set('juros_diario_pct', e.target.value)} className={FIELD} />
+                </div>
+              </div>
+              {valorEncargos !== null && (
+                <div className="bg-g-850 border border-g-800 rounded-xl px-4 py-3 text-xs flex flex-col gap-1">
+                  <div className="flex justify-between text-g-600"><span>Valor base</span><span className="font-mono">{brl(valorBase)}</span></div>
+                  <div className="flex justify-between text-g-600"><span>Encargos acumulados</span><span className="font-mono">{brl(valorEncargos - valorBase)}</span></div>
+                  <div className="flex justify-between text-g-600 border-t border-g-800 pt-1 mt-1"><span>Valor com encargos</span><span className="font-mono font-semibold text-red-400">{brl(valorEncargos)}</span></div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {error && <p className="text-red-600 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-g-800 flex justify-between items-center">
+          <div>
+            {modo && (
+              <button onClick={() => { setModo(null); setError(null) }} className="text-g-600 text-xs hover:text-g-400 transition-colors">
+                ← Voltar
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-g-800 text-g-500 text-sm hover:bg-g-850 transition-colors">
+              Cancelar
+            </button>
+            {modo && (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-5 py-2 rounded-lg bg-g-100 text-white text-sm font-medium hover:bg-g-50 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Salvar
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+// ── Aba Financeiro ────────────────────────────────────────────────────
+function FinanceiroTab({ alertDismissed, onAlertDismiss }) {
+  const [parcelas,       setParcelas]       = useState([])
+  const [loading,        setLoading]        = useState(true)
+  const [categoria,      setCategoria]      = useState('todas')
+  const [alertVisible,   setAlertVisible]   = useState(false)
+  const [modalProrrogar, setModalProrrogar] = useState(null)
+  const [filterText,     setFilterText]     = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try { setParcelas(await dbListParcelas()) }
+    finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (loading || alertDismissed) return
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+    const venceHoje = parcelas.filter(p => {
+      if (p.status_pagamento !== 'Pendente') return false
+      if (!p.data_vencimento) return false
+      const v = new Date(p.data_vencimento); v.setHours(0, 0, 0, 0)
+      return v.getTime() === hoje.getTime()
+    })
+    if (venceHoje.length > 0) setAlertVisible(true)
+  }, [loading, parcelas, alertDismissed])
+
+  const enriched = useMemo(() =>
+    parcelas.map(p => ({ ...p, _status: statusFinanceiro(p) })),
+    [parcelas]
+  )
+
+  const CATS = [
+    { key: 'todas',      label: 'Todas' },
+    { key: 'a_vencer',   label: 'A vencer' },
+    { key: 'vence_hoje', label: 'Vencendo hoje' },
+    { key: 'vencida',    label: 'Vencidas' },
+    { key: 'pendente',   label: 'Pendentes' },
+    { key: 'pago',       label: 'Pagas' },
+  ]
+
+  const filtered = useMemo(() => {
+    let r = categoria === 'todas' ? enriched : enriched.filter(p => p._status === categoria)
+    if (filterText.trim()) {
+      const q = filterText.toLowerCase()
+      r = r.filter(p =>
+        [p.placa, p.fornecedor, p.id_ord_serv, p.nota, p.modelo]
+          .some(f => (f || '').toLowerCase().includes(q))
+      )
+    }
+    return r
+  }, [enriched, categoria, filterText])
+
+  const venceHojeList = useMemo(() => enriched.filter(p => p._status === 'vence_hoje'), [enriched])
+
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+  const totalPendente  = enriched.filter(p => p._status !== 'pago').reduce((s, p) => s + (parseFloat(p.valor_parcela) || 0), 0)
+  const totalVencidas  = enriched.filter(p => p._status === 'vencida').length
+  const totalVenceHoje = venceHojeList.length
+  const totalPago      = enriched.filter(p => p._status === 'pago').reduce((s, p) => s + (parseFloat(p.valor_parcela) || 0), 0)
+
+  const handleMarcarPago = async (p) => {
+    await dbAtualizarParcela(p.id, { status_pagamento: 'Pago' })
+    load()
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+
+      {/* KPIs */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="card p-4 flex items-center gap-3">
+          <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg">
+            <CreditCard className="w-4 h-4 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-g-600 text-xs uppercase tracking-wider">Total Pendente</p>
+            <p className="text-g-200 font-bold text-lg font-mono tabular-nums">{brl(totalPendente)}</p>
+          </div>
+        </div>
+        <div className="card p-4 flex items-center gap-3">
+          <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
+            <AlertCircle className="w-4 h-4 text-red-600" />
+          </div>
+          <div>
+            <p className="text-g-600 text-xs uppercase tracking-wider">Vencidas</p>
+            <p className="text-g-200 font-bold text-xl">{totalVencidas}</p>
+          </div>
+        </div>
+        <div className="card p-4 flex items-center gap-3">
+          <div className="p-2 bg-orange-50 border border-orange-200 rounded-lg">
+            <Bell className="w-4 h-4 text-orange-600" />
+          </div>
+          <div>
+            <p className="text-g-600 text-xs uppercase tracking-wider">Vencendo hoje</p>
+            <p className="text-g-200 font-bold text-xl">{totalVenceHoje}</p>
+          </div>
+        </div>
+        <div className="card p-4 flex items-center gap-3">
+          <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <CheckCircle className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-g-600 text-xs uppercase tracking-wider">Total Pago</p>
+            <p className="text-g-200 font-bold text-lg font-mono tabular-nums">{brl(totalPago)}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Filtro de categoria + busca */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1">
+          {CATS.map(c => {
+            const count = c.key === 'todas' ? enriched.length : enriched.filter(p => p._status === c.key).length
+            return (
+              <button
+                key={c.key}
+                onClick={() => setCategoria(c.key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  categoria === c.key
+                    ? 'bg-white shadow-sm text-g-200 border border-g-800'
+                    : 'text-g-600 hover:text-g-400'
+                }`}
+              >
+                {c.label} <span className="opacity-60">({count})</span>
+              </button>
+            )
+          })}
+        </div>
+        <div className="relative flex-1 min-w-52">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-600" />
+          <input
+            value={filterText}
+            onChange={e => setFilterText(e.target.value)}
+            placeholder="Filtrar por placa, fornecedor, nº OS…"
+            className="w-full pl-9 pr-9 py-2 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors"
+          />
+          {filterText && (
+            <button onClick={() => setFilterText('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+              <X className="w-3.5 h-3.5 text-g-600 hover:text-g-400" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tabela */}
+      <div className="card overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
+            <Loader2 className="w-4 h-4 animate-spin" /> Carregando parcelas…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
+            <Search className="w-4 h-4" />
+            {filterText ? `Nenhum resultado para "${filterText}"` : 'Nenhuma parcela nesta categoria'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px]">
+              <thead className="bg-g-850 border-b border-g-800">
+                <tr>
+                  <th className="th th-left">Placa</th>
+                  <th className="th th-left">Fornecedor</th>
+                  <th className="th th-left">Nº OS</th>
+                  <th className="th th-left">Nota Fiscal</th>
+                  <th className="th th-left">Vencimento</th>
+                  <th className="th">Valor</th>
+                  <th className="th">Status</th>
+                  <th className="th th-left">Previsão Pgto</th>
+                  <th className="th">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(p => {
+                  const prevAtrasada = p.data_prevista_pagamento
+                    && p.status_pagamento !== 'Pago'
+                    && new Date(p.data_prevista_pagamento) < hoje
+                  const rowBg = p._status === 'vencida'
+                    ? 'bg-red-50/20'
+                    : p._status === 'vence_hoje'
+                    ? 'bg-orange-50/20'
+                    : ''
+                  return (
+                    <tr key={p.id} className={`border-b border-g-800 hover:bg-g-850 transition-colors ${rowBg}`}>
+                      <td className="td td-left font-mono font-bold text-g-200">{p.placa}</td>
+                      <td className="td td-left text-g-500 truncate max-w-[130px]">{p.fornecedor || '—'}</td>
+                      <td className="td td-left font-mono text-xs text-g-400">{p.id_ord_serv || '—'}</td>
+                      <td className="td td-left text-xs text-g-500">{p.nota || '—'}</td>
+                      <td className="td td-left text-xs text-g-500 tabular-nums">
+                        <span className="flex items-center gap-1">
+                          {dateBR(p.data_vencimento)}
+                          {p.prorrogada && <span className="text-g-700 text-xs" title={`Original: ${dateBR(p.data_vencimento_original)}`}>↻</span>}
+                          {p._status === 'vencida' && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                        </span>
+                      </td>
+                      <td className="td font-mono font-semibold text-g-300 tabular-nums text-sm">
+                        {brl(p.valor_atualizado ?? p.valor_parcela)}
+                        {p.valor_atualizado && p.valor_atualizado !== p.valor_parcela && (
+                          <span className="block text-g-700 text-xs font-normal">{brl(p.valor_parcela)} orig.</span>
+                        )}
+                      </td>
+                      <td className="td"><FinBadge status={p._status} /></td>
+                      <td className="td td-left text-xs tabular-nums">
+                        {p.data_prevista_pagamento ? (
+                          <span className={`flex items-center gap-1 ${prevAtrasada ? 'text-red-500 font-medium' : 'text-g-500'}`}>
+                            {dateBR(p.data_prevista_pagamento)}
+                            {prevAtrasada && <AlertTriangle className="w-3 h-3" />}
+                          </span>
+                        ) : '—'}
+                      </td>
+                      <td className="td">
+                        <div className="flex items-center justify-end gap-1">
+                          {p._status !== 'pago' && (
+                            <button
+                              onClick={() => setModalProrrogar(p)}
+                              title="Prorrogar"
+                              className="px-2 py-1 text-xs text-g-400 border border-g-800 rounded-lg hover:bg-g-850 hover:text-g-200 transition-colors flex items-center gap-1"
+                            >
+                              <CalendarClock className="w-3 h-3" /> Prorrogar
+                            </button>
+                          )}
+                          {p._status !== 'pago' && (
+                            <button
+                              onClick={() => handleMarcarPago(p)}
+                              title="Marcar como pago"
+                              className="px-2 py-1 text-xs text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
+                            >
+                              Pago
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal alerta contas do dia */}
+      {alertVisible && !alertDismissed && (
+        <AlertContasDiaModal
+          parcelas={venceHojeList}
+          onCiente={() => { onAlertDismiss(); setAlertVisible(false) }}
+          onLembrarDepois={() => setAlertVisible(false)}
+        />
+      )}
+
+      {/* Modal prorrogar */}
+      {modalProrrogar && (
+        <ProrrogarParcelaModal
+          parcela={modalProrrogar}
+          onClose={() => setModalProrrogar(null)}
+          onSaved={() => { setModalProrrogar(null); load() }}
+        />
       )}
     </div>
   )
@@ -749,14 +1571,16 @@ function AnaliseTab({ year, vehicles }) {
 // ════════════════════════════════════════════════════════════════════
 export default function MaintenancePage({ year, vehicles = [] }) {
   const [tab, setTab] = useState('gestao')
+  const [finAlertDismissed, setFinAlertDismissed] = useState(false)
 
   return (
     <div className="flex flex-col gap-6">
       {/* Tabs principais */}
       <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1 w-fit">
         {[
-          { key: 'gestao',  label: 'Gestão de OS',    icon: Wrench },
-          { key: 'analise', label: 'Análise',         icon: BarChart2 },
+          { key: 'gestao',      label: 'Gestão de OS',    icon: Wrench },
+          { key: 'financeiro',  label: 'Financeiro',      icon: DollarSign },
+          { key: 'analise',     label: 'Análise',         icon: BarChart2 },
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -773,8 +1597,9 @@ export default function MaintenancePage({ year, vehicles = [] }) {
         ))}
       </div>
 
-      {tab === 'gestao'  && <GestaoTab />}
-      {tab === 'analise' && <AnaliseTab year={year} vehicles={vehicles} />}
+      {tab === 'gestao'     && <GestaoTab />}
+      {tab === 'financeiro' && <FinanceiroTab alertDismissed={finAlertDismissed} onAlertDismiss={() => setFinAlertDismissed(true)} />}
+      {tab === 'analise'    && <AnaliseTab year={year} vehicles={vehicles} />}
     </div>
   )
 }

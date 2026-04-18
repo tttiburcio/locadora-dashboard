@@ -19,3 +19,4 @@ export const dbAtualizarManutencao = (id, payload)         => api.patch(`/db/man
 export const dbFinalizarManutencao = (id, payload)         => api.post(`/db/manutencoes/${id}/finalizar`, payload).then(r => r.data)
 export const dbDeletarManutencao   = (id)                  => api.delete(`/db/manutencoes/${id}`)
 export const dbAtualizarParcela    = (id, payload)         => api.patch(`/db/parcelas/${id}`, payload).then(r => r.data)
+export const dbListParcelas        = ()                    => api.get('/db/parcelas').then(r => r.data)

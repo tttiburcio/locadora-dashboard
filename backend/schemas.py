@@ -18,11 +18,21 @@ class ParcelaCreate(BaseModel):
 
 
 class ParcelaUpdate(BaseModel):
-    nota:             Optional[str]   = None
-    data_vencimento:  Optional[date]  = None
-    valor_parcela:    Optional[float] = None
-    forma_pgto:       Optional[str]   = None
-    status_pagamento: Optional[str]   = None
+    nota:                     Optional[str]   = None
+    data_vencimento:          Optional[date]  = None
+    valor_parcela:            Optional[float] = None
+    forma_pgto:               Optional[str]   = None
+    status_pagamento:         Optional[str]   = None
+    data_vencimento_original: Optional[date]  = None
+    prorrogada:               Optional[bool]  = None
+    isento_encargos:          Optional[bool]  = None
+    tipo_pgto_prorrogacao:    Optional[str]   = None
+    chave_pix:                Optional[str]   = None
+    multa_pct:                Optional[float] = None
+    juros_diario_pct:         Optional[float] = None
+    data_prevista_pagamento:  Optional[date]  = None
+    dias_cartorio:            Optional[int]   = None
+    valor_atualizado:         Optional[float] = None
 
 
 class ParcelaResponse(BaseModel):
@@ -38,6 +48,24 @@ class ParcelaResponse(BaseModel):
     valor_parcela:    Optional[float]
     forma_pgto:       Optional[str]
     status_pagamento: str
+    data_vencimento_original: Optional[date]  = None
+    prorrogada:               Optional[bool]  = None
+    isento_encargos:          Optional[bool]  = None
+    tipo_pgto_prorrogacao:    Optional[str]   = None
+    chave_pix:                Optional[str]   = None
+    multa_pct:                Optional[float] = None
+    juros_diario_pct:         Optional[float] = None
+    data_prevista_pagamento:  Optional[date]  = None
+    dias_cartorio:            Optional[int]   = None
+    valor_atualizado:         Optional[float] = None
+
+
+class ParcelaFinanceiroResponse(ParcelaResponse):
+    placa:         str
+    modelo:        Optional[str]  = None
+    fornecedor:    Optional[str]  = None
+    id_ord_serv:   Optional[str]  = None
+    data_execucao: Optional[date] = None
 
 
 # ─────────────────────────────────────────────
@@ -70,11 +98,14 @@ class ManutencaoAbrir(BaseModel):
 class ManutencaoUpdate(BaseModel):
     status_manutencao: Optional[str]   = None
     fornecedor:        Optional[str]   = None
+    tipo_manutencao:   Optional[str]   = None
     sistema:           Optional[str]   = None
     servico:           Optional[str]   = None
     descricao:         Optional[str]   = None
     responsavel_tec:   Optional[str]   = None
     indisponivel:      Optional[bool]  = None
+    data_entrada:      Optional[date]  = None
+    km:                Optional[float] = None
     observacoes:       Optional[str]   = None
 
 
@@ -86,6 +117,7 @@ class ManutencaoFinalizar(BaseModel):
     id_ord_serv:     str
     total_os:        float
     data_execucao:   date
+    km:              Optional[float] = None
     categoria:       Optional[str]   = None
     qtd_itens:       Optional[int]   = None
     prox_km:         Optional[float] = None

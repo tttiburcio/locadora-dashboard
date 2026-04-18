@@ -12,8 +12,8 @@ const STATUS_OPTS = [
 const TIPO_OPTS = ['Preventiva', 'Corretiva']
 
 const SISTEMAS = [
-  'Motor', 'Freio', 'Suspensão', 'Elétrico', 'Transmissão',
-  'Carroceria', 'Implemento', 'Pneu', 'Hidráulico', 'Arrefecimento', 'Outro',
+  'Motor', 'Freio', 'Suspensão', 'Elétrico', 'Câmbio', 'Diferencial',
+  'Direção', 'Implemento', 'Guincho', 'Pneu', 'Hidráulico', 'Arrefecimento', 'Outro',
 ]
 
 const FIELD = 'w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors'

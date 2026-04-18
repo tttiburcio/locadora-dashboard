@@ -17,6 +17,31 @@ app = FastAPI(title="TKJ Locadora API", version="2.1.0")
 @app.on_event("startup")
 def startup():
     init_db()
+    _migrate_parcelas_prorrogacao()
+
+
+def _migrate_parcelas_prorrogacao():
+    from sqlalchemy import text
+    from database import engine
+    new_cols = [
+        "data_vencimento_original DATE",
+        "prorrogada BOOLEAN DEFAULT 0",
+        "isento_encargos BOOLEAN",
+        "tipo_pgto_prorrogacao VARCHAR(20)",
+        "chave_pix VARCHAR(100)",
+        "multa_pct NUMERIC(6,2)",
+        "juros_diario_pct NUMERIC(6,4)",
+        "data_prevista_pagamento DATE",
+        "dias_cartorio INTEGER",
+        "valor_atualizado NUMERIC(14,2)",
+    ]
+    with engine.connect() as conn:
+        for col_def in new_cols:
+            try:
+                conn.execute(text(f"ALTER TABLE manutencao_parcelas ADD COLUMN {col_def}"))
+                conn.commit()
+            except Exception:
+                pass
 
 app.add_middleware(
     CORSMiddleware,
@@ -678,16 +703,14 @@ def finalizar_manutencao(
     payload: schemas.ManutencaoFinalizar,
     db: Session = Depends(get_db),
 ):
-    """Finaliza a OS: preenche dados financeiros e cria as parcelas de pagamento."""
+    """Finaliza a OS (ou reedita uma já finalizada): preenche dados financeiros e recria as parcelas."""
     obj = db.get(models.Manutencao, manutencao_id)
     if not obj:
         raise HTTPException(404, "Manutenção não encontrada")
-    if obj.status_manutencao == "finalizada":
-        raise HTTPException(400, "OS já está finalizada")
 
     # Atualiza campos da OS
     for field in ("id_ord_serv", "total_os", "data_execucao", "categoria",
-                  "qtd_itens", "prox_km", "prox_data",
+                  "qtd_itens", "prox_km", "prox_data", "km",
                   "posicao_pneu", "qtd_pneu", "espec_pneu", "marca_pneu", "manejo_pneu"):
         val = getattr(payload, field, None)
         if val is not None:
@@ -696,7 +719,10 @@ def finalizar_manutencao(
     obj.status_manutencao = "finalizada"
     obj.indisponivel = False
 
-    # Cria parcelas
+    # Substitui parcelas (apaga antigas antes de criar novas)
+    for parcela_antiga in list(obj.parcelas):
+        db.delete(parcela_antiga)
+    db.flush()
     for p in payload.parcelas:
         parcela = models.ManutencaoParcela(manutencao_id=obj.id, **p.model_dump())
         db.add(parcela)
@@ -708,17 +734,37 @@ def finalizar_manutencao(
 
 @app.delete("/api/db/manutencoes/{manutencao_id}", status_code=204)
 def deletar_manutencao(manutencao_id: int, db: Session = Depends(get_db)):
-    """Remove uma OS (somente se ainda não finalizada)."""
+    """Remove uma OS."""
     obj = db.get(models.Manutencao, manutencao_id)
     if not obj:
         raise HTTPException(404, "Manutenção não encontrada")
-    if obj.status_manutencao == "finalizada":
-        raise HTTPException(400, "Não é possível excluir uma OS finalizada")
     db.delete(obj)
     db.commit()
 
 
 # ── Parcelas ─────────────────────────────────────────────────────────
+
+@app.get("/api/db/parcelas", response_model=list[schemas.ParcelaFinanceiroResponse])
+def listar_parcelas(db: Session = Depends(get_db)):
+    """Retorna todas as parcelas de OS finalizadas, enriquecidas com contexto da OS."""
+    from sqlalchemy import asc, nullslast
+    parcelas = (
+        db.query(models.ManutencaoParcela)
+        .join(models.Manutencao)
+        .filter(models.Manutencao.status_manutencao == "finalizada")
+        .order_by(models.ManutencaoParcela.data_vencimento.asc())
+        .all()
+    )
+    result = []
+    for p in parcelas:
+        d = {c.name: getattr(p, c.name) for c in p.__table__.columns}
+        d["placa"]         = p.manutencao.placa
+        d["modelo"]        = p.manutencao.modelo
+        d["fornecedor"]    = p.manutencao.fornecedor
+        d["id_ord_serv"]   = p.manutencao.id_ord_serv
+        d["data_execucao"] = p.manutencao.data_execucao
+        result.append(d)
+    return result
 
 @app.post("/api/db/manutencoes/{manutencao_id}/parcelas",
           response_model=schemas.ParcelaResponse, status_code=201)
