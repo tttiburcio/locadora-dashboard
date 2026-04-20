@@ -18,6 +18,7 @@ app = FastAPI(title="TKJ Locadora API", version="2.1.0")
 def startup():
     init_db()
     _migrate_parcelas_prorrogacao()
+    _migrate_1to1_safe()
 
 
 def _migrate_parcelas_prorrogacao():
@@ -34,6 +35,15 @@ def _migrate_parcelas_prorrogacao():
         "data_prevista_pagamento DATE",
         "dias_cartorio INTEGER",
         "valor_atualizado NUMERIC(14,2)",
+        "sera_reembolsado BOOLEAN DEFAULT 0",
+        "valor_reembolso NUMERIC(14,2)",
+        "qtd_itens_reembolso INTEGER",
+        "motivo_reembolso TEXT",
+        "fornecedor VARCHAR(120)",
+        "valor_item_total NUMERIC(14,2)",
+        "tipo_custo VARCHAR(30)",
+        "nf_id INTEGER REFERENCES notas_fiscais(id)",
+        "deletado_em DATETIME",
     ]
     with engine.connect() as conn:
         for col_def in new_cols:
@@ -42,6 +52,262 @@ def _migrate_parcelas_prorrogacao():
                 conn.commit()
             except Exception:
                 pass
+        # Índices — idempotentes via IF NOT EXISTS
+        for idx_sql in [
+            "CREATE INDEX IF NOT EXISTS idx_parcela_nf ON manutencao_parcelas(nf_id)",
+            "CREATE INDEX IF NOT EXISTS idx_parcela_venc ON manutencao_parcelas(data_vencimento)",
+        ]:
+            try:
+                conn.execute(text(idx_sql))
+                conn.commit()
+            except Exception:
+                pass
+        # Relaxa NOT NULL em manutencao_id (necessário para novo fluxo nf_id-only)
+        try:
+            row = conn.execute(text("""
+                SELECT "notnull" FROM pragma_table_info('manutencao_parcelas')
+                WHERE name='manutencao_id'
+            """)).fetchone()
+            if row and row[0] == 1:
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                conn.execute(text("BEGIN"))
+                conn.execute(text("""
+                    CREATE TABLE manutencao_parcelas_new AS
+                    SELECT * FROM manutencao_parcelas WHERE 0
+                """))
+                # Rebuild com manutencao_id nullable — usa schema atual do SQLAlchemy
+                conn.execute(text("DROP TABLE manutencao_parcelas_new"))
+                # Estratégia segura: renomeia tabela antiga, deixa SQLAlchemy recriar, copia dados
+                conn.execute(text("ALTER TABLE manutencao_parcelas RENAME TO manutencao_parcelas_old"))
+                conn.execute(text("COMMIT"))
+                conn.execute(text("PRAGMA foreign_keys=ON"))
+                conn.commit()
+                # Recria via metadata (agora sem dados)
+                from database import engine as _eng
+                models.ManutencaoParcela.__table__.create(_eng, checkfirst=True)
+                # Copia dados da antiga
+                cols_old = [r[1] for r in conn.execute(text(
+                    "SELECT * FROM pragma_table_info('manutencao_parcelas_old')"
+                )).fetchall()]
+                cols_new = [r[1] for r in conn.execute(text(
+                    "SELECT * FROM pragma_table_info('manutencao_parcelas')"
+                )).fetchall()]
+                cols_comuns = [c for c in cols_old if c in cols_new]
+                col_list = ", ".join(cols_comuns)
+                conn.execute(text(
+                    f"INSERT INTO manutencao_parcelas ({col_list}) "
+                    f"SELECT {col_list} FROM manutencao_parcelas_old"
+                ))
+                conn.execute(text("DROP TABLE manutencao_parcelas_old"))
+                conn.commit()
+                print("[migration] manutencao_parcelas.manutencao_id agora permite NULL")
+        except Exception as e:
+            print(f"[migration] Erro relaxando NOT NULL: {e}")
+
+# ─────────────────────────────────────────────
+# Helpers do novo modelo (OS / NF / parcelas)
+# ─────────────────────────────────────────────
+def generate_numero_os_atomic(db: Session) -> str:
+    """Gera numero_os atomicamente via UPSERT na tabela os_counters.
+
+    Seguro em concorrência (SQLite serializa writes). UNIQUE em
+    ordens_servico.numero_os é rede de proteção final.
+    """
+    from sqlalchemy import text
+    from datetime import datetime as _dt
+    year = _dt.now().year
+    row = db.execute(text("""
+        INSERT INTO os_counters (ano, ultimo) VALUES (:y, 1)
+        ON CONFLICT(ano) DO UPDATE SET ultimo = os_counters.ultimo + 1
+        RETURNING ultimo
+    """), {"y": year}).fetchone()
+    db.flush()
+    numero = row[0] if row else 1
+    return f"OS-{year}-{str(numero).zfill(4)}"
+
+
+def validar_consistencia_os(db: Session, os_id: int) -> list[str]:
+    """Retorna lista de erros de consistência financeira (vazia = OK).
+
+    Tolerância: R$ 0,01 (arredondamento).
+    """
+    erros: list[str] = []
+    os = db.get(models.OrdemServico, os_id)
+    if not os:
+        return [f"OS {os_id} não encontrada"]
+
+    nfs_ativas = [nf for nf in os.notas_fiscais if nf.deletado_em is None]
+    for nf in nfs_ativas:
+        soma_itens = sum(float(ni.valor_total_item or 0) for ni in nf.itens)
+        valor_nf = float(nf.valor_total_nf or 0)
+        if abs(soma_itens - valor_nf) > 0.01:
+            erros.append(
+                f"NF {nf.numero_nf or nf.id}: soma dos itens ({soma_itens:.2f}) "
+                f"≠ valor_total_nf ({valor_nf:.2f})"
+            )
+        parcelas_ativas = [p for p in nf.parcelas if p.deletado_em is None]
+        soma_parcelas = sum(float(p.valor_parcela or 0) for p in parcelas_ativas)
+        if parcelas_ativas and abs(soma_parcelas - valor_nf) > 0.01:
+            erros.append(
+                f"NF {nf.numero_nf or nf.id}: soma das parcelas ({soma_parcelas:.2f}) "
+                f"≠ valor_total_nf ({valor_nf:.2f})"
+            )
+
+    total_nfs = sum(float(nf.valor_total_nf or 0) for nf in nfs_ativas)
+    if os.total_os and abs(total_nfs - float(os.total_os)) > 0.01:
+        erros.append(
+            f"OS total ({float(os.total_os):.2f}) ≠ soma das NFs ({total_nfs:.2f})"
+        )
+    return erros
+
+
+def _infer_tipo_nf(m) -> tuple[str, bool]:
+    """Retorna (tipo_nf, needs_review). needs_review=True quando heurística é ambígua."""
+    cat = (m.categoria or "").lower()
+    if any(k in cat for k in ("compra", "produto", "peça", "peca")):
+        return "Produto", False
+    if any(k in cat for k in ("serviço", "servico", "mão", "mao")):
+        return "Servico", False
+    return "Servico", True
+
+
+def _status_os_from_manutencao(status_manut: str) -> str:
+    """Mapeia status_manutencao legado para status_os do novo modelo."""
+    mapping = {
+        "aberta": "aberta",
+        "em_andamento": "em_andamento",
+        "aguardando_peca": "aguardando_peca",
+        "pendente": "em_andamento",
+        "finalizada": "finalizada",
+    }
+    return mapping.get(status_manut, "em_andamento")
+
+
+def _migrate_1to1_safe():
+    """Migração 1:1 idempotente — cada manutencao vira uma OS com um item.
+
+    Parcelas são agrupadas pela mesma nota (numero_nf, nota) em uma única NF.
+    """
+    import json
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        manuts = db.query(models.Manutencao).all()
+        usados: set[str] = set(
+            x[0] for x in db.query(models.OrdemServico.numero_os)
+            .filter(models.OrdemServico.numero_os.isnot(None)).all()
+        )
+        for m in manuts:
+            # Idempotência: pula se já migrado
+            existe = (
+                db.query(models.OrdemServico)
+                .filter(models.OrdemServico.migrado_de_ids.like(f'%[{m.id}]%')
+                        | models.OrdemServico.migrado_de_ids.like(f'%[{m.id},%')
+                        | models.OrdemServico.migrado_de_ids.like(f'%,{m.id}]%')
+                        | models.OrdemServico.migrado_de_ids.like(f'%,{m.id},%'))
+                .first()
+            )
+            if existe:
+                continue
+
+            # Desambigua numero_os: se já usado no legado, sufixa com -L{id}
+            numero_os = None
+            if m.status_manutencao == "finalizada" and m.id_ord_serv:
+                candidato = str(m.id_ord_serv).strip() or None
+                if candidato:
+                    if candidato in usados:
+                        candidato = f"{candidato}-L{m.id}"
+                    usados.add(candidato)
+                    numero_os = candidato
+
+            os = models.OrdemServico(
+                numero_os=numero_os,
+                status_os=_status_os_from_manutencao(m.status_manutencao or "em_andamento"),
+                id_veiculo=m.id_veiculo,
+                placa=m.placa,
+                modelo=m.modelo,
+                empresa=m.empresa,
+                id_contrato=m.id_contrato,
+                implemento=m.implemento,
+                fornecedor=m.fornecedor,
+                tipo_manutencao=m.tipo_manutencao,
+                categoria=m.categoria,
+                total_os=m.total_os,
+                responsavel_tec=m.responsavel_tec,
+                indisponivel=bool(m.indisponivel),
+                km=m.km,
+                data_entrada=m.data_entrada,
+                data_execucao=m.data_execucao,
+                prox_km=m.prox_km,
+                prox_data=m.prox_data,
+                observacoes=m.observacoes,
+                migrado_de_ids=json.dumps([m.id]),
+            )
+            db.add(os)
+            db.flush()
+
+            item = models.OsItem(
+                os_id=os.id,
+                sistema=m.sistema,
+                servico=m.servico,
+                descricao=m.descricao,
+                qtd_itens=m.qtd_itens,
+                posicao_pneu=m.posicao_pneu,
+                qtd_pneu=m.qtd_pneu,
+                espec_pneu=m.espec_pneu,
+                marca_pneu=m.marca_pneu,
+                manejo_pneu=m.manejo_pneu,
+                manutencao_origem_id=m.id,
+            )
+            db.add(item)
+            db.flush()
+
+            # Agrupa parcelas pela mesma nota
+            grupos: dict = {}
+            for p in m.parcelas:
+                chave = (p.nf_ordem, p.nota or f"__solo_{p.id}")
+                grupos.setdefault(chave, []).append(p)
+
+            for (nf_ordem, _), parcelas_grupo in grupos.items():
+                tipo, needs_review = _infer_tipo_nf(m)
+                primeira = parcelas_grupo[0]
+                valor_nf = (
+                    float(primeira.valor_item_total)
+                    if primeira.valor_item_total
+                    else sum(float(p.valor_parcela or 0) for p in parcelas_grupo)
+                )
+                nf = models.NotaFiscal(
+                    os_id=os.id,
+                    numero_nf=primeira.nota,
+                    tipo_nf=tipo,
+                    tipo_nf_needs_review=needs_review,
+                    fornecedor=primeira.fornecedor or m.fornecedor,
+                    valor_total_nf=valor_nf,
+                    data_emissao=m.data_execucao,
+                    nf_ordem_origem=nf_ordem,
+                )
+                db.add(nf)
+                db.flush()
+
+                nf_item = models.NfItem(
+                    nf_id=nf.id,
+                    os_item_id=item.id,
+                    quantidade=1,
+                    valor_unitario=valor_nf,
+                    valor_total_item=valor_nf,
+                )
+                db.add(nf_item)
+
+                for p in parcelas_grupo:
+                    p.nf_id = nf.id
+
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"[migration 1:1] ERRO: {e}")
+    finally:
+        db.close()
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,16 +320,18 @@ app.add_middleware(
 EXCEL_PATH = Path(__file__).parent.parent / "Locadora.xlsx"
 
 SHEETS = {
-    "frota":         "🚛 FROTA",
-    "fat_unitario":  "💰 FAT_UNITARIO",
-    "reembolsos":    "↩️ REEMBOLSOS",
-    "manutencoes":   "🔧 MANUTENCOES",
-    "faturamento":   "🧾 FATURAMENTO",
-    "seguro_mensal": "📋 SEGURO_MENSAL",
-    "impostos":      "📋 IMPOSTOS",
-    "rastreamento":  "📍RASTREAMENTO",
-    "contratos":     "📄 CONTRATOS",
-    "clientes":      "🏢 CLIENTES",
+    "frota":            "🚛 FROTA",
+    "fat_unitario":     "💰 FAT_UNITARIO",
+    "reembolsos":       "↩️ REEMBOLSOS",
+    "manutencoes":      "🔧 MANUTENCOES",
+    "faturamento":      "🧾 FATURAMENTO",
+    "seguro_mensal":    "📋 SEGURO_MENSAL",
+    "impostos":         "📋 IMPOSTOS",
+    "rastreamento":     "📍RASTREAMENTO",
+    "contratos":        "📄 CONTRATOS",
+    "clientes":         "🏢 CLIENTES",
+    "empresas":         "🏢 EMPRESAS",
+    "contrato_veiculo": "🔗 CONTRATO_VEICULO",
 }
 
 _cache: dict = {}
@@ -96,6 +364,61 @@ def safe(v):
         return 0.0 if (np.isnan(f) or np.isinf(f)) else round(f, 2)
     except Exception:
         return 0.0
+
+
+def _empresa_nome(data: dict, empresa_code) -> str | None:
+    """Converte código numérico de empresa (ex: '1.0') para RazaoSocial."""
+    if empresa_code is None:
+        return None
+    try:
+        eid = int(float(empresa_code))
+    except (ValueError, TypeError):
+        return str(empresa_code)
+    df = data.get("empresas", pd.DataFrame())
+    if df.empty or "IDEmpresa" not in df.columns:
+        return str(empresa_code)
+    row = df[df["IDEmpresa"] == eid]
+    if row.empty:
+        return str(empresa_code)
+    nome = row.iloc[0].get("RazaoSocial")
+    return str(nome) if pd.notna(nome) else str(empresa_code)
+
+
+def _contrato_ativo(data: dict, id_veiculo, data_exec) -> dict | None:
+    """Retorna o contrato ativo para um veículo em uma data de execução."""
+    if not id_veiculo or not data_exec:
+        return None
+    try:
+        id_veiculo = int(id_veiculo)
+        dc = pd.Timestamp(data_exec)
+    except Exception:
+        return None
+    cv  = data.get("contrato_veiculo", pd.DataFrame())
+    con = data.get("contratos",        pd.DataFrame())
+    if cv.empty or con.empty:
+        return None
+    ids_contrato = cv[cv["IDVeiculo"] == id_veiculo]["IDContrato"].tolist()
+    if not ids_contrato:
+        return None
+    mask = (
+        con["IDContrato"].isin(ids_contrato) &
+        (pd.to_datetime(con["DataInicio"], errors="coerce") <= dc) &
+        (
+            con["DataEncerramento"].isna() |
+            (pd.to_datetime(con["DataEncerramento"], errors="coerce") >= dc)
+        )
+    )
+    ativos = con[mask]
+    if ativos.empty:
+        return None
+    row = ativos.iloc[-1]
+    return {
+        "contrato_nome":   str(row.get("NomeCliente",      "")),
+        "contrato_cidade": str(row.get("CidadeOperacao",   "")),
+        "contrato_inicio": str(row.get("DataInicio",       ""))[:10] if pd.notna(row.get("DataInicio")) else None,
+        "contrato_fim":    str(row.get("DataFimPrevista",  ""))[:10] if pd.notna(row.get("DataFimPrevista")) else None,
+        "contrato_status": str(row.get("StatusContrato",   "")),
+    }
 
 
 def _parse(df: pd.DataFrame, col: str) -> pd.DataFrame:
@@ -709,7 +1032,7 @@ def finalizar_manutencao(
         raise HTTPException(404, "Manutenção não encontrada")
 
     # Atualiza campos da OS
-    for field in ("id_ord_serv", "total_os", "data_execucao", "categoria",
+    for field in ("id_ord_serv", "total_os", "data_execucao", "empresa", "categoria",
                   "qtd_itens", "prox_km", "prox_data", "km",
                   "posicao_pneu", "qtd_pneu", "espec_pneu", "marca_pneu", "manejo_pneu"):
         val = getattr(payload, field, None)
@@ -745,24 +1068,78 @@ def deletar_manutencao(manutencao_id: int, db: Session = Depends(get_db)):
 # ── Parcelas ─────────────────────────────────────────────────────────
 
 @app.get("/api/db/parcelas", response_model=list[schemas.ParcelaFinanceiroResponse])
-def listar_parcelas(db: Session = Depends(get_db)):
-    """Retorna todas as parcelas de OS finalizadas, enriquecidas com contexto da OS."""
-    from sqlalchemy import asc, nullslast
-    parcelas = (
+def listar_parcelas(year: int = None, db: Session = Depends(get_db)):
+    """Retorna parcelas de OS finalizadas (novo ou legado), enriquecidas.
+
+    Prioriza caminho autoritativo parcela → nf → os; fallback para legado manutencao.
+    """
+    data = load_raw()
+    from sqlalchemy import extract, func as sf, or_
+
+    q = (
         db.query(models.ManutencaoParcela)
-        .join(models.Manutencao)
-        .filter(models.Manutencao.status_manutencao == "finalizada")
-        .order_by(models.ManutencaoParcela.data_vencimento.asc())
-        .all()
+        .filter(models.ManutencaoParcela.deletado_em.is_(None))
     )
+    if year:
+        venc_efetivo = sf.coalesce(
+            models.ManutencaoParcela.data_prevista_pagamento,
+            models.ManutencaoParcela.data_vencimento,
+        )
+        q = q.filter(extract("year", venc_efetivo) == year)
+    parcelas = q.order_by(models.ManutencaoParcela.data_vencimento.asc()).all()
+
     result = []
     for p in parcelas:
+        # Determina contexto: preferência pelo novo modelo
+        os_obj = None
+        manut = None
+        if p.nf_id:
+            nf = p.nota_fiscal
+            if nf and nf.deletado_em is None:
+                os_obj = nf.os
+        if not os_obj and p.manutencao_id:
+            manut = p.manutencao
+        if not os_obj and not manut:
+            continue
+
+        # Filtra apenas finalizadas (new model) ou manutencao finalizada (legado)
+        if os_obj and os_obj.status_os != "finalizada":
+            continue
+        if manut and manut.status_manutencao != "finalizada":
+            continue
+
         d = {c.name: getattr(p, c.name) for c in p.__table__.columns}
-        d["placa"]         = p.manutencao.placa
-        d["modelo"]        = p.manutencao.modelo
-        d["fornecedor"]    = p.manutencao.fornecedor
-        d["id_ord_serv"]   = p.manutencao.id_ord_serv
-        d["data_execucao"] = p.manutencao.data_execucao
+        if os_obj:
+            d["placa"]         = os_obj.placa
+            d["modelo"]        = os_obj.modelo
+            d["empresa"]       = os_obj.empresa
+            d["empresa_nome"]  = _empresa_nome(data, os_obj.empresa)
+            d["id_contrato"]   = os_obj.id_contrato
+            d["fornecedor_os"] = os_obj.fornecedor
+            d["fornecedor"]    = getattr(p, "fornecedor", None) or os_obj.fornecedor
+            # descrição: concatena itens da OS
+            d["descricao"]     = "; ".join(filter(None, (it.servico or it.sistema for it in os_obj.itens))) or None
+            d["id_ord_serv"]   = os_obj.numero_os
+            d["data_execucao"] = os_obj.data_execucao
+            contrato = _contrato_ativo(data, os_obj.id_veiculo, os_obj.data_execucao)
+        else:
+            d["placa"]         = manut.placa
+            d["modelo"]        = manut.modelo
+            d["empresa"]       = manut.empresa
+            d["empresa_nome"]  = _empresa_nome(data, manut.empresa)
+            d["id_contrato"]   = manut.id_contrato
+            d["fornecedor_os"] = manut.fornecedor
+            d["fornecedor"]    = getattr(p, "fornecedor", None) or manut.fornecedor
+            d["descricao"]     = manut.descricao
+            d["id_ord_serv"]   = manut.id_ord_serv
+            d["data_execucao"] = manut.data_execucao
+            contrato = _contrato_ativo(data, manut.id_veiculo, manut.data_execucao)
+
+        d["contrato_nome"]   = contrato["contrato_nome"]   if contrato else None
+        d["contrato_cidade"] = contrato["contrato_cidade"] if contrato else None
+        d["contrato_inicio"] = contrato["contrato_inicio"] if contrato else None
+        d["contrato_fim"]    = contrato["contrato_fim"]    if contrato else None
+        d["contrato_status"] = contrato["contrato_status"] if contrato else None
         result.append(d)
     return result
 
@@ -811,3 +1188,428 @@ def listar_frota_db(db: Session = Depends(get_db)):
         .order_by(models.Frota.placa)
         .all()
     )
+
+
+# ═════════════════════════════════════════════════════════════════════
+# NOVO MODELO: OS → Itens → NFs → Itens da NF → Parcelas
+# ═════════════════════════════════════════════════════════════════════
+
+# ── Ordens de Serviço ────────────────────────────────────────────────
+
+@app.get("/api/db/os", response_model=list[schemas.OsResponse])
+def list_os(
+    status: str = Query(None, description="Filtrar por status_os"),
+    placa:  str = Query(None, description="Filtrar por placa"),
+    db: Session = Depends(get_db),
+):
+    q = db.query(models.OrdemServico).filter(models.OrdemServico.deletado_em.is_(None))
+    if status:
+        q = q.filter(models.OrdemServico.status_os == status)
+    if placa:
+        q = q.filter(models.OrdemServico.placa == placa.upper())
+    return q.order_by(models.OrdemServico.criado_em.desc()).all()
+
+
+@app.get("/api/db/os/{os_id}", response_model=schemas.OsResponse)
+def get_os(os_id: int, db: Session = Depends(get_db)):
+    obj = db.get(models.OrdemServico, os_id)
+    if not obj or obj.deletado_em is not None:
+        raise HTTPException(404, "OS não encontrada")
+    return obj
+
+
+@app.post("/api/db/os", response_model=schemas.OsResponse, status_code=201)
+def abrir_os(payload: schemas.OsAbrir, db: Session = Depends(get_db)):
+    veiculo = db.get(models.Frota, payload.id_veiculo)
+    if not veiculo:
+        raise HTTPException(404, f"Veículo {payload.id_veiculo} não encontrado")
+
+    data = payload.model_dump(exclude={"itens"})
+    if not data.get("modelo"):
+        data["modelo"] = veiculo.modelo
+    if not data.get("placa"):
+        data["placa"] = veiculo.placa
+
+    os = models.OrdemServico(**data)
+    db.add(os)
+    db.flush()
+
+    for it in payload.itens:
+        item = models.OsItem(os_id=os.id, **it.model_dump())
+        db.add(item)
+
+    db.commit()
+    db.refresh(os)
+    return os
+
+
+@app.patch("/api/db/os/{os_id}", response_model=schemas.OsResponse)
+def atualizar_os(os_id: int, payload: schemas.OsUpdate, db: Session = Depends(get_db)):
+    os = db.get(models.OrdemServico, os_id)
+    if not os or os.deletado_em is not None:
+        raise HTTPException(404, "OS não encontrada")
+    if os.status_os == "finalizada":
+        raise HTTPException(400, "OS finalizada — use endpoints financeiros para edição")
+
+    novo_fornecedor = None
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "fornecedor":
+            novo_fornecedor = value
+        setattr(os, field, value)
+
+    # Propagar fornecedor novo para NFs não-finalizadas (mesmo fornecedor em toda OS)
+    if novo_fornecedor is not None:
+        for nf in os.notas_fiscais:
+            if nf.deletado_em is None:
+                nf.fornecedor = novo_fornecedor
+
+    db.commit()
+    db.refresh(os)
+    return os
+
+
+@app.delete("/api/db/os/{os_id}", status_code=204)
+def deletar_os(os_id: int, db: Session = Depends(get_db)):
+    """Soft delete. Bloqueado se houver NF com parcela paga."""
+    from datetime import datetime as _dt
+    os = db.get(models.OrdemServico, os_id)
+    if not os or os.deletado_em is not None:
+        raise HTTPException(404, "OS não encontrada")
+
+    for nf in os.notas_fiscais:
+        if nf.deletado_em is None:
+            for p in nf.parcelas:
+                if p.deletado_em is None and (p.status_pagamento or "").lower() == "pago":
+                    raise HTTPException(
+                        400,
+                        f"OS com parcela já paga (NF {nf.numero_nf}) — não pode ser removida",
+                    )
+
+    os.deletado_em = _dt.utcnow()
+    db.commit()
+
+
+@app.get("/api/db/os/{os_id}/validacao", response_model=list[str])
+def validar_os(os_id: int, db: Session = Depends(get_db)):
+    return validar_consistencia_os(db, os_id)
+
+
+@app.post("/api/db/os/{os_id}/executar", response_model=schemas.OsResponse)
+def executar_os(os_id: int, payload: schemas.OsExecutar, db: Session = Depends(get_db)):
+    """Marca OS como executada (aguardando NF)."""
+    os = db.get(models.OrdemServico, os_id)
+    if not os or os.deletado_em is not None:
+        raise HTTPException(404, "OS não encontrada")
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(os, field, value)
+    os.status_os = "executado_aguardando_nf"
+    db.commit()
+    db.refresh(os)
+    return os
+
+
+@app.post("/api/db/os/{os_id}/finalizar", response_model=schemas.OsResponse)
+def finalizar_os(os_id: int, db: Session = Depends(get_db)):
+    """Finaliza OS. Retorna 422 se inconsistência financeira."""
+    os = db.get(models.OrdemServico, os_id)
+    if not os or os.deletado_em is not None:
+        raise HTTPException(404, "OS não encontrada")
+
+    nfs_ativas = [nf for nf in os.notas_fiscais if nf.deletado_em is None]
+    if not nfs_ativas:
+        raise HTTPException(400, "OS não possui NFs — lance ao menos uma NF antes de finalizar")
+
+    # Computa total_os como soma das NFs
+    os.total_os = sum(float(nf.valor_total_nf or 0) for nf in nfs_ativas)
+
+    erros = validar_consistencia_os(db, os_id)
+    if erros:
+        raise HTTPException(422, {"erros": erros})
+
+    os.status_os = "finalizada"
+    os.indisponivel = False
+    db.commit()
+    db.refresh(os)
+    return os
+
+
+# ── Itens da OS ──────────────────────────────────────────────────────
+
+@app.post("/api/db/os/{os_id}/itens", response_model=schemas.OsItemResponse, status_code=201)
+def adicionar_os_item(os_id: int, payload: schemas.OsItemCreate, db: Session = Depends(get_db)):
+    os = db.get(models.OrdemServico, os_id)
+    if not os or os.deletado_em is not None:
+        raise HTTPException(404, "OS não encontrada")
+    item = models.OsItem(os_id=os_id, **payload.model_dump())
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@app.patch("/api/db/os/{os_id}/itens/{item_id}", response_model=schemas.OsItemResponse)
+def atualizar_os_item(os_id: int, item_id: int, payload: schemas.OsItemUpdate, db: Session = Depends(get_db)):
+    item = db.get(models.OsItem, item_id)
+    if not item or item.os_id != os_id:
+        raise HTTPException(404, "Item não encontrado")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(item, field, value)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@app.delete("/api/db/os/{os_id}/itens/{item_id}", status_code=204)
+def deletar_os_item(os_id: int, item_id: int, db: Session = Depends(get_db)):
+    item = db.get(models.OsItem, item_id)
+    if not item or item.os_id != os_id:
+        raise HTTPException(404, "Item não encontrado")
+    if item.nf_itens:
+        raise HTTPException(400, "Item vinculado a NF — remova o vínculo antes")
+    db.delete(item)
+    db.commit()
+
+
+# ── NFs ──────────────────────────────────────────────────────────────
+
+@app.get("/api/db/os/{os_id}/nfs", response_model=list[schemas.NotaFiscalResponse])
+def listar_nfs(os_id: int, db: Session = Depends(get_db)):
+    os = db.get(models.OrdemServico, os_id)
+    if not os:
+        raise HTTPException(404, "OS não encontrada")
+    return [nf for nf in os.notas_fiscais if nf.deletado_em is None]
+
+
+@app.post("/api/db/os/{os_id}/nfs", response_model=schemas.NotaFiscalResponse, status_code=201)
+def adicionar_nf(os_id: int, payload: schemas.NotaFiscalCreate, db: Session = Depends(get_db)):
+    os = db.get(models.OrdemServico, os_id)
+    if not os or os.deletado_em is not None:
+        raise HTTPException(404, "OS não encontrada")
+
+    # Validação: mesmo fornecedor na OS
+    if payload.fornecedor and os.fornecedor and payload.fornecedor != os.fornecedor:
+        raise HTTPException(
+            400,
+            f"Fornecedor da NF ({payload.fornecedor}) difere do fornecedor da OS ({os.fornecedor})",
+        )
+
+    # Gera numero_os atomicamente na 1ª NF
+    if os.numero_os is None:
+        os.numero_os = generate_numero_os_atomic(db)
+
+    nf_data = payload.model_dump(exclude={"itens", "parcelas"})
+    if not nf_data.get("fornecedor"):
+        nf_data["fornecedor"] = os.fornecedor
+    nf = models.NotaFiscal(os_id=os_id, **nf_data)
+    db.add(nf)
+    db.flush()
+
+    for it in payload.itens:
+        nf_item = models.NfItem(nf_id=nf.id, **it.model_dump())
+        db.add(nf_item)
+
+    for p in payload.parcelas:
+        parcela = models.ManutencaoParcela(nf_id=nf.id, **p.model_dump())
+        db.add(parcela)
+
+    db.commit()
+    db.refresh(nf)
+    return nf
+
+
+@app.patch("/api/db/nfs/{nf_id}", response_model=schemas.NotaFiscalResponse)
+def atualizar_nf(nf_id: int, payload: schemas.NotaFiscalUpdate, db: Session = Depends(get_db)):
+    nf = db.get(models.NotaFiscal, nf_id)
+    if not nf or nf.deletado_em is not None:
+        raise HTTPException(404, "NF não encontrada")
+
+    if payload.fornecedor and nf.os and nf.os.fornecedor and payload.fornecedor != nf.os.fornecedor:
+        raise HTTPException(
+            400,
+            f"Fornecedor da NF deve ser igual ao da OS ({nf.os.fornecedor})",
+        )
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(nf, field, value)
+    db.commit()
+    db.refresh(nf)
+    return nf
+
+
+@app.delete("/api/db/nfs/{nf_id}", status_code=204)
+def deletar_nf(nf_id: int, db: Session = Depends(get_db)):
+    """Soft delete. Bloqueado se houver parcela paga."""
+    from datetime import datetime as _dt
+    nf = db.get(models.NotaFiscal, nf_id)
+    if not nf or nf.deletado_em is not None:
+        raise HTTPException(404, "NF não encontrada")
+    for p in nf.parcelas:
+        if p.deletado_em is None and (p.status_pagamento or "").lower() == "pago":
+            raise HTTPException(400, "NF com parcela paga — não pode ser removida")
+    nf.deletado_em = _dt.utcnow()
+    # Soft delete também nas parcelas ativas
+    for p in nf.parcelas:
+        if p.deletado_em is None:
+            p.deletado_em = _dt.utcnow()
+    db.commit()
+
+
+# ── Itens da NF ──────────────────────────────────────────────────────
+
+@app.post("/api/db/nfs/{nf_id}/itens", response_model=schemas.NfItemResponse, status_code=201)
+def adicionar_nf_item(nf_id: int, payload: schemas.NfItemCreate, db: Session = Depends(get_db)):
+    nf = db.get(models.NotaFiscal, nf_id)
+    if not nf or nf.deletado_em is not None:
+        raise HTTPException(404, "NF não encontrada")
+    os_item = db.get(models.OsItem, payload.os_item_id)
+    if not os_item or os_item.os_id != nf.os_id:
+        raise HTTPException(400, "os_item_id não pertence à OS desta NF")
+    item = models.NfItem(nf_id=nf_id, **payload.model_dump())
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@app.patch("/api/db/nfs/{nf_id}/itens/{item_id}", response_model=schemas.NfItemResponse)
+def atualizar_nf_item(nf_id: int, item_id: int, payload: schemas.NfItemUpdate, db: Session = Depends(get_db)):
+    item = db.get(models.NfItem, item_id)
+    if not item or item.nf_id != nf_id:
+        raise HTTPException(404, "Item de NF não encontrado")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(item, field, value)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@app.delete("/api/db/nfs/{nf_id}/itens/{item_id}", status_code=204)
+def deletar_nf_item(nf_id: int, item_id: int, db: Session = Depends(get_db)):
+    item = db.get(models.NfItem, item_id)
+    if not item or item.nf_id != nf_id:
+        raise HTTPException(404, "Item de NF não encontrado")
+    db.delete(item)
+    db.commit()
+
+
+# ── Parcelas vinculadas a NF (novo fluxo) ────────────────────────────
+
+@app.post("/api/db/nfs/{nf_id}/parcelas", response_model=schemas.ParcelaResponse, status_code=201)
+def adicionar_parcela_nf(nf_id: int, payload: schemas.ParcelaCreate, db: Session = Depends(get_db)):
+    nf = db.get(models.NotaFiscal, nf_id)
+    if not nf or nf.deletado_em is not None:
+        raise HTTPException(404, "NF não encontrada")
+    parcela = models.ManutencaoParcela(nf_id=nf_id, **payload.model_dump())
+    db.add(parcela)
+    db.commit()
+    db.refresh(parcela)
+    return parcela
+
+
+# ── Merge assistido ──────────────────────────────────────────────────
+
+@app.get("/api/db/os/merge-sugestoes", response_model=list[schemas.MergeSugestao])
+def merge_sugestoes(db: Session = Depends(get_db)):
+    """Sugestões de OS candidatas a merge. Usuário confirma caso-a-caso."""
+    from datetime import timedelta
+    oss = (
+        db.query(models.OrdemServico)
+        .filter(models.OrdemServico.deletado_em.is_(None))
+        .filter(models.OrdemServico.status_os != "finalizada")
+        .all()
+    )
+    sugestoes = []
+    vistos: set[int] = set()
+
+    # Agrupa por id_veiculo + fornecedor + janela de 3 dias
+    for i, os_a in enumerate(oss):
+        if os_a.id in vistos:
+            continue
+        grupo = [os_a]
+        for os_b in oss[i + 1:]:
+            if os_b.id in vistos:
+                continue
+            if os_b.id_veiculo != os_a.id_veiculo:
+                continue
+            if (os_a.fornecedor or "") != (os_b.fornecedor or ""):
+                continue
+            # janela de data_execucao ou data_entrada
+            data_a = os_a.data_execucao or os_a.data_entrada
+            data_b = os_b.data_execucao or os_b.data_entrada
+            if data_a and data_b:
+                if abs((data_a - data_b).days) > 3:
+                    continue
+            grupo.append(os_b)
+
+        if len(grupo) >= 2:
+            motivos = ["mesmo veículo", "mesmo fornecedor", "datas próximas (±3 dias)"]
+            sugestoes.append(schemas.MergeSugestao(
+                os_ids=[o.id for o in grupo],
+                placa=os_a.placa,
+                fornecedor=os_a.fornecedor,
+                id_ord_serv=os_a.numero_os,
+                data_execucao=os_a.data_execucao,
+                total_itens=sum(len(o.itens) for o in grupo),
+                total_nfs=sum(len([nf for nf in o.notas_fiscais if nf.deletado_em is None]) for o in grupo),
+                motivos=motivos,
+            ))
+            for o in grupo:
+                vistos.add(o.id)
+    return sugestoes
+
+
+@app.post("/api/db/os/merge", response_model=schemas.OsResponse)
+def merge_os(payload: schemas.MergeRequest, db: Session = Depends(get_db)):
+    import json
+    if payload.os_destino_id not in payload.os_ids:
+        raise HTTPException(400, "os_destino_id deve estar em os_ids")
+
+    destino = db.get(models.OrdemServico, payload.os_destino_id)
+    if not destino or destino.deletado_em is not None:
+        raise HTTPException(404, "OS destino não encontrada")
+
+    origens = [
+        db.get(models.OrdemServico, oid)
+        for oid in payload.os_ids if oid != payload.os_destino_id
+    ]
+    for o in origens:
+        if not o or o.deletado_em is not None:
+            raise HTTPException(404, "Uma das OS origem não encontrada")
+        if o.id_veiculo != destino.id_veiculo:
+            raise HTTPException(400, "Veículos divergentes entre OS")
+        if (o.fornecedor or "") != (destino.fornecedor or ""):
+            raise HTTPException(400, "Fornecedores divergentes entre OS")
+
+    # Acumula ids absorvidos
+    ids_absorvidos = json.loads(destino.migrado_de_ids or "[]")
+    for o in origens:
+        ids_absorvidos.extend(json.loads(o.migrado_de_ids or f"[{o.id}]"))
+        for item in list(o.itens):
+            item.os_id = destino.id
+        for nf in list(o.notas_fiscais):
+            nf.os_id = destino.id
+
+    destino.migrado_de_ids = json.dumps(sorted(set(ids_absorvidos)))
+    db.flush()
+    from datetime import datetime as _dt
+    for o in origens:
+        o.deletado_em = _dt.utcnow()
+    db.commit()
+    db.refresh(destino)
+    return destino
+
+
+# ── Auditoria / Integridade ──────────────────────────────────────────
+
+@app.get("/api/db/parcelas/integridade", response_model=schemas.IntegridadeResponse)
+def integridade_parcelas(db: Session = Depends(get_db)):
+    """Retorna parcelas órfãs (sem nf_id) — devem ser zero após migração."""
+    total = db.query(models.ManutencaoParcela).count()
+    orfas = (
+        db.query(models.ManutencaoParcela.id)
+        .filter(models.ManutencaoParcela.nf_id.is_(None))
+        .filter(models.ManutencaoParcela.deletado_em.is_(None))
+        .all()
+    )
+    return {"orfas": [o[0] for o in orfas], "total": total}
