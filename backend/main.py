@@ -22,87 +22,119 @@ def startup():
 
 
 def _migrate_parcelas_prorrogacao():
-    from sqlalchemy import text
-    from database import engine
-    new_cols = [
-        "data_vencimento_original DATE",
-        "prorrogada BOOLEAN DEFAULT 0",
-        "isento_encargos BOOLEAN",
-        "tipo_pgto_prorrogacao VARCHAR(20)",
-        "chave_pix VARCHAR(100)",
-        "multa_pct NUMERIC(6,2)",
-        "juros_diario_pct NUMERIC(6,4)",
-        "data_prevista_pagamento DATE",
-        "dias_cartorio INTEGER",
-        "valor_atualizado NUMERIC(14,2)",
-        "sera_reembolsado BOOLEAN DEFAULT 0",
-        "valor_reembolso NUMERIC(14,2)",
-        "qtd_itens_reembolso INTEGER",
-        "motivo_reembolso TEXT",
-        "fornecedor VARCHAR(120)",
-        "valor_item_total NUMERIC(14,2)",
-        "tipo_custo VARCHAR(30)",
-        "nf_id INTEGER REFERENCES notas_fiscais(id)",
-        "deletado_em DATETIME",
-    ]
-    with engine.connect() as conn:
+    import sqlite3
+    from database import DB_PATH
+
+    # DDL completo da tabela com manutencao_id nullable
+    NEW_TABLE_DDL = """
+        CREATE TABLE manutencao_parcelas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            manutencao_id INTEGER REFERENCES manutencoes(id),
+            nf_ordem INTEGER,
+            nota VARCHAR(50),
+            fornecedor VARCHAR(120),
+            valor_item_total NUMERIC(14,2),
+            tipo_custo VARCHAR(30),
+            data_vencimento DATE,
+            parcela_atual INTEGER,
+            parcela_total INTEGER,
+            valor_parcela NUMERIC(14,2),
+            forma_pgto VARCHAR(50),
+            status_pagamento VARCHAR(20) DEFAULT 'Pendente',
+            data_vencimento_original DATE,
+            prorrogada BOOLEAN DEFAULT 0,
+            isento_encargos BOOLEAN,
+            tipo_pgto_prorrogacao VARCHAR(20),
+            chave_pix VARCHAR(100),
+            multa_pct NUMERIC(6,2),
+            juros_diario_pct NUMERIC(6,4),
+            data_prevista_pagamento DATE,
+            dias_cartorio INTEGER,
+            valor_atualizado NUMERIC(14,2),
+            sera_reembolsado BOOLEAN DEFAULT 0,
+            valor_reembolso NUMERIC(14,2),
+            qtd_itens_reembolso INTEGER,
+            motivo_reembolso TEXT,
+            nf_id INTEGER REFERENCES notas_fiscais(id),
+            deletado_em DATETIME
+        )
+    """
+
+    con = sqlite3.connect(str(DB_PATH))
+    con.isolation_level = None  # autocommit — controle manual de transações
+    try:
+        # Adiciona colunas novas (idempotente — ignora se já existem)
+        new_cols = [
+            "data_vencimento_original DATE",
+            "prorrogada BOOLEAN DEFAULT 0",
+            "isento_encargos BOOLEAN",
+            "tipo_pgto_prorrogacao VARCHAR(20)",
+            "chave_pix VARCHAR(100)",
+            "multa_pct NUMERIC(6,2)",
+            "juros_diario_pct NUMERIC(6,4)",
+            "data_prevista_pagamento DATE",
+            "dias_cartorio INTEGER",
+            "valor_atualizado NUMERIC(14,2)",
+            "sera_reembolsado BOOLEAN DEFAULT 0",
+            "valor_reembolso NUMERIC(14,2)",
+            "qtd_itens_reembolso INTEGER",
+            "motivo_reembolso TEXT",
+            "fornecedor VARCHAR(120)",
+            "valor_item_total NUMERIC(14,2)",
+            "tipo_custo VARCHAR(30)",
+            "nf_id INTEGER REFERENCES notas_fiscais(id)",
+            "deletado_em DATETIME",
+        ]
         for col_def in new_cols:
             try:
-                conn.execute(text(f"ALTER TABLE manutencao_parcelas ADD COLUMN {col_def}"))
-                conn.commit()
+                con.execute(f"ALTER TABLE manutencao_parcelas ADD COLUMN {col_def}")
             except Exception:
                 pass
-        # Índices — idempotentes via IF NOT EXISTS
-        for idx_sql in [
-            "CREATE INDEX IF NOT EXISTS idx_parcela_nf ON manutencao_parcelas(nf_id)",
-            "CREATE INDEX IF NOT EXISTS idx_parcela_venc ON manutencao_parcelas(data_vencimento)",
-        ]:
-            try:
-                conn.execute(text(idx_sql))
-                conn.commit()
-            except Exception:
-                pass
-        # Relaxa NOT NULL em manutencao_id (necessário para novo fluxo nf_id-only)
+
+        # Recria índices (idempotentes)
+        con.execute("CREATE INDEX IF NOT EXISTS idx_parcela_nf ON manutencao_parcelas(nf_id)")
+        con.execute("CREATE INDEX IF NOT EXISTS idx_parcela_venc ON manutencao_parcelas(data_vencimento)")
+
+        # Verifica se manutencao_id ainda tem NOT NULL
+        row = con.execute(
+            "SELECT \"notnull\" FROM pragma_table_info('manutencao_parcelas') WHERE name='manutencao_id'"
+        ).fetchone()
+        if not (row and row[0] == 1):
+            return  # já nullable, nada a fazer
+
+        print("[migration] Relaxando NOT NULL em manutencao_parcelas.manutencao_id ...")
+        con.execute("PRAGMA foreign_keys=OFF")
+        con.execute("BEGIN")
         try:
-            row = conn.execute(text("""
-                SELECT "notnull" FROM pragma_table_info('manutencao_parcelas')
-                WHERE name='manutencao_id'
-            """)).fetchone()
-            if row and row[0] == 1:
-                conn.execute(text("PRAGMA foreign_keys=OFF"))
-                conn.execute(text("BEGIN"))
-                conn.execute(text("""
-                    CREATE TABLE manutencao_parcelas_new AS
-                    SELECT * FROM manutencao_parcelas WHERE 0
-                """))
-                # Rebuild com manutencao_id nullable — usa schema atual do SQLAlchemy
-                conn.execute(text("DROP TABLE manutencao_parcelas_new"))
-                # Estratégia segura: renomeia tabela antiga, deixa SQLAlchemy recriar, copia dados
-                conn.execute(text("ALTER TABLE manutencao_parcelas RENAME TO manutencao_parcelas_old"))
-                conn.execute(text("COMMIT"))
-                conn.execute(text("PRAGMA foreign_keys=ON"))
-                conn.commit()
-                # Recria via metadata (agora sem dados)
-                from database import engine as _eng
-                models.ManutencaoParcela.__table__.create(_eng, checkfirst=True)
-                # Copia dados da antiga
-                cols_old = [r[1] for r in conn.execute(text(
-                    "SELECT * FROM pragma_table_info('manutencao_parcelas_old')"
-                )).fetchall()]
-                cols_new = [r[1] for r in conn.execute(text(
-                    "SELECT * FROM pragma_table_info('manutencao_parcelas')"
-                )).fetchall()]
-                cols_comuns = [c for c in cols_old if c in cols_new]
-                col_list = ", ".join(cols_comuns)
-                conn.execute(text(
-                    f"INSERT INTO manutencao_parcelas ({col_list}) "
-                    f"SELECT {col_list} FROM manutencao_parcelas_old"
-                ))
-                conn.execute(text("DROP TABLE manutencao_parcelas_old"))
-                conn.commit()
-                print("[migration] manutencao_parcelas.manutencao_id agora permite NULL")
+            # Captura colunas da tabela atual (antes de renomear)
+            cols_old = [r[1] for r in con.execute("PRAGMA table_info('manutencao_parcelas')").fetchall()]
+
+            # Remove resquício de tentativa anterior, se houver
+            con.execute("DROP TABLE IF EXISTS manutencao_parcelas_old")
+            con.execute("ALTER TABLE manutencao_parcelas RENAME TO manutencao_parcelas_old")
+            con.execute(NEW_TABLE_DDL)
+
+            # Copia apenas colunas que existem em ambas as tabelas
+            cols_new = [r[1] for r in con.execute("PRAGMA table_info('manutencao_parcelas')").fetchall()]
+            cols_comuns = [c for c in cols_old if c in cols_new]
+            col_list = ", ".join(cols_comuns)
+            con.execute(
+                f"INSERT INTO manutencao_parcelas ({col_list}) "
+                f"SELECT {col_list} FROM manutencao_parcelas_old"
+            )
+            con.execute("DROP TABLE manutencao_parcelas_old")
+            con.execute("COMMIT")
+            con.execute("CREATE INDEX IF NOT EXISTS idx_parcela_nf ON manutencao_parcelas(nf_id)")
+            con.execute("CREATE INDEX IF NOT EXISTS idx_parcela_venc ON manutencao_parcelas(data_vencimento)")
+            print("[migration] manutencao_parcelas.manutencao_id agora permite NULL")
         except Exception as e:
+            con.execute("ROLLBACK")
             print(f"[migration] Erro relaxando NOT NULL: {e}")
+            raise
+        finally:
+            con.execute("PRAGMA foreign_keys=ON")
+    finally:
+        con.close()
 
 # ─────────────────────────────────────────────
 # Helpers do novo modelo (OS / NF / parcelas)

@@ -95,7 +95,7 @@ class ManutencaoParcela(Base):
     __tablename__ = "manutencao_parcelas"
 
     id            = Column(Integer, primary_key=True, autoincrement=True)
-    manutencao_id = Column(Integer, ForeignKey("manutencoes.id"), nullable=False)
+    manutencao_id = Column(Integer, ForeignKey("manutencoes.id"), nullable=True)
 
     nf_ordem         = Column(Integer)
     nota             = Column(String(50))
