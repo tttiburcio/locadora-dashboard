@@ -10,7 +10,7 @@ export const getVehicle            = (placa, year)         => api.get(`/vehicle/
 export const getRegions            = (year)                => api.get('/regions',  { params: { year } }).then(r => r.data)
 export const getMaintenanceAnalysis = (year, placa)        => api.get('/maintenance_analysis', { params: { year, ...(placa ? { placa } : {}) } }).then(r => r.data)
 
-// ── Banco SQLite — CRUD de manutenções ──────────────────────────────
+// ── Banco SQLite — CRUD legado (manutenções) ─────────────────────────
 export const dbListFrota           = ()                    => api.get('/db/frota').then(r => r.data)
 export const dbListManutencoes     = (status, placa)       => api.get('/db/manutencoes', { params: { ...(status ? { status } : {}), ...(placa ? { placa } : {}) } }).then(r => r.data)
 export const dbGetManutencao       = (id)                  => api.get(`/db/manutencoes/${id}`).then(r => r.data)
@@ -19,4 +19,30 @@ export const dbAtualizarManutencao = (id, payload)         => api.patch(`/db/man
 export const dbFinalizarManutencao = (id, payload)         => api.post(`/db/manutencoes/${id}/finalizar`, payload).then(r => r.data)
 export const dbDeletarManutencao   = (id)                  => api.delete(`/db/manutencoes/${id}`)
 export const dbAtualizarParcela    = (id, payload)         => api.patch(`/db/parcelas/${id}`, payload).then(r => r.data)
-export const dbListParcelas        = ()                    => api.get('/db/parcelas').then(r => r.data)
+export const dbListParcelas        = (year)                => api.get('/db/parcelas', { params: { ...(year ? { year } : {}) } }).then(r => r.data)
+
+// ── Ordens de Serviço (novo modelo) ─────────────────────────────────
+export const dbListOs              = (status, placa)       => api.get('/db/os', { params: { ...(status ? { status } : {}), ...(placa ? { placa } : {}) } }).then(r => r.data)
+export const dbGetOs               = (id)                  => api.get(`/db/os/${id}`).then(r => r.data)
+export const dbAbrirOs             = (payload)             => api.post('/db/os', payload).then(r => r.data)
+export const dbAtualizarOs         = (id, payload)         => api.patch(`/db/os/${id}`, payload).then(r => r.data)
+export const dbDeletarOs           = (id)                  => api.delete(`/db/os/${id}`)
+export const dbExecutarOs          = (id, payload)         => api.post(`/db/os/${id}/executar`, payload).then(r => r.data)
+export const dbFinalizarOs         = (id)                  => api.post(`/db/os/${id}/finalizar`).then(r => r.data)
+export const dbValidarOs           = (id)                  => api.get(`/db/os/${id}/validacao`).then(r => r.data)
+
+// ── Itens da OS ──────────────────────────────────────────────────────
+export const dbCriarOsItem         = (os_id, payload)      => api.post(`/db/os/${os_id}/itens`, payload).then(r => r.data)
+export const dbAtualizarOsItem     = (os_id, item_id, p)   => api.patch(`/db/os/${os_id}/itens/${item_id}`, p).then(r => r.data)
+export const dbDeletarOsItem       = (os_id, item_id)      => api.delete(`/db/os/${os_id}/itens/${item_id}`)
+
+// ── Notas Fiscais ────────────────────────────────────────────────────
+export const dbListNfs             = (os_id)               => api.get(`/db/os/${os_id}/nfs`).then(r => r.data)
+export const dbCriarNf             = (os_id, payload)      => api.post(`/db/os/${os_id}/nfs`, payload).then(r => r.data)
+export const dbAtualizarNf         = (nf_id, payload)      => api.patch(`/db/nfs/${nf_id}`, payload).then(r => r.data)
+export const dbDeletarNf           = (nf_id)               => api.delete(`/db/nfs/${nf_id}`)
+export const dbCriarParcelaNf      = (nf_id, payload)      => api.post(`/db/nfs/${nf_id}/parcelas`, payload).then(r => r.data)
+
+// ── Merge assistido ──────────────────────────────────────────────────
+export const dbMergeSugestoes      = ()                    => api.get('/db/os/merge-sugestoes').then(r => r.data)
+export const dbConfirmarMerge      = (payload)             => api.post('/db/os/merge', payload).then(r => r.data)
