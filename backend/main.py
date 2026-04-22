@@ -169,10 +169,19 @@ def validar_consistencia_os(db: Session, os_id: int) -> list[str]:
         return [f"OS {os_id} não encontrada"]
 
     nfs_ativas = [nf for nf in os.notas_fiscais if nf.deletado_em is None]
+
+    # Todos os itens da OS devem estar vinculados a pelo menos uma NF
+    os_item_ids_vinculados = {nfi.os_item_id for nf in nfs_ativas for nfi in nf.itens}
+    for it in os.itens:
+        if it.id not in os_item_ids_vinculados:
+            cat = it.categoria or ''
+            label = it.servico or it.sistema or f"Item {it.id}"
+            erros.append(f"Item '{label}' não vinculado a nenhuma NF")
+
     for nf in nfs_ativas:
         soma_itens = sum(float(ni.valor_total_item or 0) for ni in nf.itens)
         valor_nf = float(nf.valor_total_nf or 0)
-        if abs(soma_itens - valor_nf) > 0.01:
+        if soma_itens > 0 and abs(soma_itens - valor_nf) > 0.01:
             erros.append(
                 f"NF {nf.numero_nf or nf.id}: soma dos itens ({soma_itens:.2f}) "
                 f"≠ valor_total_nf ({valor_nf:.2f})"
@@ -1438,13 +1447,6 @@ def adicionar_nf(os_id: int, payload: schemas.NotaFiscalCreate, db: Session = De
     if not os or os.deletado_em is not None:
         raise HTTPException(404, "OS não encontrada")
 
-    # Validação: mesmo fornecedor na OS
-    if payload.fornecedor and os.fornecedor and payload.fornecedor != os.fornecedor:
-        raise HTTPException(
-            400,
-            f"Fornecedor da NF ({payload.fornecedor}) difere do fornecedor da OS ({os.fornecedor})",
-        )
-
     # Gera numero_os atomicamente na 1ª NF
     if os.numero_os is None:
         os.numero_os = generate_numero_os_atomic(db)
@@ -1474,12 +1476,6 @@ def atualizar_nf(nf_id: int, payload: schemas.NotaFiscalUpdate, db: Session = De
     nf = db.get(models.NotaFiscal, nf_id)
     if not nf or nf.deletado_em is not None:
         raise HTTPException(404, "NF não encontrada")
-
-    if payload.fornecedor and nf.os and nf.os.fornecedor and payload.fornecedor != nf.os.fornecedor:
-        raise HTTPException(
-            400,
-            f"Fornecedor da NF deve ser igual ao da OS ({nf.os.fornecedor})",
-        )
 
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(nf, field, value)

@@ -240,12 +240,14 @@ class OrdemServico(Base):
     responsavel_tec = Column(String(80))
     indisponivel    = Column(Boolean, default=False)
 
-    km            = Column(Numeric(10, 0))
-    data_entrada  = Column(Date)
-    data_execucao = Column(Date)
-    prox_km       = Column(Numeric(10, 0))
-    prox_data     = Column(Date)
-    observacoes   = Column(Text)
+    km                 = Column(Numeric(10, 0))
+    data_entrada       = Column(Date)
+    data_execucao      = Column(Date)
+    prox_km            = Column(Numeric(10, 0))
+    prox_data          = Column(Date)
+    status_execucao    = Column(String(40))
+    descricao_pendente = Column(Text)
+    observacoes        = Column(Text)
 
     deletado_em     = Column(DateTime, nullable=True)
     criado_em       = Column(DateTime, server_default=func.now())
@@ -269,6 +271,7 @@ class OsItem(Base):
     id        = Column(Integer, primary_key=True, autoincrement=True)
     os_id     = Column(Integer, ForeignKey("ordens_servico.id"), nullable=False)
 
+    categoria = Column(String(30))
     sistema   = Column(String(80))
     servico   = Column(String(200))
     descricao = Column(Text)
@@ -295,12 +298,13 @@ class NotaFiscal(Base):
     id             = Column(Integer, primary_key=True, autoincrement=True)
     os_id          = Column(Integer, ForeignKey("ordens_servico.id"), nullable=False)
 
-    numero_nf      = Column(String(50))
-    tipo_nf        = Column(String(20), nullable=False)  # Produto | Servico
-    fornecedor     = Column(String(120))
-    valor_total_nf = Column(Numeric(14, 2))
-    data_emissao   = Column(Date)
-    observacoes    = Column(Text)
+    numero_nf        = Column(String(50))
+    tipo_nf          = Column(String(20), nullable=False)  # Produto | Servico
+    empresa_faturada = Column(String(100))
+    fornecedor       = Column(String(120))
+    valor_total_nf   = Column(Numeric(14, 2))
+    data_emissao     = Column(Date)
+    observacoes      = Column(Text)
 
     tipo_nf_needs_review = Column(Boolean, default=False)
     deletado_em          = Column(DateTime, nullable=True)

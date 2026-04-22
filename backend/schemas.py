@@ -222,6 +222,7 @@ class FrotaResponse(BaseModel):
 
 # ── OsItem ───────────────────────────────────────────────────────────
 class OsItemBase(BaseModel):
+    categoria:    Optional[str] = None
     sistema:      Optional[str] = None
     servico:      Optional[str] = None
     descricao:    Optional[str] = None
@@ -276,42 +277,45 @@ class NfItemResponse(NfItemBase):
 
 # ── NotaFiscal ───────────────────────────────────────────────────────
 class NotaFiscalCreate(BaseModel):
-    numero_nf:      Optional[str]  = None
-    tipo_nf:        Literal["Produto", "Servico"]
-    fornecedor:     Optional[str]  = None
-    valor_total_nf: Optional[float] = None
-    data_emissao:   Optional[date] = None
-    observacoes:    Optional[str]  = None
+    numero_nf:        Optional[str]  = None
+    tipo_nf:          Literal["Produto", "Servico"]
+    empresa_faturada: Optional[str]  = None
+    fornecedor:       Optional[str]  = None
+    valor_total_nf:   Optional[float] = None
+    data_emissao:     Optional[date] = None
+    observacoes:      Optional[str]  = None
     tipo_nf_needs_review: Optional[bool] = False
-    itens:          list[NfItemCreate]    = []
-    parcelas:       list[ParcelaCreate]   = []
+    itens:            list[NfItemCreate]    = []
+    parcelas:         list[ParcelaCreate]   = []
 
 
 class NotaFiscalUpdate(BaseModel):
-    numero_nf:      Optional[str]  = None
-    tipo_nf:        Optional[Literal["Produto", "Servico"]] = None
-    fornecedor:     Optional[str]  = None
-    valor_total_nf: Optional[float] = None
-    data_emissao:   Optional[date] = None
-    observacoes:    Optional[str]  = None
+    numero_nf:        Optional[str]  = None
+    tipo_nf:          Optional[Literal["Produto", "Servico"]] = None
+    empresa_faturada: Optional[str]  = None
+    fornecedor:       Optional[str]  = None
+    valor_total_nf:   Optional[float] = None
+    data_emissao:     Optional[date] = None
+    observacoes:      Optional[str]  = None
     tipo_nf_needs_review: Optional[bool] = None
 
 
 class NotaFiscalResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id:             int
-    os_id:          int
-    numero_nf:      Optional[str]
-    tipo_nf:        str
-    fornecedor:     Optional[str]
-    valor_total_nf: Optional[float]
-    data_emissao:   Optional[date]
-    observacoes:    Optional[str]
+    id:               int
+    os_id:            int
+    numero_nf:        Optional[str]
+    tipo_nf:          str
+    empresa_faturada: Optional[str]
+    fornecedor:       Optional[str]
+    valor_total_nf:   Optional[float]
+    data_emissao:     Optional[date]
+    observacoes:      Optional[str]
     tipo_nf_needs_review: Optional[bool]
-    criado_em:      Optional[datetime]
-    itens:          list[NfItemResponse]  = []
-    parcelas:       list[ParcelaResponse] = []
+    criado_em:        Optional[datetime]
+    itens:            list[NfItemResponse]  = []
+    parcelas:         list[ParcelaResponse] = []
 
 
 # ── OrdemServico ─────────────────────────────────────────────────────
@@ -350,11 +354,12 @@ class OsUpdate(BaseModel):
 
 class OsExecutar(BaseModel):
     """Marca a OS como executada, aguardando NF."""
-    data_execucao: date
-    km:            Optional[float] = None
-    prox_km:       Optional[float] = None
-    prox_data:     Optional[date]  = None
-    categoria:     Optional[str]   = None
+    data_execucao:     date
+    km:                Optional[float] = None
+    prox_km:           Optional[float] = None
+    prox_data:         Optional[date]  = None
+    status_execucao:   Optional[str]   = None
+    descricao_pendente: Optional[str]  = None
 
 
 class OsResponse(BaseModel):
@@ -375,16 +380,18 @@ class OsResponse(BaseModel):
     total_os:        Optional[float]
     responsavel_tec: Optional[str]
     indisponivel:    Optional[bool]
-    km:              Optional[float]
-    data_entrada:    Optional[date]
-    data_execucao:   Optional[date]
-    prox_km:         Optional[float]
-    prox_data:       Optional[date]
-    observacoes:     Optional[str]
-    criado_em:       Optional[datetime]
-    atualizado_em:   Optional[datetime]
-    itens:           list[OsItemResponse]      = []
-    notas_fiscais:   list[NotaFiscalResponse]  = []
+    km:                 Optional[float]
+    data_entrada:       Optional[date]
+    data_execucao:      Optional[date]
+    prox_km:            Optional[float]
+    prox_data:          Optional[date]
+    status_execucao:    Optional[str]
+    descricao_pendente: Optional[str]
+    observacoes:        Optional[str]
+    criado_em:          Optional[datetime]
+    atualizado_em:      Optional[datetime]
+    itens:              list[OsItemResponse]      = []
+    notas_fiscais:      list[NotaFiscalResponse]  = []
 
 
 # ── Merge assistido ──────────────────────────────────────────────────
