@@ -52,6 +52,10 @@ function itemMatchesTipo(it, tipo_nf) {
   return true
 }
 
+function nfLabel(nf, ni) {
+  return `${nf.tipo_nf === 'Produto' ? 'NFP' : 'NFS'} ${ni + 1}`
+}
+
 const NF_VAZIA = (osItens) => ({
   tipo_nf:          'Servico',
   numero_nf:        '',
@@ -74,11 +78,9 @@ const NF_VAZIA = (osItens) => ({
   parcelas: gerarParcelas(1, '', new Date().toISOString().slice(0, 10)),
 })
 
-// ── Validação local completa ──────────────────────────────────────────
 function validarLocal(nfs, osItens) {
   const erros = []
 
-  // Todos os itens da OS devem estar vinculados a pelo menos uma NF
   const osItemIdsVinculados = new Set(
     nfs.flatMap(nf =>
       nf.itens.filter(it => it.incluir && itemMatchesTipo(it, nf.tipo_nf)).map(it => it.os_item_id)
@@ -93,7 +95,7 @@ function validarLocal(nfs, osItens) {
   })
 
   nfs.forEach((nf, ni) => {
-    const label = `NF ${ni + 1}${nf.numero_nf ? ` (${nf.numero_nf})` : ''}`
+    const label = nfLabel(nf, ni) + (nf.numero_nf ? ` (${nf.numero_nf})` : '')
 
     if (!nf.empresa_faturada)
       erros.push(`${label}: empresa faturada é obrigatória`)
@@ -199,7 +201,52 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
     ...n, parcelas: n.parcelas.map((p, pidx) => pidx !== pi ? p : { ...p, [k]: v }),
   }))
 
-  const salvarNfs = async () => {
+  // Constrói payload de uma NF para envio ao backend
+  const buildNfPayload = (nf) => {
+    const itensVinculados = nf.itens.filter(it =>
+      it.incluir && itemMatchesTipo(it, nf.tipo_nf) && (it.valor_total_item || it.valor_unitario)
+    )
+    return {
+      numero_nf:        nf.numero_nf        || null,
+      tipo_nf:          nf.tipo_nf,
+      empresa_faturada: nf.empresa_faturada || null,
+      fornecedor:       nf.fornecedor       || null,
+      valor_total_nf:   nf.valor_total_nf   ? parseFloat(nf.valor_total_nf) : null,
+      data_emissao:     nf.data_emissao     || null,
+      observacoes:      nf.observacoes      || null,
+      itens: itensVinculados.map(it => ({
+        os_item_id:       it.os_item_id,
+        quantidade:       parseFloat(it.quantidade)       || 1,
+        valor_unitario:   parseFloat(it.valor_unitario)   || null,
+        valor_total_item: parseFloat(it.valor_total_item) || null,
+      })),
+      parcelas: nf.parcelas.filter(p => p.valor_parcela).map(p => ({
+        data_vencimento:  p.data_vencimento || null,
+        valor_parcela:    parseFloat(p.valor_parcela),
+        forma_pgto:       p.forma_pgto,
+        status_pagamento: p.status_pagamento,
+      })),
+    }
+  }
+
+  // Salvar NFs parcialmente — sem validação completa, OS fica executado_aguardando_nf
+  const salvarNfsParcial = async () => {
+    setSaving(true); setError(null)
+    try {
+      for (const nf of nfs) {
+        if (!nf.tipo_nf) continue
+        await dbCriarNf(os.id, buildNfPayload(nf))
+      }
+      onSaved()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Erro ao salvar NFs')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Salvar NFs e ir para etapa de revisão/finalização
+  const salvarNfsERevisar = async () => {
     const erros = validarLocal(nfs, os.itens || [])
     if (erros.length > 0) { setErrosValidacao(erros); setStep('finalizar'); return }
 
@@ -207,30 +254,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
     try {
       for (const nf of nfs) {
         if (!nf.tipo_nf) continue
-        const itensVinculados = nf.itens.filter(it =>
-          it.incluir && itemMatchesTipo(it, nf.tipo_nf) && (it.valor_total_item || it.valor_unitario)
-        )
-        await dbCriarNf(os.id, {
-          numero_nf:        nf.numero_nf        || null,
-          tipo_nf:          nf.tipo_nf,
-          empresa_faturada: nf.empresa_faturada || null,
-          fornecedor:       nf.fornecedor       || null,
-          valor_total_nf:   nf.valor_total_nf   ? parseFloat(nf.valor_total_nf) : null,
-          data_emissao:     nf.data_emissao     || null,
-          observacoes:      nf.observacoes      || null,
-          itens: itensVinculados.map(it => ({
-            os_item_id:       it.os_item_id,
-            quantidade:       parseFloat(it.quantidade)       || 1,
-            valor_unitario:   parseFloat(it.valor_unitario)   || null,
-            valor_total_item: parseFloat(it.valor_total_item) || null,
-          })),
-          parcelas: nf.parcelas.filter(p => p.valor_parcela).map(p => ({
-            data_vencimento:  p.data_vencimento || null,
-            valor_parcela:    parseFloat(p.valor_parcela),
-            forma_pgto:       p.forma_pgto,
-            status_pagamento: p.status_pagamento,
-          })),
-        })
+        await dbCriarNf(os.id, buildNfPayload(nf))
       }
       setErrosValidacao([])
       setStep('finalizar')
@@ -266,9 +290,9 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-      <div className="bg-g-900 border border-g-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[96vh] flex flex-col animate-fade-up">
+      <div className="bg-g-900 border border-g-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col animate-fade-up">
 
-        {/* Header */}
+        {/* Header — fixo */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-g-800 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 bg-emerald-50/20 border border-emerald-500/30 rounded-lg">
@@ -284,7 +308,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
           </button>
         </div>
 
-        {/* Steps */}
+        {/* Steps — fixo */}
         <div className="flex items-center gap-0 px-6 pt-4 shrink-0">
           {steps.map((s, i) => (
             <div key={s.key} className="flex items-center">
@@ -297,9 +321,9 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
           ))}
         </div>
 
-        {/* Itens da OS (contexto) */}
+        {/* Itens da OS (contexto) — fixo */}
         {os.itens?.length > 0 && (
-          <div className="px-6 pt-3 shrink-0">
+          <div className="px-6 pt-3 pb-1 shrink-0">
             <p className="text-g-600 text-xs font-semibold uppercase tracking-wider mb-1.5">Itens da OS</p>
             <div className="flex flex-wrap gap-2">
               {os.itens.map(it => (
@@ -313,6 +337,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
           </div>
         )}
 
+        {/* Conteúdo com scroll */}
         <div className="overflow-y-auto px-6 py-5 flex flex-col gap-5 flex-1">
 
           {/* ── Step 1: Execução ── */}
@@ -377,17 +402,27 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
               </div>
 
               {nfs.map((nf, ni) => {
+                // IDs de itens já usados em outras NFs
+                const itemsUsedElsewhere = new Set(
+                  nfs.flatMap((n, nidx) => nidx === ni ? [] :
+                    n.itens
+                      .filter(it => it.incluir && itemMatchesTipo(it, n.tipo_nf))
+                      .map(it => it.os_item_id)
+                  )
+                )
+
                 const itensVisiveis  = nf.itens.filter(it => itemMatchesTipo(it, nf.tipo_nf))
                 const somaItens      = itensVisiveis.filter(it => it.incluir).reduce((s, it) => s + (parseFloat(it.valor_total_item) || 0), 0)
                 const somaParcelas   = nf.parcelas.reduce((s, p) => s + (parseFloat(p.valor_parcela) || 0), 0)
                 const valorNf        = parseFloat(nf.valor_total_nf) || 0
                 const difereItens    = valorNf > 0 && itensVisiveis.some(it => it.incluir) && Math.abs(somaItens - valorNf) > 0.01
                 const difereParcelas = valorNf > 0 && Math.abs(somaParcelas - valorNf) > 0.01
+
                 return (
                   <div key={ni} className="border border-g-800 rounded-xl overflow-hidden">
                     <div className="bg-g-850 px-4 py-2.5 flex items-center justify-between">
                       <span className="text-g-400 text-xs font-semibold uppercase tracking-wider">
-                        NF {ni + 1} — {nf.tipo_nf === 'Produto' ? 'Compra' : 'Serviço'}
+                        {nfLabel(nf, ni)} — {nf.tipo_nf === 'Produto' ? 'Compra' : 'Serviço'}
                       </span>
                       {nfs.length > 1 && (
                         <button type="button" onClick={() => removeNf(ni)} className="text-g-600 hover:text-red-500 transition-colors">
@@ -450,30 +485,34 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
                           </p>
                           <div className="flex flex-col gap-1.5">
                             {itensVisiveis.map((it) => {
-                              const realIdx = nf.itens.indexOf(it)
+                              const realIdx    = nf.itens.indexOf(it)
+                              const usedElsew  = itemsUsedElsewhere.has(it.os_item_id)
+                              const disabled   = usedElsew || !it.incluir
                               return (
-                                <div key={realIdx} className="grid grid-cols-12 gap-3 items-center bg-g-850 rounded-lg px-4 py-2.5">
+                                <div key={realIdx} className={`grid grid-cols-12 gap-3 items-center bg-g-850 rounded-lg px-4 py-2.5 ${usedElsew ? 'opacity-40' : ''}`}>
                                   <label className="col-span-1 flex items-center justify-center cursor-pointer">
-                                    <input type="checkbox" checked={it.incluir}
-                                      onChange={e => setNfItem(ni, realIdx, 'incluir', e.target.checked)}
-                                      className="w-3.5 h-3.5 accent-g-100" />
+                                    <input type="checkbox" checked={it.incluir && !usedElsew}
+                                      disabled={usedElsew}
+                                      onChange={e => !usedElsew && setNfItem(ni, realIdx, 'incluir', e.target.checked)}
+                                      className="w-3.5 h-3.5 accent-g-100 disabled:cursor-not-allowed" />
                                   </label>
                                   <span className="col-span-4 text-g-400 text-xs truncate">
                                     {it._sistema && <span className="text-g-600 mr-1">{it._sistema} ·</span>}
                                     {it._servico || '—'}
+                                    {usedElsew && <span className="ml-1.5 text-g-700 italic">(outra NF)</span>}
                                   </span>
                                   <div className="col-span-2">
                                     <input type="number" step="0.01" value={it.quantidade}
                                       onChange={e => setNfItem(ni, realIdx, 'quantidade', e.target.value)}
-                                      disabled={!it.incluir}
+                                      disabled={disabled}
                                       placeholder="Qtd"
-                                      className={`${FIELD} bg-g-900 text-xs ${!it.incluir ? 'opacity-40' : ''}`} />
+                                      className={`${FIELD} bg-g-900 text-xs ${disabled ? 'opacity-40' : ''}`} />
                                   </div>
                                   <div className="col-span-2">
                                     <MoneyInput value={it.valor_unitario}
                                       onChange={v => setNfItem(ni, realIdx, 'valor_unitario', v)}
-                                      disabled={!it.incluir}
-                                      className={`${FIELD} bg-g-900 text-xs ${!it.incluir ? 'opacity-40' : ''}`} />
+                                      disabled={disabled}
+                                      className={`${FIELD} bg-g-900 text-xs ${disabled ? 'opacity-40' : ''}`} />
                                   </div>
                                   <div className="col-span-3">
                                     <MoneyInput value={it.valor_total_item}
@@ -614,7 +653,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer — fixo */}
         <div className="px-6 py-3 border-t border-g-800 flex items-center justify-between shrink-0">
           <button type="button" onClick={onClose}
             className="px-4 py-2 rounded-lg border border-g-800 text-g-500 text-sm hover:bg-g-850 transition-colors">
@@ -641,11 +680,18 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
               </button>
             )}
             {step === 'nfs' && (
-              <button onClick={salvarNfs} disabled={saving}
-                className="px-5 py-2 rounded-lg bg-g-100 text-white text-sm font-medium hover:bg-g-50 disabled:opacity-50 transition-colors flex items-center gap-2">
-                {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Salvar NFs → Revisar
-              </button>
+              <>
+                <button onClick={salvarNfsParcial} disabled={saving}
+                  className="px-4 py-2 rounded-lg border border-g-800 text-g-400 text-sm hover:bg-g-850 disabled:opacity-50 transition-colors flex items-center gap-2">
+                  {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Salvar NFs
+                </button>
+                <button onClick={salvarNfsERevisar} disabled={saving}
+                  className="px-5 py-2 rounded-lg bg-g-100 text-white text-sm font-medium hover:bg-g-50 disabled:opacity-50 transition-colors flex items-center gap-2">
+                  {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  Salvar e Finalizar →
+                </button>
+              </>
             )}
             {step === 'finalizar' && (
               <button onClick={handleFinalizar}
