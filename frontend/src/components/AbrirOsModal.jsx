@@ -3,9 +3,8 @@ import { createPortal } from 'react-dom'
 import { X, Loader2, Wrench, Plus, Trash2 } from 'lucide-react'
 import { dbListFrota, dbAbrirOs, dbAtualizarOs } from '../utils/api'
 
-const EMPRESAS   = [{ value: '1', label: 'TKJ' }, { value: '2', label: 'FINITA' }, { value: '3', label: 'LANDKRAFT' }]
 const TIPOS      = ['Preventiva', 'Corretiva']
-const CATEGORIAS = ['Serviço', 'Compra']
+const CATEGORIAS_ITEM = ['Serviço', 'Compra']
 const STATUS_OPTS = [
   { value: 'em_andamento',    label: 'Em andamento' },
   { value: 'aguardando_peca', label: 'Aguardando peça' },
@@ -18,7 +17,7 @@ const SISTEMAS = [
 const FIELD = 'w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors'
 const LABEL = 'text-g-600 text-xs font-medium mb-1 block'
 
-const ITEM_VAZIO = { sistema: '', servico: '', descricao: '', qtd_itens: '' }
+const ITEM_VAZIO = { categoria: 'Serviço', sistema: '', servico: '', descricao: '', qtd_itens: '' }
 
 export default function AbrirOsModal({ onClose, onSaved, os = null }) {
   const isEdit = os !== null
@@ -32,10 +31,8 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
     id_veiculo:      os?.id_veiculo      ?? '',
     placa:           os?.placa           ?? '',
     modelo:          os?.modelo          ?? '',
-    empresa:         os ? String(parseInt(parseFloat(os.empresa ?? '0'))) : '',
     fornecedor:      os?.fornecedor      ?? '',
     tipo_manutencao: os?.tipo_manutencao ?? 'Corretiva',
-    categoria:       os?.categoria       ?? 'Serviço',
     responsavel_tec: os?.responsavel_tec ?? '',
     indisponivel:    os?.indisponivel    ?? true,
     data_entrada:    os?.data_entrada    ?? new Date().toISOString().slice(0, 10),
@@ -46,6 +43,7 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
 
   const [itens, setItens] = useState(() =>
     (os?.itens?.length ? os.itens.map(it => ({
+      categoria: it.categoria ?? 'Serviço',
       sistema:   it.sistema   ?? '',
       servico:   it.servico   ?? '',
       descricao: it.descricao ?? '',
@@ -84,6 +82,7 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
         id_veiculo: parseInt(form.id_veiculo),
         km: form.km ? parseFloat(form.km) : null,
         itens: itensValidos.map(it => ({
+          categoria: it.categoria || null,
           sistema:   it.sistema   || null,
           servico:   it.servico   || null,
           descricao: it.descricao || null,
@@ -105,7 +104,7 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-      <div className="bg-g-900 border border-g-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col animate-fade-up">
+      <div className="bg-g-900 border border-g-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col animate-fade-up">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-g-800 shrink-0">
@@ -149,15 +148,8 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
             </div>
           </div>
 
-          {/* Empresa + Fornecedor + Tipo */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={LABEL}>Empresa Faturada</label>
-              <select value={form.empresa} onChange={e => set('empresa', e.target.value)} className={FIELD}>
-                <option value="">Selecione…</option>
-                {EMPRESAS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
+          {/* Fornecedor + Tipo + KM + Status + Responsável */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={LABEL}>Fornecedor / Oficina</label>
               <input
@@ -175,17 +167,11 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
             </div>
           </div>
 
-          {/* KM + Categoria + Status + Responsável */}
-          <div className="grid grid-cols-4 gap-3">
+          {/* KM + Status + Responsável */}
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={LABEL}>KM Atual</label>
               <input type="number" value={form.km} onChange={e => set('km', e.target.value)} placeholder="Ex: 125000" className={FIELD} />
-            </div>
-            <div>
-              <label className={LABEL}>Categoria</label>
-              <select value={form.categoria} onChange={e => set('categoria', e.target.value)} className={FIELD}>
-                {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
-              </select>
             </div>
             <div>
               <label className={LABEL}>Status</label>
@@ -216,30 +202,36 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
             </div>
             <div className="flex flex-col gap-2">
               {itens.map((it, i) => (
-                <div key={i} className="bg-g-850 border border-g-800 rounded-xl p-3 grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-3">
+                <div key={i} className="bg-g-850 border border-g-800 rounded-xl p-3 flex items-end gap-2">
+                  <div className="w-[88px] shrink-0">
+                    <label className={LABEL}>Categoria</label>
+                    <select value={it.categoria} onChange={e => setItem(i, 'categoria', e.target.value)} className={`${FIELD} bg-g-900`}>
+                      {CATEGORIAS_ITEM.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="w-[120px] shrink-0">
                     <label className={LABEL}>Sistema</label>
                     <select value={it.sistema} onChange={e => setItem(i, 'sistema', e.target.value)} className={`${FIELD} bg-g-900`}>
                       <option value="">Selecione…</option>
                       {SISTEMAS.map(s => <option key={s}>{s}</option>)}
                     </select>
                   </div>
-                  <div className="col-span-4">
-                    <label className={LABEL}>Serviço</label>
+                  <div className="flex-[2] min-w-0">
+                    <label className={LABEL}>Item</label>
                     <input value={it.servico} onChange={e => setItem(i, 'servico', e.target.value)}
                       placeholder="Ex: Troca de óleo…" className={`${FIELD} bg-g-900`} />
                   </div>
-                  <div className="col-span-3">
+                  <div className="flex-[2] min-w-0">
                     <label className={LABEL}>Descrição</label>
                     <input value={it.descricao} onChange={e => setItem(i, 'descricao', e.target.value)}
                       placeholder="Detalhes…" className={`${FIELD} bg-g-900`} />
                   </div>
-                  <div className="col-span-1">
+                  <div className="w-[56px] shrink-0">
                     <label className={LABEL}>Qtd</label>
                     <input type="number" value={it.qtd_itens} onChange={e => setItem(i, 'qtd_itens', e.target.value)}
                       placeholder="1" className={`${FIELD} bg-g-900`} />
                   </div>
-                  <div className="col-span-1 flex justify-end pb-0.5">
+                  <div className="shrink-0 w-7 flex justify-center pb-0.5">
                     {itens.length > 1 && (
                       <button type="button" onClick={() => removeItem(i)}
                         className="p-1.5 text-g-600 hover:text-red-500 transition-colors">

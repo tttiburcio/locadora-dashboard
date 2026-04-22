@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Query, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -1148,7 +1148,7 @@ def listar_parcelas(year: int = None, db: Session = Depends(get_db)):
             d["empresa_nome"]  = _empresa_nome(data, os_obj.empresa)
             d["id_contrato"]   = os_obj.id_contrato
             d["fornecedor_os"] = os_obj.fornecedor
-            d["fornecedor"]    = getattr(p, "fornecedor", None) or os_obj.fornecedor
+            d["fornecedor"]    = getattr(p, "fornecedor", None) or nf.fornecedor or os_obj.fornecedor
             # descrição: concatena itens da OS
             d["descricao"]     = "; ".join(filter(None, (it.servico or it.sistema for it in os_obj.itens))) or None
             d["id_ord_serv"]   = os_obj.numero_os
@@ -1234,7 +1234,15 @@ def list_os(
     placa:  str = Query(None, description="Filtrar por placa"),
     db: Session = Depends(get_db),
 ):
-    q = db.query(models.OrdemServico).filter(models.OrdemServico.deletado_em.is_(None))
+    q = (
+        db.query(models.OrdemServico)
+        .options(
+            selectinload(models.OrdemServico.itens),
+            selectinload(models.OrdemServico.notas_fiscais)
+            .selectinload(models.NotaFiscal.parcelas),
+        )
+        .filter(models.OrdemServico.deletado_em.is_(None))
+    )
     if status:
         q = q.filter(models.OrdemServico.status_os == status)
     if placa:
@@ -1283,17 +1291,28 @@ def atualizar_os(os_id: int, payload: schemas.OsUpdate, db: Session = Depends(ge
     if os.status_os == "finalizada":
         raise HTTPException(400, "OS finalizada — use endpoints financeiros para edição")
 
+    data = payload.model_dump(exclude_unset=True)
     novo_fornecedor = None
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    novos_itens = data.pop("itens", None)
+
+    for field, value in data.items():
         if field == "fornecedor":
             novo_fornecedor = value
         setattr(os, field, value)
 
-    # Propagar fornecedor novo para NFs não-finalizadas (mesmo fornecedor em toda OS)
+    # Propagar fornecedor novo para NFs não-finalizadas
     if novo_fornecedor is not None:
         for nf in os.notas_fiscais:
             if nf.deletado_em is None:
                 nf.fornecedor = novo_fornecedor
+
+    # Substituir itens: apaga os existentes e recria
+    if novos_itens is not None:
+        for item in os.itens:
+            db.delete(item)
+        db.flush()
+        for it in novos_itens:
+            db.add(models.OsItem(os_id=os.id, **it))
 
     db.commit()
     db.refresh(os)

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Literal
 
 
 # ─────────────────────────────────────────────
@@ -19,6 +19,9 @@ class ParcelaCreate(BaseModel):
 
 class ParcelaUpdate(BaseModel):
     nota:                     Optional[str]   = None
+    fornecedor:               Optional[str]   = None
+    valor_item_total:         Optional[float] = None
+    tipo_custo:               Optional[str]   = None
     data_vencimento:          Optional[date]  = None
     valor_parcela:            Optional[float] = None
     forma_pgto:               Optional[str]   = None
@@ -33,15 +36,23 @@ class ParcelaUpdate(BaseModel):
     data_prevista_pagamento:  Optional[date]  = None
     dias_cartorio:            Optional[int]   = None
     valor_atualizado:         Optional[float] = None
+    sera_reembolsado:         Optional[bool]  = None
+    valor_reembolso:          Optional[float] = None
+    qtd_itens_reembolso:      Optional[int]   = None
+    motivo_reembolso:         Optional[str]   = None
 
 
 class ParcelaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id:               int
-    manutencao_id:    int
+    manutencao_id:    Optional[int] = None
+    nf_id:            Optional[int] = None
     nf_ordem:         Optional[int]
     nota:             Optional[str]
+    fornecedor:       Optional[str]   = None
+    valor_item_total: Optional[float] = None
+    tipo_custo:       Optional[str]   = None
     data_vencimento:  Optional[date]
     parcela_atual:    Optional[int]
     parcela_total:    Optional[int]
@@ -58,14 +69,27 @@ class ParcelaResponse(BaseModel):
     data_prevista_pagamento:  Optional[date]  = None
     dias_cartorio:            Optional[int]   = None
     valor_atualizado:         Optional[float] = None
+    sera_reembolsado:         Optional[bool]  = None
+    valor_reembolso:          Optional[float] = None
+    qtd_itens_reembolso:      Optional[int]   = None
+    motivo_reembolso:         Optional[str]   = None
 
 
 class ParcelaFinanceiroResponse(ParcelaResponse):
-    placa:         str
-    modelo:        Optional[str]  = None
-    fornecedor:    Optional[str]  = None
-    id_ord_serv:   Optional[str]  = None
-    data_execucao: Optional[date] = None
+    placa:            str
+    modelo:           Optional[str]  = None
+    empresa:          Optional[str]  = None
+    empresa_nome:     Optional[str]  = None
+    id_contrato:      Optional[str]  = None
+    fornecedor_os:    Optional[str]  = None
+    descricao:        Optional[str]  = None
+    id_ord_serv:      Optional[str]  = None
+    data_execucao:    Optional[date] = None
+    contrato_nome:    Optional[str]  = None
+    contrato_cidade:  Optional[str]  = None
+    contrato_inicio:  Optional[str]  = None
+    contrato_fim:     Optional[str]  = None
+    contrato_status:  Optional[str]  = None
 
 
 # ─────────────────────────────────────────────
@@ -97,6 +121,7 @@ class ManutencaoAbrir(BaseModel):
 # ─────────────────────────────────────────────
 class ManutencaoUpdate(BaseModel):
     status_manutencao: Optional[str]   = None
+    empresa:           Optional[str]   = None
     fornecedor:        Optional[str]   = None
     tipo_manutencao:   Optional[str]   = None
     sistema:           Optional[str]   = None
@@ -117,6 +142,7 @@ class ManutencaoFinalizar(BaseModel):
     id_ord_serv:     str
     total_os:        float
     data_execucao:   date
+    empresa:         Optional[str]   = None
     km:              Optional[float] = None
     categoria:       Optional[str]   = None
     qtd_itens:       Optional[int]   = None
@@ -188,3 +214,197 @@ class FrotaResponse(BaseModel):
     empresa:    Optional[str]
     status:     Optional[str]
     implemento: Optional[str]
+
+
+# ─────────────────────────────────────────────────────────────────────
+# NOVO MODELO HIERÁRQUICO: OS → Itens → NFs → Itens da NF → Parcelas
+# ─────────────────────────────────────────────────────────────────────
+
+# ── OsItem ───────────────────────────────────────────────────────────
+class OsItemBase(BaseModel):
+    sistema:      Optional[str] = None
+    servico:      Optional[str] = None
+    descricao:    Optional[str] = None
+    qtd_itens:    Optional[int] = None
+    posicao_pneu: Optional[str] = None
+    qtd_pneu:     Optional[int] = None
+    espec_pneu:   Optional[str] = None
+    marca_pneu:   Optional[str] = None
+    manejo_pneu:  Optional[str] = None
+
+
+class OsItemCreate(OsItemBase):
+    pass
+
+
+class OsItemUpdate(OsItemBase):
+    pass
+
+
+class OsItemResponse(OsItemBase):
+    model_config = ConfigDict(from_attributes=True)
+    id:    int
+    os_id: int
+
+
+# ── NfItem ───────────────────────────────────────────────────────────
+class NfItemBase(BaseModel):
+    os_item_id:         int
+    quantidade:         Optional[float] = 1
+    valor_unitario:     Optional[float] = None
+    valor_total_item:   Optional[float] = None
+    descricao_override: Optional[str]   = None
+
+
+class NfItemCreate(NfItemBase):
+    pass
+
+
+class NfItemUpdate(BaseModel):
+    os_item_id:         Optional[int]   = None
+    quantidade:         Optional[float] = None
+    valor_unitario:     Optional[float] = None
+    valor_total_item:   Optional[float] = None
+    descricao_override: Optional[str]   = None
+
+
+class NfItemResponse(NfItemBase):
+    model_config = ConfigDict(from_attributes=True)
+    id:    int
+    nf_id: int
+
+
+# ── NotaFiscal ───────────────────────────────────────────────────────
+class NotaFiscalCreate(BaseModel):
+    numero_nf:      Optional[str]  = None
+    tipo_nf:        Literal["Produto", "Servico"]
+    fornecedor:     Optional[str]  = None
+    valor_total_nf: Optional[float] = None
+    data_emissao:   Optional[date] = None
+    observacoes:    Optional[str]  = None
+    tipo_nf_needs_review: Optional[bool] = False
+    itens:          list[NfItemCreate]    = []
+    parcelas:       list[ParcelaCreate]   = []
+
+
+class NotaFiscalUpdate(BaseModel):
+    numero_nf:      Optional[str]  = None
+    tipo_nf:        Optional[Literal["Produto", "Servico"]] = None
+    fornecedor:     Optional[str]  = None
+    valor_total_nf: Optional[float] = None
+    data_emissao:   Optional[date] = None
+    observacoes:    Optional[str]  = None
+    tipo_nf_needs_review: Optional[bool] = None
+
+
+class NotaFiscalResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id:             int
+    os_id:          int
+    numero_nf:      Optional[str]
+    tipo_nf:        str
+    fornecedor:     Optional[str]
+    valor_total_nf: Optional[float]
+    data_emissao:   Optional[date]
+    observacoes:    Optional[str]
+    tipo_nf_needs_review: Optional[bool]
+    criado_em:      Optional[datetime]
+    itens:          list[NfItemResponse]  = []
+    parcelas:       list[ParcelaResponse] = []
+
+
+# ── OrdemServico ─────────────────────────────────────────────────────
+class OsAbrir(BaseModel):
+    id_veiculo:      int
+    placa:           str
+    modelo:          Optional[str]   = None
+    empresa:         Optional[str]   = None
+    id_contrato:     Optional[str]   = None
+    implemento:      Optional[str]   = None
+    fornecedor:      Optional[str]   = None
+    tipo_manutencao: Optional[str]   = None
+    categoria:       Optional[str]   = None
+    responsavel_tec: Optional[str]   = None
+    indisponivel:    bool            = True
+    data_entrada:    Optional[date]  = None
+    status_os:       str             = "em_andamento"
+    km:              Optional[float] = None
+    observacoes:     Optional[str]   = None
+    itens:           list[OsItemCreate] = []
+
+
+class OsUpdate(BaseModel):
+    status_os:       Optional[str]          = None
+    fornecedor:      Optional[str]          = None
+    tipo_manutencao: Optional[str]          = None
+    categoria:       Optional[str]          = None
+    empresa:         Optional[str]          = None
+    responsavel_tec: Optional[str]          = None
+    indisponivel:    Optional[bool]         = None
+    data_entrada:    Optional[date]         = None
+    km:              Optional[float]        = None
+    observacoes:     Optional[str]          = None
+    itens:           Optional[list[OsItemCreate]] = None
+
+
+class OsExecutar(BaseModel):
+    """Marca a OS como executada, aguardando NF."""
+    data_execucao: date
+    km:            Optional[float] = None
+    prox_km:       Optional[float] = None
+    prox_data:     Optional[date]  = None
+    categoria:     Optional[str]   = None
+
+
+class OsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id:              int
+    numero_os:       Optional[str]
+    status_os:       str
+    id_veiculo:      int
+    placa:           Optional[str]
+    modelo:          Optional[str]
+    empresa:         Optional[str]
+    id_contrato:     Optional[str]
+    implemento:      Optional[str]
+    fornecedor:      Optional[str]
+    tipo_manutencao: Optional[str]
+    categoria:       Optional[str]
+    total_os:        Optional[float]
+    responsavel_tec: Optional[str]
+    indisponivel:    Optional[bool]
+    km:              Optional[float]
+    data_entrada:    Optional[date]
+    data_execucao:   Optional[date]
+    prox_km:         Optional[float]
+    prox_data:       Optional[date]
+    observacoes:     Optional[str]
+    criado_em:       Optional[datetime]
+    atualizado_em:   Optional[datetime]
+    itens:           list[OsItemResponse]      = []
+    notas_fiscais:   list[NotaFiscalResponse]  = []
+
+
+# ── Merge assistido ──────────────────────────────────────────────────
+class MergeSugestao(BaseModel):
+    os_ids:        list[int]
+    placa:         Optional[str]
+    fornecedor:    Optional[str]
+    id_ord_serv:   Optional[str]
+    data_execucao: Optional[date]
+    total_itens:   int
+    total_nfs:     int
+    motivos:       list[str]
+
+
+class MergeRequest(BaseModel):
+    os_ids:         list[int]
+    os_destino_id:  int
+
+
+# ── Auditoria ────────────────────────────────────────────────────────
+class IntegridadeResponse(BaseModel):
+    orfas: list[int]
+    total: int
