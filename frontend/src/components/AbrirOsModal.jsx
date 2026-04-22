@@ -31,7 +31,6 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
     id_veiculo:      os?.id_veiculo      ?? '',
     placa:           os?.placa           ?? '',
     modelo:          os?.modelo          ?? '',
-    fornecedor:      os?.fornecedor      ?? '',
     tipo_manutencao: os?.tipo_manutencao ?? 'Corretiva',
     responsavel_tec: os?.responsavel_tec ?? '',
     indisponivel:    os?.indisponivel    ?? true,
@@ -148,27 +147,14 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
             </div>
           </div>
 
-          {/* Fornecedor + Tipo + KM + Status + Responsável */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={LABEL}>Fornecedor / Oficina</label>
-              <input
-                value={form.fornecedor}
-                onChange={e => set('fornecedor', e.target.value.toUpperCase().replace(/[^A-Z0-9\s/]/g, ''))}
-                placeholder="Nome da oficina…"
-                className={FIELD}
-              />
-            </div>
+          {/* Tipo + KM + Status + Responsável */}
+          <div className="grid grid-cols-4 gap-3">
             <div>
               <label className={LABEL}>Tipo de Manutenção</label>
               <select value={form.tipo_manutencao} onChange={e => set('tipo_manutencao', e.target.value)} className={FIELD}>
                 {TIPOS.map(t => <option key={t}>{t}</option>)}
               </select>
             </div>
-          </div>
-
-          {/* KM + Status + Responsável */}
-          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className={LABEL}>KM Atual</label>
               <input type="number" value={form.km} onChange={e => set('km', e.target.value)} placeholder="Ex: 125000" className={FIELD} />

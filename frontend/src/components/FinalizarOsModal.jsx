@@ -276,7 +276,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
             </div>
             <div>
               <h2 className="text-g-200 font-semibold text-sm">Finalizar OS · {os.placa}</h2>
-              <p className="text-g-600 text-xs font-mono">{os.numero_os || 'sem nº'} · {os.fornecedor || '—'}</p>
+              <p className="text-g-600 text-xs font-mono">{os.numero_os || 'sem nº'} · {os.placa}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 transition-colors">
@@ -383,9 +383,6 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
                 const valorNf        = parseFloat(nf.valor_total_nf) || 0
                 const difereItens    = valorNf > 0 && itensVisiveis.some(it => it.incluir) && Math.abs(somaItens - valorNf) > 0.01
                 const difereParcelas = valorNf > 0 && Math.abs(somaParcelas - valorNf) > 0.01
-                // Aviso não-bloqueante de fornecedor diferente
-                const avisaFornecedor = nf.fornecedor && os.fornecedor && nf.fornecedor !== os.fornecedor
-
                 return (
                   <div key={ni} className="border border-g-800 rounded-xl overflow-hidden">
                     <div className="bg-g-850 px-4 py-2.5 flex items-center justify-between">
@@ -430,11 +427,6 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
                           <input value={nf.fornecedor}
                             onChange={e => setNf(ni, 'fornecedor', e.target.value.toUpperCase().replace(/[^A-Z0-9\s/]/g, ''))}
                             placeholder="Nome do fornecedor…" className={FIELD} />
-                          {avisaFornecedor && (
-                            <p className="text-amber-500 text-xs mt-1 flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3" /> Diferente do fornecedor da OS
-                            </p>
-                          )}
                         </div>
                         <div>
                           <label className={LABEL}>Data de Emissão</label>

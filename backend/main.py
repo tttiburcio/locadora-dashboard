@@ -1301,19 +1301,10 @@ def atualizar_os(os_id: int, payload: schemas.OsUpdate, db: Session = Depends(ge
         raise HTTPException(400, "OS finalizada — use endpoints financeiros para edição")
 
     data = payload.model_dump(exclude_unset=True)
-    novo_fornecedor = None
     novos_itens = data.pop("itens", None)
 
     for field, value in data.items():
-        if field == "fornecedor":
-            novo_fornecedor = value
         setattr(os, field, value)
-
-    # Propagar fornecedor novo para NFs não-finalizadas
-    if novo_fornecedor is not None:
-        for nf in os.notas_fiscais:
-            if nf.deletado_em is None:
-                nf.fornecedor = novo_fornecedor
 
     # Substituir itens: apaga os existentes e recria
     if novos_itens is not None:
@@ -1452,8 +1443,6 @@ def adicionar_nf(os_id: int, payload: schemas.NotaFiscalCreate, db: Session = De
         os.numero_os = generate_numero_os_atomic(db)
 
     nf_data = payload.model_dump(exclude={"itens", "parcelas"})
-    if not nf_data.get("fornecedor"):
-        nf_data["fornecedor"] = os.fornecedor
     nf = models.NotaFiscal(os_id=os_id, **nf_data)
     db.add(nf)
     db.flush()
