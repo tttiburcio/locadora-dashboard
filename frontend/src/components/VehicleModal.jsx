@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { getVehicle } from '../utils/api'
 import { brl, pct, dias, brlShort, num, dateBR } from '../utils/format'
 import { VehicleMonthlyChart, VehicleCostPie } from './charts/VehicleCharts'
@@ -20,10 +21,8 @@ function ContractBreakdown({ contracts = [] }) {
   if (!contracts.length) return (
     <p className="text-g-700 text-sm text-center py-8">Sem dados de contratos para este veículo.</p>
   )
-  const max = Math.max(...contracts.map(c => c.receita), 1)
   return (
     <div className="flex flex-col gap-3">
-      {/* Bar chart */}
       <ResponsiveContainer width="100%" height={Math.min(contracts.length * 42 + 40, 300)}>
         <BarChart
           data={contracts}
@@ -47,7 +46,6 @@ function ContractBreakdown({ contracts = [] }) {
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Detail table */}
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
@@ -74,11 +72,12 @@ function ContractBreakdown({ contracts = [] }) {
   )
 }
 
-function MiniKPI({ label, value, sub, color = 'text-g-100', icon: Icon }) {
+function MiniKPI({ label, value, sub, color = 'text-g-100', icon: Icon, iconColor }) {
+  const iCol = iconColor || color
   return (
     <div className="bg-g-950 rounded-lg p-3 border border-g-800">
       <div className="flex items-center gap-1.5 mb-1.5">
-        {Icon && <Icon className="w-3.5 h-3.5 text-g-600" />}
+        {Icon && <Icon className={`w-3.5 h-3.5 ${iCol}`} />}
         <span className="text-g-600 text-xs uppercase tracking-wide font-medium">{label}</span>
       </div>
       <p className={`text-base font-bold tabular-nums ${color}`}>{value}</p>
@@ -103,70 +102,70 @@ function SectionTitle({ icon: Icon, children }) {
   )
 }
 
+function formatTitle(text) {
+  if (!text || text === '—') return text;
+  const exceptions = ['de', 'da', 'do', 'dos', 'das', 'e', 'o', 'a', 'com', 'em', 'p/'];
+  return text.toLowerCase().split(' ').map((word, i) => {
+    if (i > 0 && exceptions.includes(word)) return word;
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(' ');
+}
+
 export default function VehicleModal({ placa, year, onClose }) {
-  const [data, setData]       = useState(null)
+  const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab]         = useState('kpis')  // 'kpis' | 'contratos' | 'manut'
+  const [tab, setTab] = useState('kpis')
 
   useEffect(() => {
     setLoading(true)
-    setTab('kpis')
     getVehicle(placa, year).then(setData).finally(() => setLoading(false))
   }, [placa, year])
 
-  useEffect(() => {
-    const fn = e => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', fn)
-    return () => window.removeEventListener('keydown', fn)
-  }, [onClose])
+  if (!placa) return null
 
-  const k    = data?.kpis
   const info = data?.info
-  const isLucr = k && k.margem >= 0
+  const k = data?.kpis
+  const isLucr = k?.margem >= 0
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-end"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[999] flex justify-end bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={e => e.target === e.currentTarget && onClose()}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-
-      {/* Drawer — slides in from right */}
-      <div className="relative w-full max-w-2xl h-full bg-g-950 border-l border-g-800 overflow-y-auto shadow-2xl flex flex-col animate-slide-in-right">
-
+      <div className="bg-g-950 border-l border-g-800 w-full max-w-4xl h-full shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
+        
         {/* Header */}
-        <div className="sticky top-0 bg-g-950/98 backdrop-blur-sm border-b border-g-900 px-6 py-4 flex items-start justify-between z-10">
-          <div>
+        <div className="flex items-center justify-between px-8 py-6 bg-g-900/50 border-b border-g-800">
+          <div className="flex flex-col">
             {loading || !info ? (
-              <>
-                <div className="skeleton h-6 w-36 mb-2" />
-                <div className="skeleton h-4 w-48" />
-              </>
+              <div className="h-9 w-40 bg-g-800 animate-pulse rounded" />
             ) : (
               <>
-                <div className="flex items-center gap-2.5 mb-1">
-                  <h2 className="text-g-50 font-bold text-xl font-mono tracking-wide">{info.placa}</h2>
-                  <StatusBadge status={info.status} />
+                <div className="flex items-center gap-4">
+                  <h2 className="text-3xl font-black text-g-50 tracking-tighter">{placa}</h2>
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-widest border ${
+                    info?.status === 'Frota' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-g-800 text-g-400 border-g-700'
+                  }`}>
+                    {info?.status}
+                  </span>
                 </div>
-                <p className="text-g-500 text-sm">{info.marca} · {info.modelo}</p>
-                {info.valor_total > 0 && (
-                  <p className="text-g-700 text-xs mt-0.5">Ativo: {brl(info.valor_total)}</p>
+                <p className="text-g-400 text-base mt-1">{info?.marca} · {info?.modelo}</p>
+                {(info?.valor_total || 0) > 0 && (
+                  <p className="text-g-600 text-sm mt-1">Ativo: {brl(info.valor_total)}</p>
                 )}
               </>
             )}
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-g-800 rounded-lg transition-colors text-g-500 hover:text-g-200"
+            className="p-2 hover:bg-g-800 rounded-xl transition-colors text-g-500 hover:text-g-200"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Tabs */}
-        {!loading && data && (
-          <div className="flex border-b border-g-900 px-6">
+        {!loading && data && info && (
+          <div className="flex border-b border-g-900 px-8">
             {[
               { key: 'kpis',      label: 'KPIs & Financeiro' },
               { key: 'contratos', label: 'Por Contrato / Região' },
@@ -175,9 +174,9 @@ export default function VehicleModal({ placa, year, onClose }) {
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`px-4 py-2.5 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors -mb-px ${
+                className={`px-5 py-3.5 text-[13px] font-bold uppercase tracking-wider border-b-2 transition-colors -mb-px ${
                   tab === t.key
-                    ? 'border-g-500 text-g-50'
+                    ? 'border-g-400 text-g-50'
                     : 'border-transparent text-g-600 hover:text-g-300'
                 }`}
               >
@@ -188,202 +187,192 @@ export default function VehicleModal({ placa, year, onClose }) {
         )}
 
         {loading && (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-6 h-6 animate-spin text-g-600" />
-            <p className="text-g-600 text-sm">Carregando {placa}…</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-g-600" />
+            <p className="text-g-500 text-base">Carregando dados de {placa}…</p>
           </div>
         )}
 
         {!loading && data && k && (
-          <div className="p-6 flex flex-col gap-6">
-            {/* ── Tab: Por Contrato / Região ── */}
+          <div className="p-8 flex-1 flex flex-col gap-8 overflow-y-auto custom-scrollbar">
             {tab === 'contratos' && (
-              <div>
-                <p className="text-g-600 text-xs mb-4">
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <p className="text-g-500 text-sm mb-6">
                   Distribuição de receita e dias trabalhados por contrato/região de operação neste exercício.
                 </p>
                 <ContractBreakdown contracts={data.by_contract || []} />
               </div>
             )}
 
-            {/* ── Tab: Manutenção detalhada ── */}
             {tab === 'manut' && (
-              <div>
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {data.maintenance?.length > 0 ? (
-                  <div className="card overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-g-900 border-b border-g-800">
+                  <div className="card overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-sm min-w-[700px]">
+                      <thead className="bg-g-900/50 border-b border-g-800">
                         <tr>
-                          <th className="th th-left text-xs">OS</th>
-                          <th className="th text-xs">Data</th>
-                          <th className="th th-left text-xs">Serviço / Sistema</th>
-                          <th className="th text-xs">Tipo</th>
-                          <th className="th th-left text-xs">Fornecedor</th>
-                          <th className="th text-xs">KM</th>
-                          <th className="th text-xs">Valor</th>
+                          <th className="px-5 py-3 text-left font-bold text-g-500 uppercase tracking-widest text-[11px]">OS</th>
+                          <th className="px-5 py-3 text-center font-bold text-g-500 uppercase tracking-widest text-[11px]">Data</th>
+                          <th className="px-5 py-3 text-left font-bold text-g-500 uppercase tracking-widest text-[11px]">Sistema</th>
+                          <th className="px-5 py-3 text-left font-bold text-g-500 uppercase tracking-widest text-[11px]">Serviço</th>
+                          <th className="px-5 py-3 text-center font-bold text-g-500 uppercase tracking-widest text-[11px]">Tipo</th>
+                          <th className="px-5 py-3 text-center font-bold text-g-500 uppercase tracking-widest text-[11px]">Notas</th>
+                          <th className="px-5 py-3 text-center font-bold text-g-500 uppercase tracking-widest text-[11px]">KM</th>
+                          <th className="px-5 py-3 text-right font-bold text-g-500 uppercase tracking-widest text-[11px]">Valor</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-g-900">
                         {data.maintenance.map((m, i) => (
-                          <tr key={i} className="border-b border-g-900 hover:bg-g-900/60 transition-colors">
-                            <td className="td td-left text-xs font-mono text-g-500">{m.ordem}</td>
-                            <td className="td text-xs text-g-500 tabular-nums">{dateBR(m.data)}</td>
-                            <td className="td td-left text-xs">
-                              <p className="text-g-200">{m.servico?.length > 22 ? m.servico.slice(0,21)+'…' : m.servico}</p>
-                              {m.sistema && m.sistema !== '—' && (
-                                <p className="text-g-600 text-[10px]">{m.sistema}</p>
-                              )}
+                          <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
+                            <td className="px-5 py-4 font-mono text-g-500 font-medium whitespace-nowrap">{m.ordem}</td>
+                            <td className="px-5 py-4 text-center text-g-500 tabular-nums whitespace-nowrap">{dateBR(m.data)}</td>
+                            <td className="px-5 py-4 text-g-400 font-medium">
+                              <div className="flex flex-col min-w-[100px]">
+                                <span>{m.sistema || '—'}</span>
+                                {m.evento === 'Revisão' && (
+                                  <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-tighter">Evento Revisão</span>
+                                )}
+                              </div>
                             </td>
-                            <td className="td text-xs">
-                              <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                                m.tipo === 'Preventiva' ? 'bg-indigo-950/50 text-indigo-300' :
-                                m.tipo === 'Corretiva'  ? 'bg-red-950/50 text-red-300' :
-                                'bg-g-800 text-g-400'
-                              }`}>{m.tipo}</span>
+                            <td className="px-5 py-4">
+                              <span className="text-g-400 font-medium">{formatTitle(m.servico)}</span>
                             </td>
-                            <td className="td td-left text-xs text-g-400">
-                              {m.fornecedor?.length > 16 ? m.fornecedor.slice(0,15)+'…' : m.fornecedor}
+                            <td className="px-5 py-4 text-center">
+                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                                m.tipo === 'Preventiva' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                m.tipo === 'Corretiva'  ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                                'bg-g-800 text-g-500 border-g-700'
+                              }`}>
+                                {m.tipo}
+                              </span>
                             </td>
-                            <td className="td text-xs text-g-500 tabular-nums">{m.km ? num(m.km) + ' km' : '—'}</td>
-                            <td className="td text-xs text-orange-300 font-mono font-semibold tabular-nums">{brl(m.valor)}</td>
+                            <td className="px-5 py-4 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-g-700" />
+                                <span className="text-g-500 font-mono">{m.qtd_notas || 0}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-center text-g-500 tabular-nums whitespace-nowrap">{m.km ? num(m.km) + ' km' : '—'}</td>
+                            <td className="px-5 py-4 text-right">
+                              <span className="text-orange-400/90 font-mono font-bold tabular-nums text-base">{brl(m.valor)}</span>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 ) : (
-                  <p className="text-g-700 text-sm text-center py-8">Sem ordens de serviço para este veículo no período.</p>
+                  <p className="text-g-600 text-base text-center py-12 bg-g-900/20 rounded-2xl border border-dashed border-g-800">
+                    Sem ordens de serviço para este veículo no período.
+                  </p>
                 )}
               </div>
             )}
 
-            {/* ── Tab: KPIs (default) ── */}
-            {tab === 'kpis' && (<>
-
-            {/* Margin highlight */}
-            <div className={`rounded-xl p-5 border ${
-              isLucr ? 'bg-g-700/10 border-g-700' : 'bg-red-950/30 border-red-900/50'
-            }`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-g-600 text-xs uppercase tracking-widest mb-1.5">Margem Líquida</p>
-                  <p className={`text-3xl font-bold tabular-nums ${isLucr ? 'text-g-50' : 'text-red-300'}`}>
-                    {brl(k.margem)}
-                  </p>
-                  <p className={`text-sm mt-1.5 ${isLucr ? 'text-g-400' : 'text-red-400'}`}>
-                    {pct(k.margem_pct)} sobre receita total
-                  </p>
-                </div>
-                <div className={`p-3 rounded-xl ${isLucr ? 'bg-g-700/15 border border-g-600/20' : 'bg-red-900/30 border border-red-800/40'}`}>
-                  {isLucr
-                    ? <TrendingUp  className="w-8 h-8 text-g-300" />
-                    : <TrendingDown className="w-8 h-8 text-red-400" />}
-                </div>
-              </div>
-            </div>
-
-            {/* Revenue */}
-            <div>
-              <SectionTitle icon={DollarSign}>Receita</SectionTitle>
-              <div className="grid grid-cols-3 gap-2">
-                <MiniKPI label="Total"     value={brl(k.receita_total)}     color="text-g-50"   icon={DollarSign} />
-                <MiniKPI label="Locação"   value={brl(k.receita_locacao)}   color="text-g-200"  icon={FileText} />
-                <MiniKPI label="Reembolso" value={brl(k.receita_reembolso)} color="text-g-300"  icon={ChevronRight} />
-              </div>
-            </div>
-
-            {/* Costs */}
-            <div>
-              <SectionTitle icon={Wrench}>Custos</SectionTitle>
-              <div className="grid grid-cols-2 gap-2">
-                <MiniKPI label="Manutenção"   value={brl(k.custo_manutencao)}   color="text-orange-300" icon={Wrench} />
-                <MiniKPI label="Seguro"       value={brl(k.custo_seguro)}       color="text-red-300"    icon={Shield} />
-                <MiniKPI label="Impostos"     value={brl(k.custo_impostos)}     color="text-purple-300" icon={FileText} />
-                <MiniKPI label="Rastreamento" value={brl(k.custo_rastreamento)} color="text-amber-300"  icon={MapPin} />
-              </div>
-              <div className="mt-2 bg-g-950 rounded-lg p-3 border border-g-800 flex justify-between items-center">
-                <span className="text-g-600 text-xs uppercase tracking-wide font-medium">Custo Total</span>
-                <span className="text-red-300 font-bold tabular-nums">{brl(k.custo_total)}</span>
-              </div>
-            </div>
-
-            {/* Operational */}
-            <div>
-              <SectionTitle icon={Clock}>Operação</SectionTitle>
-              <div className="grid grid-cols-3 gap-2">
-                <MiniKPI label="Dias Trabalhados" value={dias(k.dias_trabalhado)} icon={Calendar} />
-                <MiniKPI label="Dias Parado"
-                  value={dias(k.dias_parado)}
-                  color={k.dias_parado > k.dias_trabalhado ? 'text-amber-300' : 'text-g-100'}
-                  icon={AlertTriangle}
-                />
-                <MiniKPI
-                  label="Utilização"
-                  value={k.dias_trabalhado + k.dias_parado > 0
-                    ? pct(k.dias_trabalhado / (k.dias_trabalhado + k.dias_parado) * 100)
-                    : '—'}
-                  icon={Percent}
-                />
-                <MiniKPI label="Receita / Dia" value={k.receita_por_dia > 0 ? brlShort(k.receita_por_dia) : '—'} color="text-g-200" />
-                <MiniKPI label="Custo / Dia"   value={k.custo_por_dia > 0   ? brlShort(k.custo_por_dia)   : '—'} color="text-red-300" />
-                <MiniKPI label="Margem / Dia"
-                  value={k.margem_por_dia !== 0 ? brlShort(k.margem_por_dia) : '—'}
-                  color={k.margem_por_dia >= 0 ? 'text-g-50' : 'text-red-300'}
-                />
-              </div>
-              {k.roi !== 0 && (
-                <div className="mt-2 bg-g-950 rounded-lg p-3 border border-g-800 flex justify-between items-center">
-                  <span className="text-g-600 text-xs uppercase tracking-wide font-medium">ROI sobre Valor do Ativo</span>
-                  <span className={`font-bold tabular-nums ${k.roi >= 0 ? 'text-g-50' : 'text-red-300'}`}>
-                    {pct(k.roi)}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Monthly chart */}
-            <div>
-              <SectionTitle icon={Calendar}>Evolução Mensal</SectionTitle>
-              <div className="card p-3">
-                <VehicleMonthlyChart monthly={data.monthly} />
-              </div>
-            </div>
-
-            {/* Cost breakdown + days bar */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <SectionTitle>Composição de Custos</SectionTitle>
-                <div className="card p-2">
-                  <VehicleCostPie kpis={k} />
-                </div>
-              </div>
-
-              <div>
-                <SectionTitle icon={Calendar}>Dias Trabalhados / Mês</SectionTitle>
-                <div className="card p-3 space-y-2">
-                  {data.monthly.filter(m => m.dias_trabalhado > 0).map(m => (
-                    <div key={m.month} className="flex items-center gap-2">
-                      <span className="text-g-600 text-xs w-7">{m.monthName}</span>
-                      <div className="flex-1 bg-g-900 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="h-full bg-g-500 rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min((m.dias_trabalhado / 31) * 100, 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-g-500 text-xs w-10 text-right tabular-nums">{Math.round(m.dias_trabalhado)}d</span>
+            {tab === 'kpis' && (
+              <div className="flex flex-col gap-6">
+                {/* Margin Card */}
+                <div className={`rounded-xl p-5 border ${
+                  isLucr ? 'bg-g-950 border-g-800 shadow-sm' : 'bg-red-500/5 border-red-500/10'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-g-600 text-xs uppercase tracking-widest mb-1.5">Margem Líquida</p>
+                      <h3 className={`text-3xl font-extrabold font-mono tabular-nums ${isLucr ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {brl(k.margem)}
+                      </h3>
+                      <p className={`text-sm mt-1.5 ${isLucr ? 'text-g-400' : 'text-red-400'}`}>
+                        {pct(k.margem_pct)} sobre receita total
+                      </p>
                     </div>
-                  ))}
-                  {data.monthly.every(m => m.dias_trabalhado === 0) && (
-                    <p className="text-g-700 text-xs text-center py-4">Sem registros</p>
-                  )}
+                    <div className="p-3 rounded-xl bg-g-850 border border-g-800">
+                      {isLucr
+                        ? <TrendingUp className="w-8 h-8 text-g-400" />
+                        : <TrendingDown className="w-8 h-8 text-red-400" />}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Revenue Section */}
+                <div>
+                  <SectionTitle icon={DollarSign}>Receita</SectionTitle>
+                  <div className="grid grid-cols-3 gap-2">
+                    <MiniKPI label="Total"     value={brl(k.receita_total)}     color="text-emerald-600" icon={DollarSign} />
+                    <MiniKPI label="Locação"   value={brl(k.receita_locacao)}   color="text-g-200"       icon={FileText} iconColor="text-g-500" />
+                    <MiniKPI label="Reembolso" value={brl(k.receita_reembolso)} color="text-g-200"       icon={ChevronRight} iconColor="text-g-500" />
+                  </div>
+                </div>
+
+                {/* Costs Section */}
+                <div>
+                  <SectionTitle icon={Wrench}>Custos</SectionTitle>
+                  <div className="grid grid-cols-2 gap-2">
+                    <MiniKPI label="Manutenção"   value={brl(k.custo_manutencao)}   color="text-orange-400" icon={Wrench} />
+                    <MiniKPI label="Seguro"       value={brl(k.custo_seguro)}       color="text-red-400"    icon={Shield} />
+                    <MiniKPI label="Impostos"     value={brl(k.custo_impostos)}     color="text-purple-400" icon={FileText} />
+                    <MiniKPI label="Rastreamento" value={brl(k.custo_rastreamento)} color="text-amber-400"  icon={MapPin} />
+                  </div>
+                  <div className="mt-2 bg-g-950 rounded-lg p-3 border border-g-800 flex justify-between items-center">
+                    <span className="text-g-600 text-xs uppercase tracking-wide font-medium">Custo Total</span>
+                    <span className="text-red-400 font-bold font-mono">{brl(k.custo_total)}</span>
+                  </div>
+                </div>
+
+                {/* Operation Section */}
+                <div>
+                  <SectionTitle icon={Clock}>Operação</SectionTitle>
+                  <div className="grid grid-cols-3 gap-2">
+                    <MiniKPI label="Dias Trabalhados" value={dias(k.dias_trabalhado)} icon={Calendar} iconColor="text-g-500" />
+                    <MiniKPI label="Dias Parado"      value={dias(k.dias_parado)} icon={AlertTriangle} iconColor="text-g-500" color="text-emerald-600" />
+                    <MiniKPI label="Utilização"       value={pct(k.dias_trabalhado / (k.dias_trabalhado + k.dias_parado) * 100)} icon={Percent} iconColor="text-g-500" color="text-emerald-600" />
+                    <MiniKPI label="Receita / Dia"    value={brlShort(k.receita_por_dia)} color="text-g-200" />
+                    <MiniKPI label="Custo / Dia"      value={brlShort(k.custo_por_dia)}   color="text-red-400" />
+                    <MiniKPI label="Margem / Dia"     value={brlShort(k.margem_por_dia)}  color="text-emerald-600" />
+                  </div>
+                </div>
+
+                {/* Evolution Section */}
+                <div>
+                  <SectionTitle icon={Calendar}>Evolução Mensal</SectionTitle>
+                  <div className="card p-4">
+                    <div className="h-64">
+                      <VehicleMonthlyChart monthly={data.monthly} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom Charts */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <SectionTitle icon={Percent}>Composição de Custos</SectionTitle>
+                    <div className="card p-4 h-64">
+                      <VehicleCostPie kpis={k} />
+                    </div>
+                  </div>
+                  <div>
+                    <SectionTitle icon={Calendar}>Dias Trabalhados / Mês</SectionTitle>
+                    <div className="card p-4 h-64 overflow-y-auto space-y-3">
+                      {data.monthly.filter(m => m.dias_trabalhado > 0).map(m => (
+                        <div key={m.month} className="flex items-center gap-2">
+                          <span className="text-g-600 text-[10px] w-6 uppercase">{m.monthName.slice(0, 3)}</span>
+                          <div className="flex-1 bg-g-850 rounded-full h-2 overflow-hidden border border-g-800">
+                            <div
+                              className="h-full bg-g-200 rounded-full"
+                              style={{ width: `${Math.min((m.dias_trabalhado / 31) * 100, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-g-500 text-[10px] font-mono w-8 text-right">{Math.round(m.dias_trabalhado)}d</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            </>)}
+            )}
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

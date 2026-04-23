@@ -100,6 +100,10 @@ class ManutencaoParcela(Base):
     nf_ordem         = Column(Integer)
     nota             = Column(String(50))
     fornecedor       = Column(String(120))
+    empresa_temp     = Column(String(100))
+    sistema_temp     = Column(String(100))
+    servico_temp     = Column(String(200))
+    descricao_temp   = Column(Text)
     valor_item_total = Column(Numeric(14, 2))
     tipo_custo       = Column(String(30))
     data_vencimento  = Column(Date)
@@ -313,7 +317,7 @@ class NotaFiscal(Base):
 
     os       = relationship("OrdemServico", back_populates="notas_fiscais")
     itens    = relationship("NfItem", back_populates="nota_fiscal", cascade="all, delete-orphan")
-    parcelas = relationship("ManutencaoParcela", back_populates="nota_fiscal")
+    parcelas = relationship("ManutencaoParcela", back_populates="nota_fiscal", cascade="all, delete-orphan")
 
     __table_args__ = (
         CheckConstraint("tipo_nf IN ('Produto','Servico')", name="ck_tipo_nf"),

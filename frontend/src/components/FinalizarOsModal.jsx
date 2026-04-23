@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Loader2, CheckCircle, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react'
-import { dbExecutarOs, dbCriarNf, dbFinalizarOs } from '../utils/api'
+import { X, Loader2, CheckCircle, Trash2, AlertTriangle, ShieldCheck, Eraser } from 'lucide-react'
+import { dbExecutarOs, dbSyncNfs, dbFinalizarOs, dbAtualizarOs, dbEditarOsFinalizada } from '../utils/api'
 import { brl } from '../utils/format'
 
 const EMPRESAS   = ['TKJ', 'FINITA', 'LANDKRAFT']
@@ -12,7 +12,7 @@ const STATUS_EXEC = ['Resolvido', 'Parcialmente resolvido', 'Pendente']
 
 const H = 'h-[38px]'
 const FIELD = `w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors ${H}`
-const LABEL = 'text-g-600 text-xs font-medium mb-1 block'
+const LABEL = 'text-g-600 text-[10px] uppercase tracking-widest font-bold mb-1.5 block'
 
 function MoneyInput({ value, onChange, disabled, className }) {
   return (
@@ -42,6 +42,8 @@ function gerarParcelas(qtd, valorTotal, dataEmissao) {
       valor_parcela:    total > 0 ? (total / n).toFixed(2) : '',
       forma_pgto:       'Faturado',
       status_pagamento: 'Pendente',
+      parcela_atual:    i + 1,
+      parcela_total:    n,
     }
   })
 }
@@ -57,6 +59,7 @@ function nfLabel(nf, ni) {
 }
 
 const NF_VAZIA = (osItens) => ({
+  is_saved:         false,
   tipo_nf:          'Servico',
   numero_nf:        '',
   empresa_faturada: '',
@@ -77,6 +80,42 @@ const NF_VAZIA = (osItens) => ({
   })),
   parcelas: gerarParcelas(1, '', new Date().toISOString().slice(0, 10)),
 })
+
+function mapBackendNfToState(nfBackend, osItens) {
+  return {
+    id:               nfBackend.id,
+    is_saved:         true,
+    tipo_nf:          nfBackend.tipo_nf || 'Servico',
+    numero_nf:        nfBackend.numero_nf || '',
+    empresa_faturada: nfBackend.empresa_faturada || '',
+    fornecedor:       nfBackend.fornecedor || '',
+    valor_total_nf:   nfBackend.valor_total_nf ? String(nfBackend.valor_total_nf) : '',
+    data_emissao:     nfBackend.data_emissao ? String(nfBackend.data_emissao).slice(0, 10) : '',
+    observacoes:      nfBackend.observacoes || '',
+    qtd_parcelas:     String(nfBackend.parcelas?.length || 1),
+    itens: osItens.map(it => {
+      const nfItem = (nfBackend.itens || []).find(ni => ni.os_item_id === it.id)
+      return {
+        os_item_id:       it.id,
+        _categoria:       it.categoria ?? '',
+        _sistema:         it.sistema   ?? '',
+        _servico:         it.servico   ?? '',
+        quantidade:       nfItem ? String(nfItem.quantidade) : '1',
+        valor_unitario:   nfItem && nfItem.valor_unitario ? String(nfItem.valor_unitario) : '',
+        valor_total_item: nfItem && nfItem.valor_total_item ? String(nfItem.valor_total_item) : '',
+        incluir:          !!nfItem,
+      }
+    }),
+    parcelas: (nfBackend.parcelas || []).map(p => ({
+      data_vencimento:  p.data_vencimento ? String(p.data_vencimento).slice(0, 10) : '',
+      valor_parcela:    p.valor_parcela ? String(p.valor_parcela) : '',
+      forma_pgto:       p.forma_pgto || 'Faturado',
+      status_pagamento: p.status_pagamento || 'Pendente',
+      parcela_atual:    p.parcela_atual,
+      parcela_total:    p.parcela_total,
+    }))
+  }
+}
 
 function validarLocal(nfs, osItens) {
   const erros = []
@@ -123,11 +162,12 @@ function validarLocal(nfs, osItens) {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-export default function FinalizarOsModal({ os, onClose, onSaved }) {
+export default function FinalizarOsModal({ os, onClose, onSaved, editMode = false }) {
   const [step,   setStep]   = useState('executar')
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState(null)
   const [errosValidacao, setErrosValidacao] = useState(null)
+  const [currentOs, setCurrentOs] = useState(os) // Local copy to track updates
 
   const [execForm, setExecForm] = useState({
     data_execucao:      new Date().toISOString().slice(0, 10),
@@ -138,10 +178,79 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
     descricao_pendente: '',
   })
 
-  const [nfs, setNfs] = useState([NF_VAZIA(os.itens || [])])
+  const [nfs, setNfs] = useState(
+    os.notas_fiscais?.length > 0
+      ? os.notas_fiscais.map(nf => mapBackendNfToState(nf, os.itens || []))
+      : [NF_VAZIA(os.itens || [])]
+  )
 
-  // ── Execução ──────────────────────────────────────────────────────
+  // execForm pre-populated from OS when in editMode
+  const [execFormEdit, setExecFormEdit] = useState({
+    data_execucao: os.data_execucao ? String(os.data_execucao).slice(0, 10) : new Date().toISOString().slice(0, 10),
+    km:            os.km       ?? '',
+    prox_km:       os.prox_km  ?? '',
+    prox_data:     os.prox_data ? String(os.prox_data).slice(0, 10) : '',
+  })
+
+  // itens editáveis em editMode
+  const CATEGORIAS = ['Compra', 'Serviço', 'Outro']
+  const SISTEMAS   = ['Motor', 'Hidráulico', 'Elétrico', 'Pneu', 'Freio', 'Suspensão', 'Transmissão', 'Funilaria', 'Outro']
+  const [itensEdit, setItensEdit] = useState(
+    (os.itens || []).map(it => ({
+      id:        it.id,
+      categoria: it.categoria || '',
+      sistema:   it.sistema   || '',
+      servico:   it.servico   || '',
+      descricao: it.descricao || '',
+      qtd_itens: it.qtd_itens ?? 1,
+    }))
+  )
+  const addItem   = () => setItensEdit(arr => [...arr, { categoria: '', sistema: '', servico: '', descricao: '', qtd_itens: 1 }])
+  const removeItem = i => setItensEdit(arr => arr.filter((_, idx) => idx !== i))
+  const setItemField = (i, k, v) => setItensEdit(arr => arr.map((it, idx) => idx !== i ? it : { ...it, [k]: v }))
+
+  // ── Execução / Edição de Itens ────────────────────────────────────
   const handleExecutar = async () => {
+    if (editMode) {
+      setSaving(true); setError(null)
+      try {
+        const updated = await dbEditarOsFinalizada(currentOs.id, {
+          data_execucao: execFormEdit.data_execucao || null,
+          km:            (execFormEdit.km !== '' && execFormEdit.km !== null) ? parseFloat(execFormEdit.km) : null,
+          prox_km:       (execFormEdit.prox_km !== '' && execFormEdit.prox_km !== null) ? parseFloat(execFormEdit.prox_km) : null,
+          prox_data:     execFormEdit.prox_data || null,
+          itens: itensEdit.map(it => ({
+            id:        it.id,
+            categoria: it.categoria || null,
+            sistema:   it.sistema   || null,
+            servico:   it.servico   || null,
+            descricao: it.descricao || null,
+            qtd_itens: parseInt(it.qtd_itens) || 1,
+          })),
+        })
+        setCurrentOs(updated)
+        // Refresh NFs state if items changed (needed for mapping)
+        setNfs(ns => updated.notas_fiscais?.length > 0 
+          ? updated.notas_fiscais.map(nf => mapBackendNfToState(nf, updated.itens || []))
+          : [NF_VAZIA(updated.itens || [])]
+        )
+        setStep('nfs')
+      } catch (err) {
+        const detail = err.response?.data?.detail
+        if (typeof detail === 'string') {
+          setError(detail)
+        } else if (Array.isArray(detail)) {
+          const msg = detail.map(d => `${d.loc.at(-1)}: ${d.msg}`).join('; ')
+          setError(`Erro de validação: ${msg}`)
+        } else {
+          setError('Erro ao salvar alterações da OS (verifique os campos)')
+        }
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
+
     if (!execForm.data_execucao) { setError('Informe a data de execução'); return }
     const needsPendente = execForm.status_execucao === 'Parcialmente resolvido' || execForm.status_execucao === 'Pendente'
     if (needsPendente && !execForm.descricao_pendente.trim()) {
@@ -149,7 +258,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
     }
     setSaving(true); setError(null)
     try {
-      await dbExecutarOs(os.id, {
+      await dbExecutarOs(currentOs.id, {
         data_execucao:      execForm.data_execucao,
         km:                 execForm.km      ? parseFloat(execForm.km)      : null,
         prox_km:            execForm.prox_km ? parseFloat(execForm.prox_km) : null,
@@ -183,6 +292,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
 
   const addNf    = () => setNfs(ns => [...ns, NF_VAZIA(os.itens || [])])
   const removeNf = i => setNfs(ns => ns.filter((_, idx) => idx !== i))
+  const clearNf  = i => setNfs(ns => ns.map((n, idx) => idx !== i ? n : NF_VAZIA(os.itens || [])))
 
   const setNfItem = (ni, realIdx, k, v) => setNfs(ns => ns.map((n, nidx) => nidx !== ni ? n : {
     ...n, itens: n.itens.map((it, iidx) => {
@@ -220,26 +330,68 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
         valor_unitario:   parseFloat(it.valor_unitario)   || null,
         valor_total_item: parseFloat(it.valor_total_item) || null,
       })),
-      parcelas: nf.parcelas.filter(p => p.valor_parcela).map(p => ({
+      parcelas: nf.parcelas.filter(p => p.valor_parcela).map((p, i, arr) => ({
         data_vencimento:  p.data_vencimento || null,
         valor_parcela:    parseFloat(p.valor_parcela),
         forma_pgto:       p.forma_pgto,
         status_pagamento: p.status_pagamento,
+        parcela_atual:    p.parcela_atual || (i + 1),
+        parcela_total:    p.parcela_total || arr.length,
       })),
     }
   }
 
   // Salvar NFs parcialmente — sem validação completa, OS fica executado_aguardando_nf
+  
+  const salvarNfEspecifica = async (ni) => {
+    const nf = nfs[ni]
+    if (!nf.empresa_faturada || !nf.valor_total_nf || nf.parcelas.length === 0) {
+       setError(`Preencha a Empresa e o Valor Total da ${nfLabel(nf, ni)} antes de salvar.`)
+       return
+    }
+    setSaving(true); setError(null)
+    try {
+      const payloadNfs = nfs.filter(n => n.tipo_nf).map(buildNfPayload)
+      if (payloadNfs.length > 0) {
+        await dbSyncNfs(currentOs.id, payloadNfs)
+      }
+      setNf(ni, 'is_saved', true)
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      setError(typeof detail === 'string' ? detail : 'Erro ao salvar NF')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Salvar edição completa da OS finalizada (na etapa final)
+  const salvarEdicaoFinalizada = async () => {
+    setSaving(true); setError(null)
+    try {
+      // Já salvamos itens na transição do step 1 -> 2.
+      // Aqui salvamos as NFs finais e validamos.
+      const payloadNfs = nfs.filter(nf => nf.tipo_nf).map(buildNfPayload)
+      if (payloadNfs.length > 0) await dbSyncNfs(currentOs.id, payloadNfs)
+      onSaved()
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      setError(typeof detail === 'string' ? detail : 'Erro ao salvar edições financeiras')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const salvarNfsParcial = async () => {
     setSaving(true); setError(null)
     try {
-      for (const nf of nfs) {
-        if (!nf.tipo_nf) continue
-        await dbCriarNf(os.id, buildNfPayload(nf))
+      const payloadNfs = nfs.filter(nf => nf.tipo_nf).map(buildNfPayload)
+      if (payloadNfs.length > 0) {
+        await dbSyncNfs(currentOs.id, payloadNfs)
       }
       onSaved()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao salvar NFs')
+      const detail = err.response?.data?.detail
+      setError(typeof detail === 'string' ? detail : 'Erro ao salvar NFs')
     } finally {
       setSaving(false)
     }
@@ -247,19 +399,20 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
 
   // Salvar NFs e ir para etapa de revisão/finalização
   const salvarNfsERevisar = async () => {
-    const erros = validarLocal(nfs, os.itens || [])
+    const erros = validarLocal(nfs, currentOs.itens || [])
     if (erros.length > 0) { setErrosValidacao(erros); setStep('finalizar'); return }
 
     setSaving(true); setError(null)
     try {
-      for (const nf of nfs) {
-        if (!nf.tipo_nf) continue
-        await dbCriarNf(os.id, buildNfPayload(nf))
+      const payloadNfs = nfs.filter(nf => nf.tipo_nf).map(buildNfPayload)
+      if (payloadNfs.length > 0) {
+        await dbSyncNfs(currentOs.id, payloadNfs)
       }
       setErrosValidacao([])
       setStep('finalizar')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao salvar NFs')
+      const detail = err.response?.data?.detail
+      setError(typeof detail === 'string' ? detail : 'Erro ao salvar NFs')
     } finally {
       setSaving(false)
     }
@@ -268,7 +421,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
   const handleFinalizar = async () => {
     setSaving(true); setError(null)
     try {
-      await dbFinalizarOs(os.id)
+      await dbFinalizarOs(currentOs.id)
       onSaved()
     } catch (err) {
       const detail = err.response?.data?.detail
@@ -280,11 +433,17 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
     }
   }
 
-  const steps = [
-    { key: 'executar',  label: '1. Execução' },
-    { key: 'nfs',       label: '2. Notas Fiscais' },
-    { key: 'finalizar', label: '3. Finalizar' },
-  ]
+  const steps = editMode
+    ? [
+        { key: 'executar',  label: '1. Execução & Itens' },
+        { key: 'nfs',       label: '2. Notas Fiscais' },
+        { key: 'finalizar', label: '3. Revisão' },
+      ]
+    : [
+        { key: 'executar',  label: '1. Execução' },
+        { key: 'nfs',       label: '2. Notas Fiscais' },
+        { key: 'finalizar', label: '3. Finalizar' },
+      ]
 
   const needsPendente = execForm.status_execucao === 'Parcialmente resolvido' || execForm.status_execucao === 'Pendente'
 
@@ -299,7 +458,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
               <CheckCircle className="w-4 h-4 text-emerald-500" />
             </div>
             <div>
-              <h2 className="text-g-200 font-semibold text-sm">Finalizar OS · {os.placa}</h2>
+              <h2 className="text-g-200 font-semibold text-sm">{editMode ? 'Editar OS' : 'Finalizar OS'} · {os.placa}</h2>
               <p className="text-g-600 text-xs font-mono">{os.numero_os || 'sem nº'} · {os.placa}</p>
             </div>
           </div>
@@ -340,52 +499,115 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
         {/* Conteúdo com scroll */}
         <div className="overflow-y-auto px-6 py-5 flex flex-col gap-5 flex-1">
 
-          {/* ── Step 1: Execução ── */}
+          {/* ── Step 1: Execução / Edição OS ── */}
           {step === 'executar' && (
             <>
-              <p className="text-g-500 text-sm">Registre a data de execução e o resultado do serviço.</p>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className={LABEL}>Data de Execução *</label>
-                  <input type="date" value={execForm.data_execucao}
-                    onChange={e => setExecForm(f => ({ ...f, data_execucao: e.target.value }))}
-                    className={FIELD} required />
-                </div>
-                <div>
-                  <label className={LABEL}>Status de Execução *</label>
-                  <select value={execForm.status_execucao}
-                    onChange={e => setExecForm(f => ({ ...f, status_execucao: e.target.value }))}
-                    className={FIELD}>
-                    {STATUS_EXEC.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={LABEL}>KM na Execução</label>
-                  <input type="number" value={execForm.km}
-                    onChange={e => setExecForm(f => ({ ...f, km: e.target.value }))}
-                    placeholder="Ex: 125000" className={FIELD} />
-                </div>
-                <div>
-                  <label className={LABEL}>Próx. KM</label>
-                  <input type="number" value={execForm.prox_km}
-                    onChange={e => setExecForm(f => ({ ...f, prox_km: e.target.value }))}
-                    placeholder="Ex: 140000" className={FIELD} />
-                </div>
-                <div>
-                  <label className={LABEL}>Próx. Data</label>
-                  <input type="date" value={execForm.prox_data}
-                    onChange={e => setExecForm(f => ({ ...f, prox_data: e.target.value }))}
-                    className={FIELD} />
-                </div>
-              </div>
-              {needsPendente && (
-                <div>
-                  <label className={LABEL}>Descrição do Pendente *</label>
-                  <textarea rows={3} value={execForm.descricao_pendente}
-                    onChange={e => setExecForm(f => ({ ...f, descricao_pendente: e.target.value }))}
-                    placeholder="Descreva o que ficou pendente ou parcialmente resolvido…"
-                    className="w-full px-3 py-2 bg-g-900 border border-amber-500/50 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-amber-400 transition-colors resize-none" />
-                </div>
+              {editMode ? (
+                <>
+                  <p className="text-g-500 text-sm">Edite os dados de execução e itens da Ordem de Serviço.</p>
+                  
+                  {/* Dados de Execução Editáveis */}
+                  <div className="bg-g-850 border border-g-800 rounded-xl p-4 flex flex-col gap-3">
+                    <p className="text-g-500 text-xs font-semibold uppercase tracking-wider">Dados de Execução</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className={LABEL}>Data de Execução</label>
+                        <input type="date" value={execFormEdit.data_execucao}
+                          onChange={e => setExecFormEdit(f => ({ ...f, data_execucao: e.target.value }))}
+                          className={FIELD} />
+                      </div>
+                      <div>
+                        <label className={LABEL}>KM Atual</label>
+                        <input type="number" value={execFormEdit.km}
+                          onChange={e => setExecFormEdit(f => ({ ...f, km: e.target.value }))}
+                          placeholder="Ex: 45000" className={FIELD} />
+                      </div>
+                      <div>
+                        <label className={LABEL}>Próxima KM</label>
+                        <input type="number" value={execFormEdit.prox_km}
+                          onChange={e => setExecFormEdit(f => ({ ...f, prox_km: e.target.value }))}
+                          placeholder="Ex: 50000" className={FIELD} />
+                      </div>
+                      <div>
+                        <label className={LABEL}>Próxima Data</label>
+                        <input type="date" value={execFormEdit.prox_data}
+                          onChange={e => setExecFormEdit(f => ({ ...f, prox_data: e.target.value }))}
+                          className={FIELD} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Itens da OS Editáveis */}
+                  <div className="bg-g-850 border border-g-800 rounded-xl p-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-g-500 text-[10px] uppercase tracking-widest font-semibold">Itens / Serviços da OS</p>
+                      <button type="button" onClick={addItem}
+                        className="text-xs text-g-100 hover:text-g-50 font-medium transition-colors">+ Adicionar item</button>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {itensEdit.map((it, i) => (
+                        <div key={i} className="grid grid-cols-[120px_140px_1fr_80px_28px] gap-2 items-center bg-g-900 border border-g-800 rounded-lg px-3 py-2">
+                          <input type="number" min="1" value={it.qtd_itens} onChange={e => setItemField(i, 'qtd_itens', e.target.value)}
+                            className="bg-g-900 border border-g-800 rounded text-g-300 text-xs px-2 py-1 h-[30px] focus:outline-none text-center" />
+                          <button type="button" onClick={() => removeItem(i)}
+                            className="text-g-700 hover:text-red-500 transition-colors flex items-center justify-center">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      {itensEdit.length === 0 && (
+                        <p className="text-g-700 text-xs text-center py-2">Nenhum item. Clique em + para adicionar.</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-g-500 text-sm">Registre a data de execução e o resultado do serviço.</p>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className={LABEL}>Data de Execução *</label>
+                      <input type="date" value={execForm.data_execucao}
+                        onChange={e => setExecForm(f => ({ ...f, data_execucao: e.target.value }))}
+                        className={FIELD} required />
+                    </div>
+                    <div>
+                      <label className={LABEL}>Status de Execução *</label>
+                      <select value={execForm.status_execucao}
+                        onChange={e => setExecForm(f => ({ ...f, status_execucao: e.target.value }))}
+                        className={FIELD}>
+                        {STATUS_EXEC.map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={LABEL}>KM na Execução</label>
+                      <input type="number" value={execForm.km}
+                        onChange={e => setExecForm(f => ({ ...f, km: e.target.value }))}
+                        placeholder="Ex: 125000" className={FIELD} />
+                    </div>
+                    <div>
+                      <label className={LABEL}>Próx. KM</label>
+                      <input type="number" value={execForm.prox_km}
+                        onChange={e => setExecForm(f => ({ ...f, prox_km: e.target.value }))}
+                        placeholder="Ex: 140000" className={FIELD} />
+                    </div>
+                    <div>
+                      <label className={LABEL}>Próx. Data</label>
+                      <input type="date" value={execForm.prox_data}
+                        onChange={e => setExecForm(f => ({ ...f, prox_data: e.target.value }))}
+                        className={FIELD} />
+                    </div>
+                  </div>
+                  {needsPendente && (
+                    <div>
+                      <label className={LABEL}>Descrição do Pendente *</label>
+                      <textarea rows={3} value={execForm.descricao_pendente}
+                        onChange={e => setExecForm(f => ({ ...f, descricao_pendente: e.target.value }))}
+                        placeholder="Descreva o que ficou pendente ou parcialmente resolvido…"
+                        className="w-full px-3 py-2 bg-g-900 border border-amber-500/50 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-amber-400 transition-colors resize-none" />
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
@@ -393,8 +615,8 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
           {/* ── Step 2: NFs ── */}
           {step === 'nfs' && (
             <>
-              <div className="flex items-center justify-between">
-                <p className="text-g-500 text-sm">Adicione as Notas Fiscais emitidas para esta OS.</p>
+              <div className="flex items-center justify-between shrink-0">
+                <p className="text-g-500 text-sm">Notas Fiscais vinculadas a esta OS.</p>
                 <button type="button" onClick={addNf}
                   className="flex items-center gap-1 text-xs text-g-100 hover:text-g-50 font-medium transition-colors">
                   + Nova NF
@@ -418,15 +640,33 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
                 const difereItens    = valorNf > 0 && itensVisiveis.some(it => it.incluir) && Math.abs(somaItens - valorNf) > 0.01
                 const difereParcelas = valorNf > 0 && Math.abs(somaParcelas - valorNf) > 0.01
 
-                return (
-                  <div key={ni} className="border border-g-800 rounded-xl overflow-hidden">
+                return nf.is_saved ? (
+                  <div key={ni} className="border border-g-800 rounded-xl bg-g-850 px-4 py-3 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-3">
+                      <span className="text-emerald-500 bg-emerald-500/10 p-1.5 rounded-lg"><CheckCircle className="w-4 h-4"/></span>
+                      <div>
+                        <span className="text-g-200 font-medium text-sm block">{nfLabel(nf, ni)} {nf.numero_nf ? `· ${nf.numero_nf}` : ''}</span>
+                        <span className="text-g-500 text-xs">{nf.fornecedor || 'Sem fornecedor'} · {brl(nf.valor_total_nf)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button type="button" onClick={() => setNf(ni, 'is_saved', false)} className="text-g-400 hover:text-g-200 text-xs font-medium px-3 py-1.5 bg-g-800 rounded-lg transition-colors">Editar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div key={ni} className="border border-g-800 rounded-xl overflow-hidden shrink-0">
                     <div className="bg-g-850 px-4 py-2.5 flex items-center justify-between">
                       <span className="text-g-400 text-xs font-semibold uppercase tracking-wider">
                         {nfLabel(nf, ni)} — {nf.tipo_nf === 'Produto' ? 'Compra' : 'Serviço'}
                       </span>
-                      {nfs.length > 1 && (
-                        <button type="button" onClick={() => removeNf(ni)} className="text-g-600 hover:text-red-500 transition-colors">
+                      {nfs.length > 1 ? (
+                        <button type="button" onClick={() => removeNf(ni)} className="text-g-600 hover:text-red-500 transition-colors" title="Remover NF">
                           <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button type="button" onClick={() => clearNf(ni)} className="text-g-600 hover:text-amber-500 transition-colors flex items-center gap-1.5" title="Limpar NF">
+                          <Eraser className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-medium uppercase tracking-wider">Limpar</span>
                         </button>
                       )}
                     </div>
@@ -602,6 +842,12 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
                           </div>
                         )}
                       </div>
+                      <div className="mt-4 pt-4 border-t border-g-800 flex justify-end">
+                        <button type="button" onClick={() => salvarNfEspecifica(ni)} disabled={saving} className="px-4 py-2 rounded-lg bg-emerald-600/20 text-emerald-500 text-sm hover:bg-emerald-600/30 font-medium transition-colors flex items-center gap-2">
+                          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          Salvar NF
+                        </button>
+                      </div>
 
                     </div>
                   </div>
@@ -657,9 +903,10 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
         <div className="px-6 py-3 border-t border-g-800 flex items-center justify-between shrink-0">
           <button type="button" onClick={onClose}
             className="px-4 py-2 rounded-lg border border-g-800 text-g-500 text-sm hover:bg-g-850 transition-colors">
-            Fechar
+            {editMode ? 'Cancelar' : 'Fechar'}
           </button>
           <div className="flex items-center gap-2">
+            {/* Voltar buttons */}
             {step === 'nfs' && (
               <button type="button" onClick={() => setStep('executar')}
                 className="px-4 py-2 rounded-lg border border-g-800 text-g-500 text-sm hover:bg-g-850 transition-colors">
@@ -672,33 +919,35 @@ export default function FinalizarOsModal({ os, onClose, onSaved }) {
                 Voltar para NFs
               </button>
             )}
+
+            {/* Next/Save buttons */}
             {step === 'executar' && (
               <button onClick={handleExecutar} disabled={saving}
                 className="px-5 py-2 rounded-lg bg-g-100 text-white text-sm font-medium hover:bg-g-50 disabled:opacity-50 transition-colors flex items-center gap-2">
                 {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Executar → NFs
+                {editMode ? 'Salvar Alterações OS → NFs' : 'Executar → NFs'}
               </button>
             )}
             {step === 'nfs' && (
-              <>
+              <div className="flex items-center gap-2">
                 <button onClick={salvarNfsParcial} disabled={saving}
-                  className="px-4 py-2 rounded-lg border border-g-800 text-g-400 text-sm hover:bg-g-850 disabled:opacity-50 transition-colors flex items-center gap-2">
+                  className="px-4 py-2 rounded-lg border border-g-800 text-g-400 text-sm hover:bg-g-850 hover:text-g-100 transition-colors flex items-center gap-2">
                   {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Salvar NFs
+                  Aguardar novas NFs
                 </button>
                 <button onClick={salvarNfsERevisar} disabled={saving}
                   className="px-5 py-2 rounded-lg bg-g-100 text-white text-sm font-medium hover:bg-g-50 disabled:opacity-50 transition-colors flex items-center gap-2">
                   {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  Salvar e Finalizar →
+                  Salvar Financeiro →
                 </button>
-              </>
+              </div>
             )}
             {step === 'finalizar' && (
-              <button onClick={handleFinalizar}
+              <button onClick={editMode ? salvarEdicaoFinalizada : handleFinalizar}
                 disabled={saving || errosValidacao === null || errosValidacao.length > 0}
                 className="px-5 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-500 disabled:opacity-50 transition-colors flex items-center gap-2">
                 {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                Finalizar OS
+                {editMode ? 'Confirmar Edições' : 'Finalizar OS'}
               </button>
             )}
           </div>

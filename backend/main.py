@@ -7,7 +7,7 @@ from pathlib import Path
 import io
 
 # ── Banco de dados ────────────────────────────────────────────────
-from database import get_db, init_db
+from database import get_db, init_db, engine
 import models
 import schemas
 
@@ -287,29 +287,57 @@ def _migrate_1to1_safe():
             db.add(os)
             db.flush()
 
-            item = models.OsItem(
-                os_id=os.id,
-                sistema=m.sistema,
-                servico=m.servico,
-                descricao=m.descricao,
-                qtd_itens=m.qtd_itens,
-                posicao_pneu=m.posicao_pneu,
-                qtd_pneu=m.qtd_pneu,
-                espec_pneu=m.espec_pneu,
-                marca_pneu=m.marca_pneu,
-                manejo_pneu=m.manejo_pneu,
-                manutencao_origem_id=m.id,
-            )
-            db.add(item)
-            db.flush()
+            os_items_map = {}
+            if m.parcelas:
+                for p in m.parcelas:
+                    sys_t = p.sistema_temp or m.sistema
+                    srv_t = p.servico_temp or m.servico
+                    desc_t = p.descricao_temp or m.descricao
+                    k_item = (sys_t, srv_t, desc_t)
+                    
+                    if k_item not in os_items_map:
+                        item = models.OsItem(
+                            os_id=os.id,
+                            sistema=sys_t,
+                            servico=srv_t,
+                            descricao=desc_t,
+                            qtd_itens=m.qtd_itens,
+                            posicao_pneu=m.posicao_pneu,
+                            qtd_pneu=m.qtd_pneu,
+                            espec_pneu=m.espec_pneu,
+                            marca_pneu=m.marca_pneu,
+                            manejo_pneu=m.manejo_pneu,
+                            manutencao_origem_id=m.id,
+                        )
+                        db.add(item)
+                        db.flush()
+                        os_items_map[k_item] = item
+            else:
+                item = models.OsItem(
+                    os_id=os.id,
+                    sistema=m.sistema,
+                    servico=m.servico,
+                    descricao=m.descricao,
+                    qtd_itens=m.qtd_itens,
+                    posicao_pneu=m.posicao_pneu,
+                    qtd_pneu=m.qtd_pneu,
+                    espec_pneu=m.espec_pneu,
+                    marca_pneu=m.marca_pneu,
+                    manejo_pneu=m.manejo_pneu,
+                    manutencao_origem_id=m.id,
+                )
+                db.add(item)
+                db.flush()
+                os_items_map[(m.sistema, m.servico, m.descricao)] = item
 
             # Agrupa parcelas pela mesma nota
             grupos: dict = {}
             for p in m.parcelas:
-                chave = (p.nf_ordem, p.nota or f"__solo_{p.id}")
+                chave = (p.nf_ordem, p.nota or f"__solo_{p.id}", p.fornecedor, p.empresa_temp)
                 grupos.setdefault(chave, []).append(p)
 
-            for (nf_ordem, _), parcelas_grupo in grupos.items():
+            nfs_criadas = []
+            for (nf_ordem, _, _forn, _emp), parcelas_grupo in grupos.items():
                 tipo, needs_review = _infer_tipo_nf(m)
                 primeira = parcelas_grupo[0]
                 valor_nf = (
@@ -323,24 +351,52 @@ def _migrate_1to1_safe():
                     tipo_nf=tipo,
                     tipo_nf_needs_review=needs_review,
                     fornecedor=primeira.fornecedor or m.fornecedor,
+                    empresa_faturada=primeira.empresa_temp or m.empresa,
                     valor_total_nf=valor_nf,
                     data_emissao=m.data_execucao,
                     nf_ordem_origem=nf_ordem,
                 )
                 db.add(nf)
                 db.flush()
+                nfs_criadas.append(nf)
 
-                nf_item = models.NfItem(
-                    nf_id=nf.id,
-                    os_item_id=item.id,
-                    quantidade=1,
-                    valor_unitario=valor_nf,
-                    valor_total_item=valor_nf,
-                )
-                db.add(nf_item)
+                item_parcelas = {}
+                for p in parcelas_grupo:
+                    k_item = (p.sistema_temp or m.sistema, p.servico_temp or m.servico, p.descricao_temp or m.descricao)
+                    item_parcelas.setdefault(k_item, []).append(p)
+
+                for k_item, p_list in item_parcelas.items():
+                    o_item = os_items_map.get(k_item)
+                    primeira_p = p_list[0]
+                    valor_nf_item = (
+                        float(primeira_p.valor_item_total)
+                        if primeira_p.valor_item_total
+                        else sum(float(p.valor_parcela or 0) for p in p_list)
+                    )
+                    nf_item = models.NfItem(
+                        nf_id=nf.id,
+                        os_item_id=o_item.id if o_item else None,
+                        quantidade=1,
+                        valor_unitario=valor_nf_item,
+                        valor_total_item=valor_nf_item,
+                    )
+                    db.add(nf_item)
 
                 for p in parcelas_grupo:
                     p.nf_id = nf.id
+
+            empresas = set(nf.empresa_faturada for nf in nfs_criadas if nf.empresa_faturada)
+            fornecedores = set(nf.fornecedor for nf in nfs_criadas if nf.fornecedor)
+            
+            if len(empresas) > 1:
+                os.empresa = "Várias"
+            elif len(empresas) == 1:
+                os.empresa = list(empresas)[0]
+                
+            if len(fornecedores) > 1:
+                os.fornecedor = " / ".join(list(fornecedores))
+            elif len(fornecedores) == 1:
+                os.fornecedor = list(fornecedores)[0]
 
             db.commit()
     except Exception as e:
@@ -502,7 +558,80 @@ def compute(year: int):
         imp = imp[imp["AnoImposto"] == year].copy()
 
     manut_raw = _filter_year(_parse(data["manutencoes"].copy(), "DataExecução"), "DataExecução", year)
-    manut     = _dedup_manut(manut_raw)
+
+    # ── Excel Notas Count ──────────────────────────────────
+    if not manut_raw.empty and "IDOrdServ" in manut_raw.columns and "Nota" in manut_raw.columns:
+        # Contagem de notas únicas por OS vindas do Excel
+        excel_counts = manut_raw.dropna(subset=["IDOrdServ"]).groupby("IDOrdServ")["Nota"].nunique().rename("qtd_notas_excel")
+        manut_raw = manut_raw.merge(excel_counts, on="IDOrdServ", how="left")
+    
+    # ── Integrar Dados do Banco SQL (Ordens de Serviço e Frota) ──────
+    try:
+        with engine.connect() as conn:
+            # 1. Carregar Veículos da SQL para garantir que placas novas apareçam
+            sql_frota = pd.read_sql("SELECT id as IDVeiculo, placa as Placa, marca as Marca, modelo as Modelo, status as Status, tipagem as Tipagem, implemento as Implemento FROM frota", conn)
+            if not sql_frota.empty:
+                frota = pd.concat([frota, sql_frota], ignore_index=True).drop_duplicates(subset=["Placa"], keep="last")
+            
+            # 2. Carregar OS Finalizadas do SQL para o ano selecionado
+            sql_os = pd.read_sql(f"""
+                SELECT os.id as id_sql, os.id_veiculo as IDVeiculo, os.placa as Placa, 
+                       COALESCE(os.data_execucao, os.data_entrada) as DataExecução, 
+                       COALESCE(os.total_os, (SELECT SUM(valor_total_nf) FROM notas_fiscais WHERE os_id = os.id AND deletado_em IS NULL), 0) as TotalOS, 
+                       os.fornecedor as Fornecedor, os.modelo as Modelo, os.numero_os as IDOrdServ,
+                       os.tipo_manutencao as TipoManutencao, os.km as KM, os.prox_km as ProxKM, os.prox_data as ProxData,
+                       (SELECT sistema FROM os_itens WHERE os_id = os.id LIMIT 1) as Sistema,
+                       (SELECT servico FROM os_itens WHERE os_id = os.id LIMIT 1) as Serviço,
+                       (SELECT COUNT(*) FROM notas_fiscais WHERE os_id = os.id AND deletado_em IS NULL) as qtd_notas
+                FROM ordens_servico os
+                WHERE os.deletado_em IS NULL
+                  AND strftime('%Y', COALESCE(os.data_execucao, os.data_entrada)) = '{year}'
+            """, conn)
+            
+            if not sql_os.empty:
+                sql_os["DataExecução"] = pd.to_datetime(sql_os["DataExecução"])
+                # Evitar duplicados se por acaso houver IDOrdServ igual (migração)
+                if not manut_raw.empty and "IDOrdServ" in manut_raw.columns:
+                    os_existentes = set(manut_raw["IDOrdServ"].dropna().unique())
+                    sql_os = sql_os[~sql_os["IDOrdServ"].isin(os_existentes)]
+                
+                manut_raw = pd.concat([manut_raw, sql_os], ignore_index=True)
+    except Exception as e:
+        print(f"Erro ao integrar SQL no Dashboard: {e}")
+
+    # ── Lógica de Reclassificação e Notas ─────────────────
+    if not manut_raw.empty:
+        # Unifica qtd_notas (SQL vs Excel)
+        if "qtd_notas_excel" in manut_raw.columns:
+            if "qtd_notas" not in manut_raw.columns:
+                manut_raw["qtd_notas"] = manut_raw["qtd_notas_excel"]
+            else:
+                manut_raw["qtd_notas"] = manut_raw["qtd_notas"].fillna(manut_raw["qtd_notas_excel"])
+
+        def _reclassify(row):
+            sistema = str(row.get("Sistema", "")).strip().lower()
+            tipo = str(row.get("TipoManutencao", "")).strip().lower()
+            servico = str(row.get("Serviço", "")).strip().lower()
+            os_id = str(row.get("IDOrdServ", ""))
+
+            is_revisao = False
+            # Caso 1: Sistema é 'revisão'
+            if sistema == 'revisão':
+                row["Sistema"] = "Motor"
+                if tipo == 'preventiva':
+                    is_revisao = True
+            
+            # Caso 2: OS 0205 ou contém 'óleo' e é preventiva no motor
+            if os_id == 'OS-2026-0205' or ('óleo' in servico):
+                if tipo == 'preventiva' and str(row.get("Sistema", "")).lower() == 'motor':
+                    is_revisao = True
+            
+            row["evento"] = "Revisão" if is_revisao else None
+            return row
+
+        manut_raw = manut_raw.apply(_reclassify, axis=1)
+
+    manut = _dedup_manut(manut_raw)
 
     # ── Receitas por veículo ─────────────────────────────────
     rev_loc  = fat.groupby("IDVeiculo")["Medicao"].sum().rename("ReceitaLocacao") if not fat.empty else pd.Series(dtype=float, name="ReceitaLocacao")
@@ -715,6 +844,19 @@ def get_years():
     fsh = _parse(data["faturamento"], "Emissão")
     if "Emissão" in fsh.columns:
         years.update(fsh["Emissão"].dropna().dt.year.astype(int).tolist())
+    # Also include years from OS records in the DB
+    try:
+        with get_db() as conn:
+            rows = conn.execute("""
+                SELECT DISTINCT CAST(strftime('%Y', data_entrada) AS INTEGER) as yr
+                FROM ordens_servico WHERE data_entrada IS NOT NULL
+                UNION
+                SELECT DISTINCT CAST(strftime('%Y', data_execucao) AS INTEGER) as yr
+                FROM ordens_servico WHERE data_execucao IS NOT NULL
+            """).fetchall()
+            years.update(r[0] for r in rows if r[0])
+    except Exception:
+        pass
     return {"years": sorted(years, reverse=True)}
 
 
@@ -886,6 +1028,8 @@ def get_vehicle(placa: str, year: int = Query(...)):
                 "km":              safe(mrow.get("KM", 0)) if pd.notna(mrow.get("KM")) else None,
                 "prox_km":         safe(mrow.get("ProxKM", 0)) if pd.notna(mrow.get("ProxKM")) else None,
                 "prox_data":       str(mrow.get("ProxData", ""))[:10] if pd.notna(mrow.get("ProxData")) else None,
+                "qtd_notas":       int(mrow.get("qtd_notas", 0)) if pd.notna(mrow.get("qtd_notas")) else 0,
+                "evento":          mrow.get("evento"),
             })
 
     return {
@@ -899,12 +1043,9 @@ def get_vehicle(placa: str, year: int = Query(...)):
 
 @app.get("/api/maintenance_analysis")
 def get_maintenance_analysis(year: int = Query(...), placa: str = Query(None)):
-    data = load_raw()
-    manut_all = _parse(data["manutencoes"].copy(), "DataExecução")
-    manut_yr  = _filter_year(manut_all, "DataExecução", year)
-    manut     = _dedup_manut(manut_yr)
+    _, _, _, _, _, manut, *_ = compute(year)
 
-    if placa and "Placa" in manut.columns:
+    if placa and not manut.empty and "Placa" in manut.columns:
         manut = manut[manut["Placa"] == placa]
 
     result: dict = {}
@@ -1117,16 +1258,21 @@ def listar_parcelas(year: int = None, db: Session = Depends(get_db)):
     data = load_raw()
     from sqlalchemy import extract, func as sf, or_
 
+    from sqlalchemy.orm import joinedload
     q = (
         db.query(models.ManutencaoParcela)
+        .options(
+            joinedload(models.ManutencaoParcela.nota_fiscal).joinedload(models.NotaFiscal.os).joinedload(models.OrdemServico.itens),
+            joinedload(models.ManutencaoParcela.manutencao)
+        )
         .filter(models.ManutencaoParcela.deletado_em.is_(None))
     )
     if year:
-        venc_efetivo = sf.coalesce(
+        # Robust year extraction for SQLite
+        q = q.filter(sf.strftime('%Y', sf.coalesce(
             models.ManutencaoParcela.data_prevista_pagamento,
-            models.ManutencaoParcela.data_vencimento,
-        )
-        q = q.filter(extract("year", venc_efetivo) == year)
+            models.ManutencaoParcela.data_vencimento
+        )) == str(year))
     parcelas = q.order_by(models.ManutencaoParcela.data_vencimento.asc()).all()
 
     result = []
@@ -1144,23 +1290,32 @@ def listar_parcelas(year: int = None, db: Session = Depends(get_db)):
             continue
 
         # Filtra apenas finalizadas (new model) ou manutencao finalizada (legado)
-        if os_obj and os_obj.status_os != "finalizada":
-            continue
-        if manut and manut.status_manutencao != "finalizada":
-            continue
+        # (Removido: permitir parcelas de OS em andamento no financeiro)
+        # if os_obj and os_obj.status_os != "finalizada":
+        #     continue
+        # if manut and manut.status_manutencao != "finalizada":
+        #     continue
 
         d = {c.name: getattr(p, c.name) for c in p.__table__.columns}
         if os_obj:
             d["placa"]         = os_obj.placa
             d["modelo"]        = os_obj.modelo
-            d["empresa"]       = os_obj.empresa
-            d["empresa_nome"]  = _empresa_nome(data, os_obj.empresa)
+            
+            # Normalização de empresa para garantir funcionamento dos filtros no frontend
+            emp_val = nf.empresa_faturada or os_obj.empresa
+            if str(emp_val).upper() == "TKJ": emp_val = "1"
+            elif str(emp_val).upper() == "FINITA": emp_val = "2"
+            elif str(emp_val).upper() == "LANDKRAFT": emp_val = "3"
+            d["empresa"] = emp_val
+            
+            d["empresa_nome"]  = _empresa_nome(data, d["empresa"])
             d["id_contrato"]   = os_obj.id_contrato
             d["fornecedor_os"] = os_obj.fornecedor
             d["fornecedor"]    = getattr(p, "fornecedor", None) or nf.fornecedor or os_obj.fornecedor
             # descrição: concatena itens da OS
             d["descricao"]     = "; ".join(filter(None, (it.servico or it.sistema for it in os_obj.itens))) or None
             d["id_ord_serv"]   = os_obj.numero_os
+            d["nota"]          = nf.numero_nf  # Garante busca por número de nota
             d["data_execucao"] = os_obj.data_execucao
             contrato = _contrato_ativo(data, os_obj.id_veiculo, os_obj.data_execucao)
         else:
@@ -1279,6 +1434,8 @@ def abrir_os(payload: schemas.OsAbrir, db: Session = Depends(get_db)):
     if not data.get("placa"):
         data["placa"] = veiculo.placa
 
+    data["numero_os"] = generate_numero_os_atomic(db)
+    
     os = models.OrdemServico(**data)
     db.add(os)
     db.flush()
@@ -1306,37 +1463,109 @@ def atualizar_os(os_id: int, payload: schemas.OsUpdate, db: Session = Depends(ge
     for field, value in data.items():
         setattr(os, field, value)
 
-    # Substituir itens: apaga os existentes e recria
+    # Substituir itens: lógica inteligente para evitar quebra de FK
     if novos_itens is not None:
-        for item in os.itens:
-            db.delete(item)
-        db.flush()
-        for it in novos_itens:
-            db.add(models.OsItem(os_id=os.id, **it))
+        item_map = {it.id: it for it in os.itens}
+        incoming_ids = {it.get("id") for it in novos_itens if it.get("id") is not None}
+
+        # 1. Update or Add
+        for it_data in novos_itens:
+            iid = it_data.pop("id", None)
+            if iid and iid in item_map:
+                target = item_map[iid]
+                for k, v in it_data.items():
+                    if hasattr(target, k):
+                        setattr(target, k, v)
+            else:
+                db.add(models.OsItem(os_id=os.id, **it_data))
+
+        # 2. Delete missing items (apenas se não houver vínculos impeditivos, ou confia no erro controlado)
+        for iid, it in item_map.items():
+            if iid not in incoming_ids:
+                db.delete(it)
 
     db.commit()
     db.refresh(os)
     return os
 
 
+@app.patch("/api/db/os/{os_id}/editar", response_model=schemas.OsResponse)
+def editar_os_finalizada(os_id: int, payload: schemas.OsEditarFinalizada, db: Session = Depends(get_db)):
+    """Edição de campos de execução e itens de uma OS finalizada."""
+    try:
+        # Explicitamente carregar as relações para evitar problemas de lazy-loading
+        os = db.query(models.OrdemServico).options(
+            selectinload(models.OrdemServico.itens),
+            selectinload(models.OrdemServico.notas_fiscais)
+        ).filter(models.OrdemServico.id == os_id).first()
+
+        if not os or os.deletado_em is not None:
+            raise HTTPException(404, "OS não encontrada")
+
+        data = payload.model_dump(exclude_unset=True)
+        novos_itens = data.pop("itens", None)
+
+        # Campos permitidos para atualização direta no cabeçalho da OS
+        for field, value in data.items():
+            if hasattr(os, field):
+                setattr(os, field, value)
+
+        if novos_itens is not None:
+            item_map = {it.id: it for it in os.itens}
+            incoming_ids = {it.get("id") for it in novos_itens if it.get("id") is not None}
+
+            # 1. Update or Add
+            for it_data in novos_itens:
+                # it_data já é um dict pois veio de payload.model_dump()
+                iid = it_data.pop("id", None)
+                if iid and iid in item_map:
+                    # Update existing item
+                    target = item_map[iid]
+                    for k, v in it_data.items():
+                        if hasattr(target, k):
+                            setattr(target, k, v)
+                else:
+                    # Add new item
+                    db.add(models.OsItem(os_id=os.id, **it_data))
+
+            # 2. Delete missing items
+            for iid, it in item_map.items():
+                if iid not in incoming_ids:
+                    # Check if referenced in nf_itens
+                    is_referenced = db.query(models.NfItem).filter(models.NfItem.os_item_id == iid).first()
+                    if is_referenced:
+                        label = it.servico or it.sistema or f"Item #{iid}"
+                        raise HTTPException(400, f"O item '{label}' não pode ser excluído porque já está vinculado a uma Nota Fiscal. Remova o vínculo na NF primeiro.")
+                    db.delete(it)
+
+        db.commit()
+        db.refresh(os)
+        return os
+    except Exception as e:
+        db.rollback()
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(400, f"Erro interno ao salvar OS: {str(e)}")
+
+
 @app.delete("/api/db/os/{os_id}", status_code=204)
 def deletar_os(os_id: int, db: Session = Depends(get_db)):
-    """Soft delete. Bloqueado se houver NF com parcela paga."""
+    """Soft delete em cascata para OS, NFs e Parcelas."""
     from datetime import datetime as _dt
     os = db.get(models.OrdemServico, os_id)
     if not os or os.deletado_em is not None:
         raise HTTPException(404, "OS não encontrada")
 
+    agora = _dt.utcnow()
+    os.deletado_em = agora
+
     for nf in os.notas_fiscais:
         if nf.deletado_em is None:
+            nf.deletado_em = agora
             for p in nf.parcelas:
-                if p.deletado_em is None and (p.status_pagamento or "").lower() == "pago":
-                    raise HTTPException(
-                        400,
-                        f"OS com parcela já paga (NF {nf.numero_nf}) — não pode ser removida",
-                    )
+                if p.deletado_em is None:
+                    p.deletado_em = agora
 
-    os.deletado_em = _dt.utcnow()
     db.commit()
 
 
@@ -1452,12 +1681,59 @@ def adicionar_nf(os_id: int, payload: schemas.NotaFiscalCreate, db: Session = De
         db.add(nf_item)
 
     for p in payload.parcelas:
-        parcela = models.ManutencaoParcela(nf_id=nf.id, **p.model_dump())
+        parcela = models.ManutencaoParcela(nf_id=nf.id, fornecedor=nf.fornecedor, **p.model_dump())
         db.add(parcela)
 
     db.commit()
     db.refresh(nf)
     return nf
+
+
+@app.put("/api/db/os/{os_id}/nfs-sync", response_model=list[schemas.NotaFiscalResponse])
+def sync_nfs(os_id: int, payload: list[schemas.NotaFiscalCreate], db: Session = Depends(get_db)):
+    """Substitui a lista inteira de Notas Fiscais da OS (sync destrutivo/recreativo)."""
+    os_obj = db.get(models.OrdemServico, os_id)
+    if not os_obj or os_obj.deletado_em is not None:
+        raise HTTPException(404, "OS não encontrada")
+
+    # Verifica se existem parcelas pagas, para bloquear exclusão
+    for old_nf in os_obj.notas_fiscais:
+        if old_nf.deletado_em is None:
+            for p in old_nf.parcelas:
+                if p.status_pagamento == "Pago":
+                    raise HTTPException(400, "A OS possui parcelas já pagas e não pode ter suas NFs recriadas.")
+
+    # Hard delete das notas antigas (estamos em modo rascunho de finalização)
+    for old_nf in list(os_obj.notas_fiscais):
+        db.delete(old_nf)
+    db.flush()
+
+    if os_obj.numero_os is None and payload:
+        os_obj.numero_os = generate_numero_os_atomic(db)
+
+    nfs_criadas = []
+    for nf_data in payload:
+        data = nf_data.model_dump(exclude={"itens", "parcelas"})
+        nf = models.NotaFiscal(os_id=os_id, **data)
+        db.add(nf)
+        db.flush()
+
+        for it in nf_data.itens:
+            db.add(models.NfItem(nf_id=nf.id, **it.model_dump()))
+        
+        for p in nf_data.parcelas:
+            db.add(models.ManutencaoParcela(
+                nf_id=nf.id, 
+                fornecedor=nf.fornecedor, 
+                **p.model_dump()
+            ))
+            
+        nfs_criadas.append(nf)
+
+    db.commit()
+    for nf in nfs_criadas:
+        db.refresh(nf)
+    return nfs_criadas
 
 
 @app.patch("/api/db/nfs/{nf_id}", response_model=schemas.NotaFiscalResponse)

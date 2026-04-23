@@ -21,6 +21,8 @@ export default function App() {
   const [region, setRegion]     = useState(null)
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [finAlertDismissed, setFinAlertDismissed]     = useState(false)
 
   useEffect(() => {
     getYears()
@@ -88,7 +90,15 @@ export default function App() {
   return (
     <ThemeProvider>
     <div className="flex h-screen overflow-hidden bg-g-950">
-      <Sidebar page={page} setPage={setPage} years={years} year={year} setYear={setYear} />
+      <Sidebar
+        page={page}
+        setPage={setPage}
+        years={years}
+        year={year}
+        setYear={setYear}
+        isCollapsed={isSidebarCollapsed}
+        setIsCollapsed={setIsSidebarCollapsed}
+      />
 
       <main className="flex-1 overflow-y-auto">
         {/* Header */}
@@ -96,10 +106,10 @@ export default function App() {
           <div className="flex items-center gap-3">
             <img src="/icon.png" alt="" className="w-5 h-5 object-contain opacity-50" />
             <div>
-              <h1 className="text-g-200 font-semibold text-sm tracking-wide">
+              <h1 className="text-g-200 font-bold text-lg tracking-wide">
                 {pageTitle[page]}
               </h1>
-              <p className="text-g-600 text-xs mt-0.5">
+              <p className="text-g-600 text-sm mt-0.5 font-medium">
                 TKJ Gerenciamento · Exercício {year}
                 {region && <span className="ml-2 text-g-100">· {region}</span>}
               </p>
@@ -128,7 +138,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 py-6">
           {loading && (
             <div className="flex flex-col items-center justify-center h-96 gap-4 animate-fade-in">
               <img src="/icon.png" alt="" className="w-12 h-12 object-contain opacity-30 animate-pulse-slow" />
@@ -156,7 +166,13 @@ export default function App() {
 
           {!loading && page === 'maintenance' && (
             <div key={`maintenance-${year}`} className="animate-page-fade">
-              <MaintenancePage year={year} vehicles={vehicles} headerTrigger={headerTrigger} />
+              <MaintenancePage 
+                year={year} 
+                vehicles={vehicles} 
+                headerTrigger={headerTrigger} 
+                finAlertDismissed={finAlertDismissed}
+                setFinAlertDismissed={setFinAlertDismissed}
+              />
             </div>
           )}
         </div>

@@ -3,7 +3,8 @@ import { brl, pct, dias, brlShort } from '../utils/format'
 import VehicleModal from '../components/VehicleModal'
 import {
   Search, ChevronUp, ChevronDown, ChevronsUpDown,
-  Filter, X, MapPin,
+  Filter, X, MapPin, DollarSign, TrendingUp, TrendingDown,
+  BarChart3,
 } from 'lucide-react'
 
 const STATUS_COLORS = {
@@ -28,29 +29,26 @@ function SortIcon({ col, sortCol, sortDir }) {
 }
 
 const COLUMNS = [
-  { key: 'rank',               label: '#',           align: 'right', fmt: v => <span className="text-g-700 tabular-nums">{v}</span> },
-  { key: 'placa',              label: 'Placa',        align: 'left',  fmt: v => <span className="font-mono font-bold text-g-50 tracking-wide">{v}</span> },
-  { key: 'modelo',             label: 'Modelo',       align: 'left',  fmt: v => <span className="text-g-300">{v}</span> },
+  { key: 'rank',               label: '#',           align: 'left',  fmt: v => <span className="text-g-700 text-sm tabular-nums">{v}</span> },
+  { key: 'placa',              label: 'Placa',        align: 'left',  fmt: v => <span className="font-mono font-bold text-g-50 text-[15px] tracking-wide">{v}</span> },
+  { key: 'modelo',             label: 'Modelo',       align: 'left',  fmt: v => <span className="text-g-300 text-sm">{v}</span> },
   { key: 'status',             label: 'Status',       align: 'left',  fmt: v => statusBadge(v) },
-  { key: 'receita_total',      label: 'Receita',      align: 'right', fmt: v => <span className="font-mono text-g-200 tabular-nums">{brl(v)}</span> },
-  { key: 'custo_total',        label: 'Custo',        align: 'right', fmt: v => <span className="font-mono text-orange-300 tabular-nums">{brl(v)}</span> },
-  { key: 'margem',             label: 'Margem',       align: 'right', fmt: v => (
-    <span className={`font-mono font-semibold tabular-nums ${v >= 0 ? 'text-g-50' : 'text-red-300'}`}>{brl(v)}</span>
+  { key: 'receita_total',      label: 'Receita',      align: 'left',  fmt: v => <span className="font-mono text-g-200 text-sm tabular-nums">{brl(v)}</span> },
+  { key: 'custo_total',        label: 'Custo',        align: 'left',  fmt: v => <span className="font-mono text-orange-300 text-sm tabular-nums">{brl(v)}</span> },
+  { key: 'margem',             label: 'Margem',       align: 'left',  fmt: v => (
+    <span className={`font-mono font-semibold text-sm tabular-nums ${v >= 0 ? 'text-g-50' : 'text-red-300'}`}>{brl(v)}</span>
   )},
-  { key: 'margem_pct',         label: '% Margem',     align: 'right', fmt: v => (
-    <span className={`text-xs font-semibold tabular-nums ${v >= 0 ? 'text-g-300' : 'text-red-400'}`}>{pct(v)}</span>
+  { key: 'margem_pct',         label: '% Margem',     align: 'left',  fmt: v => (
+    <span className={`text-sm font-semibold tabular-nums ${v >= 0 ? 'text-g-300' : 'text-red-400'}`}>{pct(v)}</span>
   )},
-  { key: 'dias_trabalhado',    label: 'Dias Trab.',   align: 'right', fmt: v => <span className="text-g-600 text-xs tabular-nums">{dias(v)}</span> },
-  { key: 'receita_por_dia',    label: 'R$/Dia',       align: 'right', fmt: v => v > 0
-    ? <span className="font-mono text-xs text-g-400 tabular-nums">{brlShort(v)}</span>
-    : <span className="text-g-800">—</span> },
-  { key: 'custo_manutencao',   label: 'Manutenção',   align: 'right', fmt: v => <span className="font-mono text-xs text-orange-400 tabular-nums">{brl(v)}</span> },
-  { key: 'custo_seguro',       label: 'Seguro',       align: 'right', fmt: v => <span className="font-mono text-xs text-red-400 tabular-nums">{brl(v)}</span> },
-  { key: 'custo_impostos',     label: 'Impostos',     align: 'right', fmt: v => <span className="font-mono text-xs text-purple-400 tabular-nums">{brl(v)}</span> },
-  { key: 'custo_rastreamento', label: 'Rastreamento', align: 'right', fmt: v => <span className="font-mono text-xs text-amber-400 tabular-nums">{brl(v)}</span> },
-  { key: 'roi',                label: 'ROI',          align: 'right', fmt: v => v !== 0
-    ? <span className={`text-xs font-semibold tabular-nums ${v >= 0 ? 'text-g-300' : 'text-red-400'}`}>{pct(v)}</span>
-    : <span className="text-g-800">—</span> },
+  { key: 'dias_trabalhado',    label: 'Dias Trab.',   align: 'left',  fmt: v => <span className="text-g-600 text-sm tabular-nums">{dias(v)}</span> },
+  { key: 'receita_por_dia',    label: 'R$/Dia',       align: 'left',  fmt: v => v > 0
+    ? <span className="font-mono text-sm text-g-400 tabular-nums">{brlShort(v)}</span>
+    : <span className="text-g-800 text-sm">—</span> },
+  { key: 'custo_manutencao',   label: 'Manutenção',   align: 'left',  fmt: v => <span className="font-mono text-sm text-orange-400 tabular-nums">{brl(v)}</span> },
+  { key: 'custo_seguro',       label: 'Seguro',       align: 'left',  fmt: v => <span className="font-mono text-sm text-red-400 tabular-nums">{brl(v)}</span> },
+  { key: 'custo_impostos',     label: 'Impostos',     align: 'left',  fmt: v => <span className="font-mono text-sm text-purple-400 tabular-nums">{brl(v)}</span> },
+  { key: 'custo_rastreamento', label: 'Rastreamento', align: 'left',  fmt: v => <span className="font-mono text-sm text-amber-400 tabular-nums">{brl(v)}</span> },
 ]
 
 export default function VehiclesPage({ vehicles, year, regions = [], region, onRegionChange }) {
@@ -110,12 +108,12 @@ export default function VehiclesPage({ vehicles, year, regions = [], region, onR
       <div className="flex items-center gap-3 flex-wrap">
         {/* Region/contract filter */}
         {regions.length > 0 && (
-          <div className="flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-g-700" />
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-g-500" />
             <select
               value={region || ''}
               onChange={e => onRegionChange && onRegionChange(e.target.value || null)}
-              className="bg-g-900 border border-g-800 rounded-lg text-g-300 text-xs px-3 py-2 focus:outline-none focus:border-g-600"
+              className="bg-g-900 border border-g-800 rounded-xl text-g-200 text-sm px-4 py-2.5 focus:outline-none focus:border-g-600 shadow-sm appearance-none cursor-pointer"
             >
               <option value="">Todas as regiões</option>
               {regions.map(r => <option key={r} value={r}>{r}</option>)}
@@ -123,44 +121,44 @@ export default function VehiclesPage({ vehicles, year, regions = [], region, onR
           </div>
         )}
 
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-700" />
+        <div className="relative flex-1 min-w-[240px] max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-g-500" />
           <input
             type="text"
             placeholder="Buscar placa ou modelo…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-200 text-sm placeholder-g-700 focus:outline-none focus:border-g-600 transition-colors"
+            className="w-full pl-10 pr-3 py-2.5 bg-g-900 border border-g-800 rounded-xl text-g-100 text-sm placeholder-g-700 focus:outline-none focus:border-g-600 transition-colors shadow-sm"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2">
-              <X className="w-3 h-3 text-g-600 hover:text-g-300" />
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+              <X className="w-3.5 h-3.5 text-g-600 hover:text-g-300" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <Filter className="w-3.5 h-3.5 text-g-700" />
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-g-500" />
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
-            className="bg-g-900 border border-g-800 rounded-lg text-g-400 text-xs px-3 py-2 focus:outline-none focus:border-g-600"
+            className="bg-g-900 border border-g-800 rounded-xl text-g-200 text-sm px-4 py-2.5 focus:outline-none focus:border-g-600 shadow-sm appearance-none cursor-pointer"
           >
             <option value="">Todos os status</option>
             {statuses.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
-        <div className="flex items-center gap-0.5 bg-g-900 border border-g-800 rounded-lg p-0.5">
+        <div className="flex items-center gap-1 bg-g-900 border border-g-800 rounded-xl p-1 shadow-sm">
           {[
             { val: 'all',    label: 'Todos' },
             { val: 'profit', label: 'Lucrativos' },
-            { val: 'loss',   label: 'Deficit.' },
+            { val: 'loss',   label: 'Deficitários' },
           ].map(o => (
             <button
               key={o.val}
               onClick={() => setShowOnly(o.val)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                 showOnly === o.val
                   ? 'bg-g-700/30 text-g-50'
                   : 'text-g-600 hover:text-g-300'
@@ -177,24 +175,24 @@ export default function VehiclesPage({ vehicles, year, regions = [], region, onR
       </div>
 
       {/* Summary totals */}
-      <div className="grid grid-cols-4 gap-2">
-        <div className="card p-3 flex flex-col gap-0.5">
-          <span className="text-g-700 text-xs">Receita</span>
-          <span className="text-g-200 font-semibold font-mono text-sm tabular-nums">{brl(totals.receita_total)}</span>
+      <div className="grid grid-cols-4 gap-3">
+        <div className="card p-3.5 flex flex-col gap-1">
+          <span className="text-g-600 text-[10px] uppercase tracking-widest font-bold">Receita Filtrada</span>
+          <span className="text-g-500 font-bold font-mono text-xl tabular-nums">{brl(totals.receita_total)}</span>
         </div>
-        <div className="card p-3 flex flex-col gap-0.5">
-          <span className="text-g-700 text-xs">Custo</span>
-          <span className="text-orange-300 font-semibold font-mono text-sm tabular-nums">{brl(totals.custo_total)}</span>
+        <div className="card p-3.5 flex flex-col gap-1">
+          <span className="text-g-600 text-[10px] uppercase tracking-widest font-bold">Custo Filtrado</span>
+          <span className="text-orange-500 font-bold font-mono text-xl tabular-nums">{brl(totals.custo_total)}</span>
         </div>
-        <div className="card p-3 flex flex-col gap-0.5">
-          <span className="text-g-700 text-xs">Margem</span>
-          <span className={`font-semibold font-mono text-sm tabular-nums ${totals.margem >= 0 ? 'text-g-50' : 'text-red-300'}`}>
+        <div className="card p-3.5 flex flex-col gap-1 border-l-4 border-l-emerald-500/20">
+          <span className="text-g-600 text-[10px] uppercase tracking-widest font-bold">Margem Filtrada</span>
+          <span className={`font-bold font-mono text-xl tabular-nums ${totals.margem >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
             {brl(totals.margem)}
           </span>
         </div>
-        <div className="card p-3 flex flex-col gap-0.5">
-          <span className="text-g-700 text-xs">% Margem</span>
-          <span className={`font-semibold text-sm tabular-nums ${totals.margem >= 0 ? 'text-g-200' : 'text-red-300'}`}>
+        <div className="card p-3.5 flex flex-col gap-1">
+          <span className="text-g-600 text-[10px] uppercase tracking-widest font-bold">% Margem</span>
+          <span className={`font-bold font-mono text-xl tabular-nums ${totals.margem >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
             {totals.receita_total > 0 ? pct(totals.margem / totals.receita_total * 100) : '—'}
           </span>
         </div>
@@ -210,9 +208,9 @@ export default function VehiclesPage({ vehicles, year, regions = [], region, onR
                   <th
                     key={col.key}
                     onClick={() => handleSort(col.key)}
-                    className={`th ${col.align === 'left' ? 'th-left' : ''} cursor-pointer hover:text-g-200 select-none transition-colors`}
+                    className="th cursor-pointer hover:text-g-200 select-none transition-colors"
                   >
-                    <div className={`flex items-center gap-1 ${col.align === 'right' ? 'justify-end' : ''}`}>
+                    <div className="flex items-center gap-1">
                       <span>{col.label}</span>
                       <SortIcon col={col.key} sortCol={sortCol} sortDir={sortDir} />
                     </div>
@@ -224,11 +222,11 @@ export default function VehiclesPage({ vehicles, year, regions = [], region, onR
               {filtered.map((v) => (
                 <tr
                   key={v.placa}
-                  className={`table-row ${v.margem < 0 ? 'bg-red-950/10' : ''}`}
+                  className={`table-row ${v.margem < 0 ? 'bg-red-950/10 hover:bg-red-950/20' : ''}`}
                   onClick={() => setSelectedPlaca(v.placa)}
                 >
                   {COLUMNS.map(col => (
-                    <td key={col.key} className={`td ${col.align === 'left' ? 'td-left' : ''}`}>
+                    <td key={col.key} className="td">
                       {col.fmt(v[col.key])}
                     </td>
                   ))}
@@ -245,21 +243,42 @@ export default function VehiclesPage({ vehicles, year, regions = [], region, onR
             {filtered.length > 1 && (
               <tfoot className="bg-g-900/80 border-t-2 border-g-700">
                 <tr>
-                  <td className="td td-left text-g-700 text-xs">—</td>
-                  <td className="td td-left text-g-500 text-xs font-semibold uppercase tracking-wide" colSpan={3}>
+                  <td className="td text-g-700 text-sm">—</td>
+                  <td className="td text-g-500 text-sm font-semibold uppercase tracking-wide" colSpan={3}>
                     TOTAIS ({filtered.length})
                   </td>
-                  <td className="td"><span className="font-mono text-g-200 font-semibold tabular-nums">{brl(totals.receita_total)}</span></td>
-                  <td className="td"><span className="font-mono text-orange-300 font-semibold tabular-nums">{brl(totals.custo_total)}</span></td>
-                  <td className="td"><span className={`font-mono font-bold tabular-nums ${totals.margem >= 0 ? 'text-g-50' : 'text-red-300'}`}>{brl(totals.margem)}</span></td>
-                  <td className="td"><span className={`text-xs font-bold tabular-nums ${totals.margem >= 0 ? 'text-g-300' : 'text-red-400'}`}>{totals.receita_total > 0 ? pct(totals.margem / totals.receita_total * 100) : '—'}</span></td>
-                  <td className="td"><span className="text-g-600 text-xs tabular-nums">{dias(totals.dias_trabalhado)}</span></td>
-                  <td className="td text-g-800">—</td>
-                  <td className="td"><span className="font-mono text-xs text-orange-400 tabular-nums">{brl(totals.custo_manutencao)}</span></td>
-                  <td className="td"><span className="font-mono text-xs text-red-400 tabular-nums">{brl(totals.custo_seguro)}</span></td>
-                  <td className="td"><span className="font-mono text-xs text-purple-400 tabular-nums">{brl(totals.custo_impostos)}</span></td>
-                  <td className="td"><span className="font-mono text-xs text-amber-400 tabular-nums">{brl(totals.custo_rastreamento)}</span></td>
-                  <td className="td text-g-800">—</td>
+                  <td className="td">
+                    <span className="font-mono text-g-200 font-semibold tabular-nums text-sm">{brl(totals.receita_total)}</span>
+                  </td>
+                  <td className="td">
+                    <span className="font-mono text-orange-300 font-semibold tabular-nums text-sm">{brl(totals.custo_total)}</span>
+                  </td>
+                  <td className="td">
+                    <span className={`font-mono font-bold tabular-nums text-sm ${totals.margem >= 0 ? 'text-g-50' : 'text-red-300'}`}>
+                      {brl(totals.margem)}
+                    </span>
+                  </td>
+                  <td className="td">
+                    <span className={`text-sm font-bold tabular-nums ${totals.margem >= 0 ? 'text-g-300' : 'text-red-400'}`}>
+                      {totals.receita_total > 0 ? pct(totals.margem / totals.receita_total * 100) : '—'}
+                    </span>
+                  </td>
+                  <td className="td">
+                    <span className="text-g-600 text-sm tabular-nums">{dias(totals.dias_trabalhado)}</span>
+                  </td>
+                  <td className="td text-g-800 text-sm">—</td>
+                  <td className="td">
+                    <span className="font-mono text-sm text-orange-400 tabular-nums">{brl(totals.custo_manutencao)}</span>
+                  </td>
+                  <td className="td">
+                    <span className="font-mono text-sm text-red-400 tabular-nums">{brl(totals.custo_seguro)}</span>
+                  </td>
+                  <td className="td">
+                    <span className="font-mono text-sm text-purple-400 tabular-nums">{brl(totals.custo_impostos)}</span>
+                  </td>
+                  <td className="td">
+                    <span className="font-mono text-sm text-amber-400 tabular-nums">{brl(totals.custo_rastreamento)}</span>
+                  </td>
                 </tr>
               </tfoot>
             )}

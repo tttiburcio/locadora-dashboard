@@ -26,6 +26,7 @@ export const dbListOs              = (status, placa)       => api.get('/db/os', 
 export const dbGetOs               = (id)                  => api.get(`/db/os/${id}`).then(r => r.data)
 export const dbAbrirOs             = (payload)             => api.post('/db/os', payload).then(r => r.data)
 export const dbAtualizarOs         = (id, payload)         => api.patch(`/db/os/${id}`, payload).then(r => r.data)
+export const dbEditarOsFinalizada  = (id, payload)         => api.patch(`/db/os/${id}/editar`, payload).then(r => r.data)
 export const dbDeletarOs           = (id)                  => api.delete(`/db/os/${id}`)
 export const dbExecutarOs          = (id, payload)         => api.post(`/db/os/${id}/executar`, payload).then(r => r.data)
 export const dbFinalizarOs         = (id)                  => api.post(`/db/os/${id}/finalizar`).then(r => r.data)
@@ -39,6 +40,7 @@ export const dbDeletarOsItem       = (os_id, item_id)      => api.delete(`/db/os
 // ── Notas Fiscais ────────────────────────────────────────────────────
 export const dbListNfs             = (os_id)               => api.get(`/db/os/${os_id}/nfs`).then(r => r.data)
 export const dbCriarNf             = (os_id, payload)      => api.post(`/db/os/${os_id}/nfs`, payload).then(r => r.data)
+export const dbSyncNfs             = (os_id, payload)      => api.put(`/db/os/${os_id}/nfs-sync`, payload).then(r => r.data)
 export const dbAtualizarNf         = (nf_id, payload)      => api.patch(`/db/nfs/${nf_id}`, payload).then(r => r.data)
 export const dbDeletarNf           = (nf_id)               => api.delete(`/db/nfs/${nf_id}`)
 export const dbCriarParcelaNf      = (nf_id, payload)      => api.post(`/db/nfs/${nf_id}/parcelas`, payload).then(r => r.data)

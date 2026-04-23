@@ -242,6 +242,10 @@ class OsItemUpdate(OsItemBase):
     pass
 
 
+class OsItemEdit(OsItemBase):
+    id: Optional[int] = None
+
+
 class OsItemResponse(OsItemBase):
     model_config = ConfigDict(from_attributes=True)
     id:    int
@@ -349,7 +353,20 @@ class OsUpdate(BaseModel):
     data_entrada:    Optional[date]         = None
     km:              Optional[float]        = None
     observacoes:     Optional[str]          = None
-    itens:           Optional[list[OsItemCreate]] = None
+    itens:           Optional[list[OsItemEdit]] = None
+
+
+class OsEditarFinalizada(BaseModel):
+    """Edição completa de OS já finalizada (dados de execução + itens)."""
+    data_execucao:   Optional[date]              = None
+    km:              Optional[float]             = None
+    prox_km:         Optional[float]             = None
+    prox_data:       Optional[date]              = None
+    responsavel_tec: Optional[str]               = None
+    tipo_manutencao: Optional[str]               = None
+    categoria:       Optional[str]               = None
+    observacoes:     Optional[str]               = None
+    itens:           Optional[list[OsItemEdit]]  = None
 
 
 class OsExecutar(BaseModel):

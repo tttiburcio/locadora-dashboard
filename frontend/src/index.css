@@ -95,13 +95,13 @@
   }
 
   .th {
-    @apply text-g-600 text-xs font-semibold uppercase tracking-wider px-4 py-3 text-right;
+    @apply text-g-600 text-[10px] font-semibold uppercase tracking-wider px-2.5 py-2.5 text-left;
   }
 
   .th-left { @apply text-left; }
 
   .td {
-    @apply px-4 py-3 text-sm text-right text-g-400;
+    @apply px-2.5 py-2.5 text-xs text-left text-g-400;
   }
 
   .td-left { @apply text-left; }

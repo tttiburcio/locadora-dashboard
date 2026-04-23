@@ -15,7 +15,7 @@ const SISTEMAS = [
 ]
 
 const FIELD = 'w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors'
-const LABEL = 'text-g-600 text-xs font-medium mb-1 block'
+const LABEL = 'text-g-600 text-[10px] uppercase tracking-widest font-bold mb-1.5 block'
 
 const ITEM_VAZIO = { categoria: 'Serviço', sistema: '', servico: '', descricao: '', qtd_itens: '' }
 
@@ -42,6 +42,7 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
 
   const [itens, setItens] = useState(() =>
     (os?.itens?.length ? os.itens.map(it => ({
+      id:        it.id,
       categoria: it.categoria ?? 'Serviço',
       sistema:   it.sistema   ?? '',
       servico:   it.servico   ?? '',
@@ -81,6 +82,7 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
         id_veiculo: parseInt(form.id_veiculo),
         km: form.km ? parseFloat(form.km) : null,
         itens: itensValidos.map(it => ({
+          id:        it.id || null,
           categoria: it.categoria || null,
           sistema:   it.sistema   || null,
           servico:   it.servico   || null,

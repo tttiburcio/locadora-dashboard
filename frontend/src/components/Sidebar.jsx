@@ -1,6 +1,5 @@
-import { LayoutDashboard, Truck, Wrench, ChevronDown, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, Truck, Wrench, ChevronDown, Menu } from 'lucide-react'
 import { useState } from 'react'
-import { useTheme } from '../contexts/ThemeContext'
 
 const LEGENDS = {
   overview: [
@@ -35,51 +34,65 @@ const NAV = [
   { key: 'maintenance',  label: 'Manutenção',   icon: Wrench },
 ]
 
-export default function Sidebar({ page, setPage, years, year, setYear }) {
+export default function Sidebar({ page, setPage, years, year, setYear, isCollapsed, setIsCollapsed }) {
   const legend = LEGENDS[page] || LEGENDS.overview
   const [showYears, setShowYears] = useState(false)
-  const { theme, toggle } = useTheme()
 
   return (
-    <aside className="w-56 shrink-0 flex flex-col bg-g-950 border-r border-g-900 h-screen">
+    <aside className={`${isCollapsed ? 'w-20' : 'w-56'} shrink-0 flex flex-col bg-g-950 border-r border-g-900 h-screen transition-all duration-300 ease-in-out`}>
       {/* Topo */}
-      <div className="px-4 pt-4 pb-3 border-b border-g-900">
-        <div className="flex items-center justify-between mb-3">
-          <div className="bg-white rounded-xl px-3 py-2 inline-flex">
-            <img
-              src="/logo.png"
-              alt="TKJ Gerenciamento"
-              className="h-22 w-auto object-contain"
-            />
-          </div>
+      <div className={`px-4 pt-2 pb-3 border-b border-g-900 flex flex-col ${isCollapsed ? 'items-center' : ''}`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'} mb-1`}>
           <button
-            onClick={toggle}
-            className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 border border-transparent hover:border-g-800 transition-colors"
-            title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 transition-colors"
+            title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
           >
-            {theme === 'dark'
-              ? <Sun className="w-4 h-4" />
-              : <Moon className="w-4 h-4" />}
+            <Menu className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-g-700 text-[10px] uppercase tracking-widest font-medium">
-          Dados Analíticos
-        </p>
+
+        {!isCollapsed ? (
+          <div className="flex flex-col items-center px-1">
+            <div className="bg-white rounded-2xl p-2 shadow-sm mb-2 w-full flex justify-center">
+              <img
+                src="/logo.png"
+                alt="TKJ Gerenciamento"
+                className="h-24 w-auto object-contain"
+              />
+            </div>
+            <p className="text-g-700 text-[10px] uppercase tracking-widest font-bold text-center">
+              Painel de Gestão
+            </p>
+          </div>
+        ) : (
+          <div className="mt-2 flex flex-col items-center gap-1 opacity-50">
+            <img src="/icon.png" alt="" className="w-6 h-6 object-contain" />
+          </div>
+        )}
       </div>
 
       {/* Year selector */}
-      <div className="px-3 pt-4 pb-2">
-        <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-2 px-1">Período</p>
-        <div className="relative">
+      <div className={`px-3 pt-4 pb-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
+        {!isCollapsed && (
+          <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-2 px-1">Período</p>
+        )}
+        <div className="relative w-full">
           <button
             onClick={() => setShowYears(v => !v)}
-            className="w-full flex items-center justify-between px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm hover:border-g-750 transition-colors shadow-sm"
+            className={`w-full flex items-center justify-between bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm hover:border-g-750 transition-colors shadow-sm ${
+              isCollapsed ? 'px-2 py-2 justify-center' : 'px-3 py-2'
+            }`}
           >
             <span className="font-semibold font-mono">{year || '—'}</span>
-            <ChevronDown className={`w-3.5 h-3.5 text-g-600 transition-transform duration-200 ${showYears ? 'rotate-180' : ''}`} />
+            {!isCollapsed && (
+              <ChevronDown className={`w-3.5 h-3.5 text-g-600 transition-transform duration-200 ${showYears ? 'rotate-180' : ''}`} />
+            )}
           </button>
           {showYears && (
-            <div className="absolute top-full mt-1 left-0 right-0 bg-g-900 border border-g-800 rounded-lg shadow-lg z-20 overflow-hidden animate-fade-in">
+            <div className={`absolute mt-1 left-0 right-0 bg-g-900 border border-g-800 rounded-lg shadow-lg z-20 overflow-hidden animate-fade-in ${
+              isCollapsed ? 'w-20 -left-1' : ''
+            }`}>
               {years.map(y => (
                 <button
                   key={y}
@@ -88,7 +101,7 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
                     y === year
                       ? 'text-g-100 font-bold bg-g-850'
                       : 'text-g-500 hover:bg-g-850 hover:text-g-300'
-                  }`}
+                  } ${isCollapsed ? 'text-center' : ''}`}
                 >
                   {y}
                 </button>
@@ -99,33 +112,47 @@ export default function Sidebar({ page, setPage, years, year, setYear }) {
       </div>
 
       {/* Navigation */}
-      <nav className="px-3 pt-2 flex flex-col gap-0.5">
-        <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-1.5 px-1 mt-2">Menu</p>
+      <nav className={`px-3 pt-2 flex flex-col gap-0.5 ${isCollapsed ? 'items-center' : ''}`}>
+        {!isCollapsed && (
+          <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-1.5 px-1 mt-2">Menu</p>
+        )}
         {NAV.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setPage(key)}
-            className={`nav-item ${page === key ? 'nav-item-active' : 'nav-item-inactive'}`}
+            className={`nav-item flex items-center gap-3 transition-all duration-200 ${
+              page === key ? 'nav-item-active' : 'nav-item-inactive'
+            } ${isCollapsed ? 'w-10 h-10 justify-center px-0' : 'w-full px-3'}`}
+            title={isCollapsed ? label : ''}
           >
-            <Icon className="w-4 h-4 shrink-0" />
-            {label}
+            <Icon className="w-5 h-5 shrink-0" />
+            {!isCollapsed && <span>{label}</span>}
           </button>
         ))}
       </nav>
 
       {/* Legend */}
-      <div className="mt-auto px-3 pt-4 pb-3 border-t border-g-900">
-        <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-3 px-1">Categorias</p>
-        <div className="space-y-2">
-          {legend.map(({ color, label }) => (
-            <div key={label} className="flex items-center gap-2.5">
-              <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: color }} />
-              <span className="text-g-600 text-xs">{label}</span>
-            </div>
-          ))}
+      {!isCollapsed && (
+        <div className="mt-auto px-3 pt-4 pb-3 border-t border-g-900">
+          <p className="text-g-700 text-[10px] uppercase tracking-widest font-semibold mb-3 px-1">Categorias</p>
+          <div className="space-y-2">
+            {legend.map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: color }} />
+                <span className="text-g-600 text-xs">{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
+      {isCollapsed && (
+        <div className="mt-auto px-3 pt-4 pb-4 border-t border-g-900 flex justify-center">
+          <div className="flex flex-col gap-2 items-center">
+             <div className="w-2 h-2 rounded-full bg-g-500" />
+          </div>
+        </div>
+      )}
     </aside>
   )
 }

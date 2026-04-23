@@ -7,6 +7,7 @@ import AbrirManutencaoModal   from '../components/AbrirManutencaoModal'
 import FinalizarManutencaoModal from '../components/FinalizarManutencaoModal'
 import AbrirOsModal     from '../components/AbrirOsModal'
 import FinalizarOsModal from '../components/FinalizarOsModal'
+import DetalhesOsModal  from '../components/DetalhesOsModal'
 import {
   FornecedorChart, SistemaTreemap, TipoPie,
   ImplementoRadial, TrendProjectionChart, ServicosChart,
@@ -49,6 +50,31 @@ const STATUS_LABEL = {
   executado_aguardando_nf:  { label: 'Aguardando NF',        color: 'bg-purple-50 text-purple-700 border-purple-200' },
   pendente:                 { label: 'Pendente',             color: 'bg-slate-100 text-slate-600 border-slate-300' },
   finalizada:               { label: 'Finalizada',           color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+}
+
+
+
+const EMPRESA_NOME_MAP = {
+  'TKJ': 'TKJ', 'FINITA': 'FINITA', 'LANDKRAFT': 'LANDKRAFT',
+  '1': 'TKJ', '2': 'FINITA', '3': 'LANDKRAFT',
+}
+function resolveEmpresaNome(cod) {
+  if (!cod) return null
+  const key = String(cod).toUpperCase().trim()
+  return EMPRESA_NOME_MAP[key] || EMPRESA_NOME_MAP[String(parseInt(cod))] || String(cod).toUpperCase()
+}
+function getEmpresasFaturadas(os) {
+  if (!os.notas_fiscais || os.notas_fiscais.length === 0) return '—';
+  const emp = new Set(os.notas_fiscais.map(nf => resolveEmpresaNome(nf.empresa_faturada)).filter(Boolean));
+  if (emp.size === 0) return '—';
+  return Array.from(emp).join(' · ');
+}
+
+function getFornecedoresUnicos(os) {
+  if (!os.notas_fiscais || os.notas_fiscais.length === 0) return os.fornecedor || '—';
+  const forns = new Set(os.notas_fiscais.map(nf => nf.fornecedor).filter(Boolean));
+  if (forns.size === 0) return os.fornecedor || '—';
+  return Array.from(forns).join(' / ');
 }
 
 function StatusBadge({ status }) {
@@ -106,8 +132,13 @@ function applyFilterSort(list, filter, sortState, fields) {
     const { col, dir } = sortState
     r = [...r].sort((a, b) => {
       const av = a[col] ?? '', bv = b[col] ?? ''
+      // Try date comparison first (ISO strings like 2026-04-22)
+      const ad = Date.parse(av), bd = Date.parse(bv)
+      if (!isNaN(ad) && !isNaN(bd)) return dir === 'asc' ? ad - bd : bd - ad
+      // Numeric comparison
       const an = parseFloat(av), bn = parseFloat(bv)
       if (!isNaN(an) && !isNaN(bn)) return dir === 'asc' ? an - bn : bn - an
+      // String comparison
       const as = av.toString().toLowerCase(), bs = bv.toString().toLowerCase()
       return dir === 'asc' ? (as < bs ? -1 : as > bs ? 1 : 0) : (as > bs ? -1 : as < bs ? 1 : 0)
     })
@@ -338,7 +369,7 @@ function DetalhesManutencaoModal({ manutencao: m, onClose, onDeleted }) {
 // ════════════════════════════════════════════════════════════════════
 // ABA GESTÃO — tabelas CRUD
 // ════════════════════════════════════════════════════════════════════
-function GestaoTab() {
+function GestaoTab({ year }) {
   const [abertas,      setAbertas]      = useState([])
   const [finalizadas,  setFinalizadas]  = useState([])
   const [loading,      setLoading]      = useState(true)
@@ -350,8 +381,8 @@ function GestaoTab() {
   const [confirmDel,   setConfirmDel]   = useState(null)
   const [filterAberta, setFilterAberta] = useState('')
   const [filterFin,    setFilterFin]    = useState('')
-  const [sortAberta,   setSortAberta]   = useState({ col: null, dir: 'asc' })
-  const [sortFin,      setSortFin]      = useState({ col: null, dir: 'asc' })
+  const [sortAberta,   setSortAberta]   = useState({ col: 'data_entrada', dir: 'desc' })
+  const [sortFin,      setSortFin]      = useState({ col: 'data_execucao', dir: 'desc' })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -380,9 +411,14 @@ function GestaoTab() {
   }
 
   const handleDelete = async (id) => {
-    await dbDeletarOs(id)
-    setConfirmDel(null)
-    load()
+    try {
+      await dbDeletarOs(id)
+      setConfirmDel(null)
+      load()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Erro ao excluir OS')
+      setConfirmDel(null)
+    }
   }
 
   const sortAbertaBy = col => setSortAberta(s => s.col !== col ? { col, dir: 'asc' } : s.dir === 'asc' ? { col, dir: 'desc' } : { col: null, dir: 'asc' })
@@ -394,23 +430,36 @@ function GestaoTab() {
   const todasAbertas = abertas
 
   // flatten first item for filter/sort display
-  const withDisplay = list => list.map(o => ({
-    ...o,
-    _sistema: o.itens?.[0]?.sistema || '',
-    _servico: o.itens?.[0]?.servico || '',
-    _totalNfs: (o.notas_fiscais || []).reduce((s, nf) => s + (nf.valor_total_nf || 0), 0),
-    _allParcelas: (o.notas_fiscais || []).flatMap(nf => nf.parcelas || []),
-  }))
+  const withDisplay = list => list.map(o => {
+    const allParcelas = (o.notas_fiscais || []).flatMap(nf => nf.parcelas || [])
+    const totalParcelas = allParcelas.length
+    const pagas = allParcelas.filter(p => p.status_pagamento === 'Pago').length
+    return {
+      ...o,
+      _sistema: o.itens?.[0]?.sistema || '',
+      _servico: o.itens?.[0]?.servico || '',
+      _totalNfs: (o.notas_fiscais || []).reduce((s, nf) => s + (nf.valor_total_nf || 0), 0),
+      _allParcelas: allParcelas,
+      _totalParcelas: totalParcelas,
+      _pagas: pagas,
+    }
+  })
 
   const filteredAbertas = useMemo(() =>
     applyFilterSort(withDisplay(todasAbertas), filterAberta, sortAberta, ['placa', 'fornecedor', 'status_os', 'modelo', '_sistema', '_servico']),
     [todasAbertas, filterAberta, sortAberta]
   )
 
-  const filteredFin = useMemo(() =>
-    applyFilterSort(withDisplay(finalizadas), filterFin, sortFin, ['placa', 'fornecedor', 'modelo', '_sistema', '_servico', 'numero_os']),
-    [finalizadas, filterFin, sortFin]
-  )
+  const filteredFin = useMemo(() => {
+    const byYear = year
+      ? finalizadas.filter(o => {
+          const dateStr = o.data_execucao || o.data_entrada
+          if (!dateStr) return false
+          return new Date(dateStr).getFullYear() === parseInt(year)
+        })
+      : finalizadas
+    return applyFilterSort(withDisplay(byYear), filterFin, sortFin, ['placa', 'fornecedor', 'modelo', '_sistema', '_servico', 'numero_os'])
+  }, [finalizadas, filterFin, sortFin, year])
 
   return (
     <div className="flex flex-col gap-6">
@@ -491,21 +540,36 @@ function GestaoTab() {
       {/* Tabela Em Andamento */}
       {subTab === 'em_andamento' && (
         <>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-600" />
-            <input
-              value={filterAberta}
-              onChange={e => setFilterAberta(e.target.value)}
-              placeholder="Filtrar por placa, fornecedor, status, modelo, sistema, serviço…"
-              className="w-full pl-9 pr-9 py-2 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors"
-            />
-            {filterAberta && (
-              <button onClick={() => setFilterAberta('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="w-3.5 h-3.5 text-g-600 hover:text-g-400" />
-              </button>
-            )}
+          <div className="flex items-center gap-3 relative">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-600" />
+              <input
+                value={filterAberta}
+                onChange={e => setFilterAberta(e.target.value)}
+                placeholder="Filtrar por placa, fornecedor, status, modelo, sistema, serviço…"
+                className="w-full pl-9 pr-9 py-2 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors"
+              />
+              {filterAberta && (
+                <button onClick={() => setFilterAberta('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <X className="w-3.5 h-3.5 text-g-600 hover:text-g-400" />
+                </button>
+              )}
+            </div>
+            <select
+              value={`${sortAberta.col || 'data_entrada'}-${sortAberta.dir}`}
+              onChange={e => {
+                const [col, dir] = e.target.value.split('-');
+                setSortAberta({ col, dir });
+              }}
+              className="w-48 px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm focus:outline-none focus:border-g-100 transition-colors cursor-pointer"
+            >
+              <option value="data_entrada-desc">Mais recentes</option>
+              <option value="data_entrada-asc">Mais antigas</option>
+              <option value="placa-asc">Placa (A-Z)</option>
+              <option value="status_os-asc">Status</option>
+            </select>
           </div>
-          <div className="card overflow-hidden">
+          <div>
             {loading ? (
               <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
@@ -523,51 +587,83 @@ function GestaoTab() {
                 <Search className="w-4 h-4" /> Nenhum resultado para "{filterAberta}"
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[860px]">
-                  <thead className="bg-g-850 border-b border-g-800">
-                    <tr>
-                      <SortableHeader label="Placa"     col="placa"      sortState={sortAberta} onSort={sortAbertaBy} />
-                      <SortableHeader label="Modelo"    col="modelo"     sortState={sortAberta} onSort={sortAbertaBy} />
-                      <SortableHeader label="Fornecedor" col="fornecedor" sortState={sortAberta} onSort={sortAbertaBy} />
-                      <SortableHeader label="Sistema / Serviço" col="_sistema" sortState={sortAberta} onSort={sortAbertaBy} />
-                      <SortableHeader label="Status"    col="status_os"  sortState={sortAberta} onSort={sortAbertaBy} />
-                      <SortableHeader label="Entrada"   col="data_entrada" sortState={sortAberta} onSort={sortAbertaBy} />
-                      <th className="th">Dias</th>
-                      <th className="th">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAbertas.map(o => {
-                      const dias = o.indisponivel && o.data_entrada ? diasParados(o.data_entrada) : null
-                      return (
-                        <tr key={o.id} className="table-row cursor-pointer" onClick={() => setModalDetalhe(o)}>
-                          <td className="td td-left font-mono font-bold text-g-200">{o.placa}</td>
-                          <td className="td td-left text-g-500">{o.modelo || '—'}</td>
-                          <td className="td td-left text-g-500">{o.fornecedor || '—'}</td>
-                          <td className="td td-left">
-                            <p className="text-g-400 text-xs">{o._sistema || '—'}</p>
-                            <p className="text-g-600 text-xs truncate max-w-[180px]">{o._servico || '—'}</p>
-                          </td>
-                          <td className="td td-left">
-                            <StatusBadge status={o.status_os} />
-                          </td>
-                          <td className="td td-left text-xs text-g-500 tabular-nums">
-                            {dateBR(o.data_entrada)}
-                          </td>
-                          <td className="td tabular-nums text-xs">
-                            {dias !== null
-                              ? <span className={dias > 30 ? 'text-red-500 font-semibold' : dias > 7 ? 'text-amber-500 font-medium' : 'text-g-500'}>{dias}</span>
-                              : <span className="text-g-700">—</span>
-                            }
-                          </td>
-                          <td className="td" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center justify-end gap-1">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', padding: '24px' }}>
+                {filteredAbertas.map(o => {
+                  const dias = o.indisponivel && o.data_entrada ? diasParados(o.data_entrada) : null;
+                  const borderCol = o.status_os === 'aguardando_peca' ? 'border-orange-500' :
+                                    o.status_os === 'executado_aguardando_nf' ? 'border-purple-500' :
+                                    'border-amber-500';
+                  
+                  return (
+                    <div 
+                      key={o.id} 
+                      onClick={() => setModalDetalhe(o)}
+                      className={`border-l-4 ${borderCol} rounded-xl bg-white shadow-sm hover:shadow-md transition-all cursor-pointer p-6 flex flex-col gap-5 relative group`}
+                    >
+                      {/* Header */}
+                      <div className="flex items-start justify-between pb-3 border-b border-g-800">
+                        <div>
+                          <div className="flex items-center gap-3 mb-1.5">
+                            <span className="font-mono font-bold text-g-100 text-xl tracking-tight">{o.placa}</span>
+                            <span className="text-g-500 text-[10px] px-2 py-0.5 bg-g-900 rounded-md border border-g-800 font-mono uppercase font-bold">
+                              {o.numero_os || 'Sem OS'}
+                            </span>
+                          </div>
+                          <span className="text-g-500 text-xs font-semibold uppercase tracking-wider">{o.modelo || 'Sem modelo'}</span>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <StatusBadge status={o.status_os} />
+                          {dias !== null && (
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${dias > 30 ? 'text-red-500' : dias > 7 ? 'text-amber-500' : 'text-g-500'}`}>
+                              {dias} dias na oficina
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Body Info */}
+                      <div className="flex-1 flex flex-col gap-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-g-950/30 p-3 rounded-lg border border-g-900/50">
+                            <span className="block text-g-600 text-[10px] uppercase font-bold mb-1 tracking-widest">Entrada</span>
+                            <span className="text-g-200 text-sm font-medium">{dateBR(o.data_entrada) || '—'}</span>
+                          </div>
+                          <div className="bg-g-950/30 p-3 rounded-lg border border-g-900/50">
+                            <span className="block text-g-600 text-[10px] uppercase font-bold mb-1 tracking-widest">Mecânico</span>
+                            <span className="text-g-200 text-sm font-medium truncate block">{o.responsavel_tec || 'Não definido'}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="block text-g-600 text-[10px] uppercase font-bold mb-1 tracking-widest">Fornecedores</span>
+                          <span className="text-g-300 text-sm font-medium truncate block" title={getFornecedoresUnicos(o)}>{getFornecedoresUnicos(o)}</span>
+                        </div>
+
+                        <div>
+                          <span className="block text-g-600 text-[10px] uppercase font-bold mb-1 tracking-widest">Serviço Principal</span>
+                          <div className="text-g-400 text-sm line-clamp-2 leading-relaxed" title={`${o._sistema || ''} - ${o._servico || ''}`}>
+                            {o._sistema && <span className="text-g-200 font-semibold">{o._sistema}</span>}
+                            {o._servico && <span className="text-g-500 text-xs"> · {o._servico}</span>}
+                            {!o._sistema && !o._servico && <span className="text-g-700 italic text-xs">Não informado</span>}
+                          </div>
+                        </div>
+                        
+                        {(o.km || o.prox_km) && (
+                          <div className="flex items-center gap-3 pt-1">
+                            {o.km && <span className="text-xs font-mono text-g-500 border border-g-800 px-2 py-0.5 rounded font-bold">KM {num(o.km)}</span>}
+                            {o.prox_km && <span className="text-xs font-mono text-blue-500 border border-blue-200 px-2 py-0.5 rounded bg-blue-50 font-bold">Próx: {num(o.prox_km)}</span>}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Footer Actions */}
+                      <div className="flex items-center justify-between border-t border-g-800 pt-3 mt-1" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center gap-1.5">
                               {o.status_os === 'em_andamento' && (
                                 <button
                                   onClick={() => handleStatusChange(o, 'aguardando_peca')}
-                                  title="Marcar como aguardando peça"
-                                  className="px-2 py-1 text-xs text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50 transition-colors"
+                                  title="Aguardando peça"
+                                  className="px-2.5 py-1.5 text-xs font-semibold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
                                 >
                                   Ag. peça
                                 </button>
@@ -576,40 +672,38 @@ function GestaoTab() {
                                 <button
                                   onClick={() => handleStatusChange(o, 'em_andamento')}
                                   title="Retomar andamento"
-                                  className="px-2 py-1 text-xs text-amber-600 border border-amber-200 rounded-lg hover:bg-amber-50 transition-colors"
+                                  className="px-2.5 py-1.5 text-xs font-semibold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
                                 >
                                   Retomar
                                 </button>
                               )}
-                              {/* Editar */}
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
                               <button
                                 onClick={() => setModalEdit(o)}
                                 title="Editar OS"
-                                className="p-1.5 text-g-600 hover:text-g-100 hover:bg-g-850 rounded-lg transition-colors"
+                                className="p-2 text-g-500 bg-g-900 border border-g-800 hover:text-g-100 hover:bg-g-850 rounded-lg transition-colors"
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
-                              {/* Finalizar */}
                               <button
                                 onClick={() => setModalFin(o)}
-                                className="px-2 py-1 text-xs text-g-100 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
+                                className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors border border-emerald-500 shadow-sm"
                               >
                                 Finalizar
                               </button>
-                              {/* Excluir */}
                               <button
                                 onClick={() => setConfirmDel(o.id)}
-                                className="p-1.5 text-g-700 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                className="p-2 text-g-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-1"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="w-4 h-4" />
                               </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                          </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -619,21 +713,37 @@ function GestaoTab() {
       {/* Tabela Finalizadas */}
       {subTab === 'finalizadas' && (
         <>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-600" />
-            <input
-              value={filterFin}
-              onChange={e => setFilterFin(e.target.value)}
-              placeholder="Filtrar por placa, fornecedor, modelo, sistema, serviço, nº OS…"
-              className="w-full pl-9 pr-9 py-2 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors"
-            />
-            {filterFin && (
-              <button onClick={() => setFilterFin('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="w-3.5 h-3.5 text-g-600 hover:text-g-400" />
-              </button>
-            )}
+          <div className="flex items-center gap-3 relative">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-600" />
+              <input
+                value={filterFin}
+                onChange={e => setFilterFin(e.target.value)}
+                placeholder="Filtrar por placa, fornecedor, modelo, sistema, serviço, nº OS…"
+                className="w-full pl-9 pr-9 py-2 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors"
+              />
+              {filterFin && (
+                <button onClick={() => setFilterFin('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <X className="w-3.5 h-3.5 text-g-600 hover:text-g-400" />
+                </button>
+              )}
+            </div>
+            <select
+              value={`${sortFin.col || 'data_execucao'}-${sortFin.dir}`}
+              onChange={e => {
+                const [col, dir] = e.target.value.split('-');
+                setSortFin({ col, dir });
+              }}
+              className="w-48 px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm focus:outline-none focus:border-g-100 transition-colors cursor-pointer"
+            >
+              <option value="data_execucao-desc">Mais recentes</option>
+              <option value="data_execucao-asc">Mais antigas</option>
+              <option value="placa-asc">Placa (A-Z)</option>
+              <option value="_totalNfs-desc">Maior valor</option>
+              <option value="_totalNfs-asc">Menor valor</option>
+            </select>
           </div>
-          <div className="card overflow-hidden">
+          <div>
             {loading ? (
               <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
@@ -648,76 +758,139 @@ function GestaoTab() {
                 <Search className="w-4 h-4" /> Nenhum resultado para "{filterFin}"
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[960px]">
-                  <thead className="bg-g-850 border-b border-g-800">
-                    <tr>
-                      <SortableHeader label="Placa"      col="placa"       sortState={sortFin} onSort={sortFinBy} />
-                      <SortableHeader label="Modelo"     col="modelo"      sortState={sortFin} onSort={sortFinBy} />
-                      <SortableHeader label="Nº OS"      col="numero_os"   sortState={sortFin} onSort={sortFinBy} />
-                      <SortableHeader label="Fornecedor" col="fornecedor"  sortState={sortFin} onSort={sortFinBy} />
-                      <SortableHeader label="Sistema / Serviço" col="_sistema" sortState={sortFin} onSort={sortFinBy} />
-                      <SortableHeader label="Total NFs"  col="_totalNfs"   sortState={sortFin} onSort={sortFinBy} className="text-right" />
-                      <th className="th">Parcelas</th>
-                      <SortableHeader label="Execução"   col="data_execucao" sortState={sortFin} onSort={sortFinBy} />
-                      <th className="th">Dias</th>
-                      <th className="th">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredFin.map(o => {
-                      const dias = o.data_execucao && o.data_entrada ? diasParados(o.data_entrada, o.data_execucao) : null
-                      const pagas = o._allParcelas.filter(p => p.status_pagamento === 'Pago').length
-                      return (
-                        <tr key={o.id} className="table-row cursor-pointer" onClick={() => setModalDetalhe(o)}>
-                          <td className="td td-left font-mono font-bold text-g-200">{o.placa}</td>
-                          <td className="td td-left text-g-500">{o.modelo || '—'}</td>
-                          <td className="td td-left font-mono text-xs text-g-400">{o.numero_os || '—'}</td>
-                          <td className="td td-left text-g-500">{o.fornecedor || '—'}</td>
-                          <td className="td td-left">
-                            <p className="text-g-400 text-xs">{o._sistema || '—'}</p>
-                            <p className="text-g-600 text-xs truncate max-w-[160px]">{o._servico || '—'}</p>
-                          </td>
-                          <td className="td font-mono font-semibold text-g-300 tabular-nums">
-                            {o._totalNfs ? brl(o._totalNfs) : '—'}
-                          </td>
-                          <td className="td text-xs text-g-500 tabular-nums">
-                            {o._allParcelas.length > 0
-                              ? <><span>{o._allParcelas.length}x</span><span className="block text-g-700">{pagas}/{o._allParcelas.length} pagas</span></>
-                              : '—'
-                            }
-                          </td>
-                          <td className="td td-left text-xs text-g-500 tabular-nums">{dateBR(o.data_execucao)}</td>
-                          <td className="td tabular-nums text-xs text-g-500">
-                            {dias !== null ? dias : '—'}
-                          </td>
-                          <td className="td" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => setModalEdit(o)}
-                                title="Editar OS"
-                                className="p-1.5 text-g-600 hover:text-g-100 hover:bg-g-850 rounded-lg transition-colors"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => setConfirmDel(o.id)}
-                                className="p-1.5 text-g-700 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', padding: '24px' }}>
+                {filteredFin.map(o => {
+                  const dias = o.indisponivel && o.data_entrada && o.data_execucao ? diasParados(o.data_entrada, o.data_execucao) : null
+                  const totalParcelas = o._totalParcelas ?? 0
+                  const pagas = o._pagas ?? 0
+                  const pgtoProgresso = totalParcelas > 0 ? Math.round((pagas / totalParcelas) * 100) : 0
+                  const pagoTotal = totalParcelas > 0 && pagas === totalParcelas
+                  const pagoNenhum = pagas === 0 || totalParcelas === 0
+                  const pagoParc = !pagoTotal && !pagoNenhum
+
+                  // Bar top color: green = quitado, purple = parcial, gray = não pago
+                  const barTopColor = pagoTotal ? '#10b981' : pagoParc ? '#8b5cf6' : '#6b7280'
+                  const pgBarFill  = pagoTotal ? '#10b981' : pagoParc ? '#8b5cf6' : '#9ca3af'
+                  const pgStatusLabel = pagoTotal ? 'Quitado' : pagoParc ? `${pagas} de ${totalParcelas} pagas` : 'Não pago'
+                  const pgLabelStyle = pagoTotal
+                    ? { color: '#10b981', background: 'rgba(16,185,129,0.1)' }
+                    : pagoParc
+                    ? { color: '#8b5cf6', background: 'rgba(139,92,246,0.1)' }
+                    : { color: '#9ca3af', background: 'rgba(107,114,128,0.1)' }
+
+                  // Minimal brand indicators: colored dot + text, no background
+                  const empColor = (nome) => {
+                    if (!nome) return '#6b7280'
+                    if (nome === 'TKJ') return '#10b981'
+                    if (nome === 'LANDKRAFT') return '#d97706'
+                    return '#94a3b8'
+                  }
+
+                  const empresas = o.notas_fiscais
+                    ? [...new Set(o.notas_fiscais.map(nf => resolveEmpresaNome(nf.empresa_faturada)).filter(Boolean))]
+                    : []
+
+                  return (
+                    <div
+                      key={o.id}
+                      onClick={() => setModalDetalhe(o)}
+                      className="rounded-xl bg-white shadow-md hover:shadow-xl transition-all cursor-pointer flex flex-col overflow-hidden"
+                      style={{ border: '1px solid rgba(0,0,0,0.07)' }}
+                    >
+                      {/* Barra colorida no TOPO */}
+                      <div style={{ height: '5px', background: barTopColor, flexShrink: 0 }} />
+
+                      {/* Header */}
+                      <div className="px-5 pt-4 pb-3">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="font-mono font-extrabold text-g-100" style={{ fontSize: '1.2rem', letterSpacing: '-0.02em' }}>{o.placa}</span>
+                              <span className="text-g-600 font-mono text-[10px] font-bold uppercase tracking-wider">
+                                {o.numero_os || ''}
+                              </span>
                             </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                            <span className="text-g-500 text-[10px] font-semibold uppercase tracking-widest">{o.modelo || 'Sem modelo'}</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-mono font-extrabold text-g-100 text-base">{brl(o._totalNfs)}</div>
+                            <div className="text-g-600 text-xs mt-0.5">{dateBR(o.data_execucao) || '—'}</div>
+                          </div>
+                        </div>
+
+                        {/* Empresas: ponto colorido + nome simples */}
+                        <div className="flex items-center gap-3 flex-wrap mt-2">
+                          {empresas.length > 0
+                            ? empresas.map(emp => (
+                              <span key={emp} className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: empColor(emp), letterSpacing: '0.04em' }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: empColor(emp), display: 'inline-block', flexShrink: 0 }} />
+                                {emp}
+                              </span>
+                            ))
+                            : <span className="text-g-700 text-xs">—</span>
+                          }
+                        </div>
+                      </div>
+
+
+                      {/* Divisor */}
+                      <div style={{ height: '1px', background: 'rgba(0,0,0,0.06)', margin: '0 20px' }} />
+
+                      {/* Corpo */}
+                      <div className="px-5 py-3 flex flex-col gap-2.5 flex-1">
+                        <div>
+                          <div className="text-g-600 text-[10px] font-bold uppercase tracking-widest mb-1">Fornecedor</div>
+                          <div className="text-g-300 text-sm font-medium truncate" title={getFornecedoresUnicos(o)}>{getFornecedoresUnicos(o)}</div>
+                        </div>
+
+                        <div>
+                          <div className="text-g-600 text-[10px] font-bold uppercase tracking-widest mb-1">Serviço</div>
+                          <div className="text-g-400 text-sm line-clamp-2 leading-relaxed">
+                            {o._sistema && <span className="text-g-200 font-semibold">{o._sistema}</span>}
+                            {o._servico && <span className="text-g-500 text-xs"> · {o._servico}</span>}
+                            {!o._sistema && !o._servico && <span className="text-g-700 italic text-xs">Não informado</span>}
+                          </div>
+                        </div>
+
+                        {(o.km || dias !== null) && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {o.km && (
+                              <span className="text-xs font-mono text-g-500 border border-g-800 px-2 py-0.5 rounded">{num(o.km)} km</span>
+                            )}
+                            {dias !== null && (
+                              <span className="text-xs text-g-600 border border-g-800 px-2 py-0.5 rounded">{dias}d na oficina</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer: status pagamento */}
+                      <div className="px-5 pb-4 pt-3" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold text-g-500 uppercase tracking-widest">Pagamento</span>
+                          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full" style={pgLabelStyle}>{pgStatusLabel}</span>
+                        </div>
+                        <div style={{ height: '5px', background: 'rgba(0,0,0,0.06)', borderRadius: '999px', overflow: 'hidden' }}>
+                          <div style={{ width: `${pgtoProgresso}%`, height: '100%', background: pgBarFill, borderRadius: '999px', transition: 'width 0.5s ease' }} />
+                        </div>
+                        <div className="flex items-center justify-end gap-1 mt-2.5" onClick={e => e.stopPropagation()}>
+                          <button onClick={() => setModalEdit(o)} title="Editar" className="p-1.5 text-g-600 hover:text-g-300 rounded-lg hover:bg-g-900 transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setConfirmDel(o.id)} className="p-1.5 text-g-700 hover:text-red-500 rounded-lg hover:bg-red-50/10 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
         </>
       )}
+
 
       {/* Modal confirmação exclusão */}
       {confirmDel && createPortal(
@@ -740,11 +913,14 @@ function GestaoTab() {
       {modalFin && (
         <FinalizarOsModal os={modalFin} onClose={() => setModalFin(null)} onSaved={handleSaved} />
       )}
-      {modalEdit && (
+      {modalEdit && modalEdit.status_os === 'finalizada' ? (
+        <FinalizarOsModal os={modalEdit} onClose={() => setModalEdit(null)} onSaved={handleSaved} editMode={true} />
+      ) : modalEdit ? (
         <AbrirOsModal os={modalEdit} onClose={() => setModalEdit(null)} onSaved={handleSaved} />
-      )}
+      ) : null}
+
       {modalDetalhe && (
-        <DetalhesManutencaoModal manutencao={modalDetalhe} onClose={() => setModalDetalhe(null)} onDeleted={() => { setModalDetalhe(null); load() }} />
+        <DetalhesOsModal manutencao={modalDetalhe} onClose={() => setModalDetalhe(null)} onDeleted={() => { setModalDetalhe(null); load() }} />
       )}
     </div>
   )
@@ -799,29 +975,42 @@ function FinBadge({ status }) {
 
 // ── Modal: alerta contas do dia ──────────────────────────────────────
 function AlertContasDiaModal({ parcelas, onCiente, onLembrarDepois }) {
+  const total = parcelas.reduce((sum, p) => sum + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
+
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
       <div className="bg-g-900 border border-orange-500/30 rounded-2xl shadow-2xl w-full max-w-lg animate-fade-up">
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-g-800">
-          <div className="p-1.5 bg-orange-50 border border-orange-200 rounded-lg">
-            <Bell className="w-4 h-4 text-orange-600" />
+        <div className="flex items-center justify-between px-5 py-4 border-b border-g-800">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-orange-50 border border-orange-200 rounded-lg">
+              <Bell className="w-4 h-4 text-orange-600" />
+            </div>
+            <div>
+              <h2 className="text-g-200 font-semibold text-sm">Contas vencidas ou com vencimento hoje</h2>
+              <p className="text-g-600 text-xs">{parcelas.length} parcela{parcelas.length !== 1 ? 's' : ''} pendente{parcelas.length !== 1 ? 's' : ''}</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-g-200 font-semibold text-sm">Contas com vencimento hoje</h2>
-            <p className="text-g-600 text-xs">{parcelas.length} parcela{parcelas.length !== 1 ? 's' : ''} pendente{parcelas.length !== 1 ? 's' : ''}</p>
+          <div className="text-right">
+            <span className="block text-[10px] text-g-600 uppercase font-bold tracking-wider">Total a Pagar</span>
+            <span className="text-lg font-mono font-bold text-orange-400">{brl(total)}</span>
           </div>
         </div>
         <div className="px-5 py-4 flex flex-col gap-2 max-h-72 overflow-y-auto">
-          {parcelas.map(p => (
-            <div key={p.id} className="bg-g-850 border border-orange-500/20 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3">
-                <span className="font-mono font-bold text-g-200">{p.placa}</span>
-                {p.id_ord_serv && <span className="text-g-600 font-mono">{p.id_ord_serv}</span>}
-                {p.fornecedor && <span className="text-g-500 truncate max-w-[140px]">{p.fornecedor}</span>}
+          {parcelas.map(p => {
+            const isVencida = p._status === 'vencida'
+            const isHoje    = p._status === 'vence_hoje'
+            return (
+              <div key={p.id} className={`bg-g-850 border rounded-xl px-4 py-2.5 flex items-center justify-between text-xs ${isVencida ? 'border-red-500/30' : isHoje ? 'border-orange-500/30' : 'border-g-800'}`}>
+                <div className="flex items-center gap-3">
+                  <span className="font-mono font-bold text-g-200">{p.placa}</span>
+                  {isVencida && <span className="text-[10px] bg-red-500/10 text-red-500 border border-red-500/20 px-1 rounded uppercase font-bold">Vencida</span>}
+                  {isHoje && <span className="text-[10px] bg-orange-500/10 text-orange-500 border border-orange-500/20 px-1 rounded uppercase font-bold">Vence Hoje</span>}
+                  {p.fornecedor && <span className="text-g-500 truncate max-w-[140px]">{p.fornecedor}</span>}
+                </div>
+                <span className={`font-mono font-semibold ${isVencida ? 'text-red-400' : 'text-orange-400'}`}>{brl(p.valor_parcela)}</span>
               </div>
-              <span className="font-mono font-semibold text-orange-400">{brl(p.valor_parcela)}</span>
-            </div>
-          ))}
+            )
+          })}
         </div>
         <div className="px-5 py-4 border-t border-g-800 flex justify-end gap-2">
           <button
@@ -1370,12 +1559,9 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
       )
       const anoSelecionado = year ? parseInt(year) : null
 
-      // Status de OS que representam obrigação financeira (finalizada ou aguardando NF)
-      const STATUS_FINANCEIROS = new Set(['finalizada', 'executado_aguardando_nf'])
-
       const sinteticas = []
       for (const os of osList) {
-        if (!STATUS_FINANCEIROS.has(os.status_os)) continue
+        // Removido filtro de status_os: se tem NF, deve constar no financeiro
         for (const nf of os.notas_fiscais || []) {
           if (nfIdsComParcelas.has(nf.id)) continue
           if (!nf.valor_total_nf) continue
@@ -1436,17 +1622,6 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
 
   useEffect(() => { load() }, [load])
 
-  useEffect(() => {
-    if (loading || alertDismissed) return
-    const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
-    const venceHoje = parcelas.filter(p => {
-      if (p.status_pagamento !== 'Pendente') return false
-      if (!p.data_vencimento) return false
-      const v = parseLocalDate(p.data_vencimento)
-      return v && v.getTime() === hoje.getTime()
-    })
-    if (venceHoje.length > 0) setAlertVisible(true)
-  }, [loading, parcelas, alertDismissed])
 
   const enriched = useMemo(() =>
     parcelas.map(p => ({ ...p, _status: statusFinanceiro(p) })),
@@ -1475,7 +1650,13 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
   // Base: applies empresa + mês + texto — sem categoria. Usado nos KPIs e contagens.
   const baseFiltered = useMemo(() => {
     let r = enriched
-    if (filterEmpresa) r = r.filter(p => String(parseInt(parseFloat(p.empresa))) === filterEmpresa)
+    if (filterEmpresa) {
+      r = r.filter(p => {
+        const cod = String(parseInt(parseFloat(p.empresa)))
+        const sigla = empresaSigla(p.empresa, p.empresa_nome)
+        return cod === filterEmpresa || sigla === filterEmpresa
+      })
+    }
     if (filterMes) r = r.filter(p => {
       const dateStr = p.data_prevista_pagamento || p.data_vencimento
       if (!dateStr) return false
@@ -1492,7 +1673,15 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
   }, [enriched, filterText, filterEmpresa, filterMes])
 
   const filtered = useMemo(() => {
-    let r = categoria === 'todas' ? baseFiltered : baseFiltered.filter(p => p._status === categoria)
+    let r = baseFiltered
+    if (categoria !== 'todas') {
+      r = r.filter(p => {
+        if (categoria === 'pendente') {
+          return ['pendente', 'prorrogada', 'vencida', 'vence_hoje'].includes(p._status)
+        }
+        return p._status === categoria
+      })
+    }
     if (sort.col) {
       const isDateStr = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)
       r = [...r].sort((a, b) => {
@@ -1509,7 +1698,14 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
     return r
   }, [enriched, categoria, filterText, filterEmpresa, filterMes, sort])
 
-  const venceHojeList = useMemo(() => baseFiltered.filter(p => p._status === 'vence_hoje'), [baseFiltered])
+  const venceHojeList = useMemo(() => baseFiltered.filter(p => p._status === 'vence_hoje' || p._status === 'vencida'), [baseFiltered])
+
+  useEffect(() => {
+    if (loading || alertDismissed) return
+    const alertas = enriched.filter(p => p._status === 'vencida' || p._status === 'vence_hoje')
+    if (alertas.length > 0) setAlertVisible(true)
+  }, [loading, enriched, alertDismissed])
+
 
   // ── Agrupamento por Nota Fiscal ────────────────────────────────────
   const nfGroups = useMemo(() => {
@@ -1517,6 +1713,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
     for (const os of osList) {
       for (const nf of os.notas_fiscais || []) {
         if (!nfMeta.has(nf.id)) {
+          const empCod = nf.empresa_faturada || os.empresa
           nfMeta.set(nf.id, {
             nf_id:       nf.id,
             numero_nf:   nf.numero_nf,
@@ -1524,8 +1721,8 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
             fornecedor_os: os.fornecedor,
             placa:       os.placa,
             modelo:      os.modelo,
-            empresa:     os.empresa,
-            empresa_nome: null,
+            empresa:     empCod,
+            empresa_nome: resolveEmpresaNome(empCod),
             id_contrato: os.id_contrato,
             numero_os:   os.numero_os,
             valor_total_nf: nf.valor_total_nf,
@@ -1536,7 +1733,8 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
         }
       }
     }
-    for (const p of baseFiltered) {
+    // Usa "filtered" (respeita categoria e busca) para popular as parcelas dos grupos
+    for (const p of filtered) {
       if (p.nf_id && nfMeta.has(p.nf_id)) {
         nfMeta.get(p.nf_id).parcelas.push(p)
       }
@@ -1634,7 +1832,9 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
         <div className="flex items-center justify-between gap-3">
           <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1 w-fit">
             {CATS.map(c => {
-              const count = c.key === 'todas' ? baseFiltered.length : baseFiltered.filter(p => p._status === c.key).length
+              const count = c.key === 'todas' ? baseFiltered.length 
+                : c.key === 'pendente' ? baseFiltered.filter(p => p._status === 'pendente' || p._status === 'prorrogada').length
+                : baseFiltered.filter(p => p._status === c.key).length
               return (
                 <button
                   key={c.key}
@@ -1727,7 +1927,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
                   onClick={toggleExpand}
                   className="w-full flex items-center gap-3 p-4 hover:bg-g-850 transition-colors text-left"
                 >
-                  <div className="flex-1 grid grid-cols-[auto_1fr_1fr_1fr_auto_auto] gap-x-4 items-center min-w-0">
+                  <div className="flex-1 grid grid-cols-[80px_1.5fr_1fr_1fr_auto_80px] gap-x-2.5 items-center min-w-0">
                     <span className="font-mono font-bold text-g-200 text-sm">{g.placa}</span>
                     <span className="text-g-500 text-xs truncate">{g.fornecedor || '—'}</span>
                     <span className="text-g-600 text-xs font-mono truncate">{g.numero_os || '—'}</span>
@@ -1806,7 +2006,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
                                   </span>
                                 ) : '—'}
                               </td>
-                              <td className="td" onClick={e => e.stopPropagation()}>
+                              <td className="td td-right !pr-1.5" onClick={e => e.stopPropagation()}>
                                 {p._isSintetica ? (
                                   <div className="flex items-center justify-end gap-1">
                                     <span className="text-[10px] text-g-700 italic px-1">via NF</span>
@@ -1848,13 +2048,16 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
             )
           })}
           {nfGroups.length > 0 && (
-            <div className="card p-4 flex items-center justify-between">
+            <div className="card p-4 flex items-center justify-end gap-10">
               <span className="text-g-600 text-xs font-semibold uppercase tracking-wider">
-                {nfGroups.length} {nfGroups.length === 1 ? 'nota fiscal' : 'notas fiscais'}
+                Total Geral ({nfGroups.length} notas)
               </span>
-              <span className="font-mono font-bold text-g-200 tabular-nums">
-                {brl(nfGroups.reduce((s, g) => s + g.totalPendente + g.totalPago, 0))}
-              </span>
+              <div className="text-right">
+                <span className="text-g-600 text-[10px] block uppercase font-bold mb-0.5">Soma Total</span>
+                <span className="font-mono font-bold text-g-200 text-xl tabular-nums">
+                  {brl(nfGroups.reduce((s, g) => s + g.totalPendente + g.totalPago, 0))}
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -1870,26 +2073,26 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px]">
+            <table className="w-full table-fixed">
               <thead className="bg-g-850 border-b border-g-800">
                 <tr>
                   {[
-                    { key: 'placa',            label: 'Placa',         cls: 'th-left' },
-                    { key: 'empresa_nome',      label: 'Empresa',       cls: 'th-left' },
-                    { key: 'fornecedor',        label: 'Fornecedor',    cls: 'th-left' },
-                    { key: 'id_ord_serv',       label: 'Nº OS',         cls: 'th-left' },
-                    { key: 'nota',              label: 'Nota Fiscal',   cls: 'th-left' },
-                    { key: 'parcela_atual',     label: 'Parcela',       cls: '' },
-                    { key: 'data_vencimento',   label: 'Vencimento',    cls: 'th-left' },
-                    { key: 'valor_parcela',     label: 'Valor',         cls: '' },
-                    { key: 'status_pagamento',  label: 'Status',        cls: '' },
-                    { key: 'data_prevista_pagamento', label: 'Previsão Pgto', cls: 'th-left' },
-                  ].map(({ key, label, cls }) => (
-                    <th key={key} onClick={() => toggleSort(key)} className={`th ${cls} cursor-pointer select-none hover:text-g-300 transition-colors`}>
+                    { key: 'placa',           label: 'Placa',          cls: 'th-left w-[8%] !pl-1.5' },
+                    { key: 'id_ord_serv',     label: 'Nº OS',          cls: 'th-left w-[12%]' },
+                    { key: 'empresa_nome',    label: 'Empresa',        cls: 'th-left w-[8%]' },
+                    { key: 'fornecedor',      label: 'Fornecedor',     cls: 'th-left w-[18%]' },
+                    { key: 'nota',            label: 'Nota Fiscal',    cls: 'th-left w-[8%]' },
+                    { key: 'parcela_atual',   label: 'Parcela',        cls: 'th-left w-[6%]' },
+                    { key: 'data_vencimento', label: 'Vencimento',     cls: 'th-left w-[8%]' },
+                    { key: 'valor_parcela',   label: 'Valor',          cls: 'th-right w-[9%]' },
+                    { key: 'status_pagamento',label: 'Status',         cls: 'th-center w-[8%]' },
+                    { key: 'data_prevista_pagamento', label: 'Previsão Pgto', cls: 'th-left w-[9%]' }
+                  ].map(({ key, label, cls }, i) => (
+                    <th key={key} onClick={() => toggleSort(key)} className={`th ${cls} cursor-pointer select-none hover:text-g-300 transition-colors truncate`}>
                       {label}<SortIcon col={key} />
                     </th>
                   ))}
-                  <th className="th">Ações</th>
+                  <th className="th th-right w-[10%] !pr-1.5">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -1910,19 +2113,19 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
                       onClick={() => setModalDetalhe(p)}
                       className={`border-b border-g-800 hover:bg-g-850 transition-colors cursor-pointer ${rowBg}`}
                     >
-                      <td className="td td-left font-mono font-bold text-g-200">{p.placa}</td>
+                      <td className="td td-left !pl-1.5 font-mono font-bold text-g-200">{p.placa}</td>
+                      <td className="td td-left text-g-600 font-mono text-[11px] truncate">{p.id_ord_serv || '—'}</td>
                       <td className="td td-left text-xs text-g-500 tabular-nums" title={p.empresa_nome || ''}>{empresaSigla(p.empresa, p.empresa_nome)}</td>
-                      <td className="td td-left text-g-500 truncate max-w-[140px]" title={p.fornecedor_os && p.fornecedor_os !== p.fornecedor ? `OS: ${p.fornecedor_os}` : ''}>
-                        <span className="flex items-center gap-1">
+                      <td className="td td-left text-g-500 truncate" title={p.fornecedor_os && p.fornecedor_os !== p.fornecedor ? `OS: ${p.fornecedor_os}` : ''}>
+                        <span className="flex items-center gap-1 overflow-hidden">
                           <span className="truncate">{p.fornecedor || '—'}</span>
                           {p.fornecedor_os && p.fornecedor && p.fornecedor_os !== p.fornecedor && (
-                            <span className="text-[10px] text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded px-1">≠OS</span>
+                            <span className="text-[9px] text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded px-1 flex-shrink-0">≠OS</span>
                           )}
                         </span>
                       </td>
-                      <td className="td td-left font-mono text-xs text-g-400">{p.id_ord_serv || '—'}</td>
-                      <td className="td td-left text-xs text-g-500">{p.nota || '—'}</td>
-                      <td className="td text-xs text-g-600 tabular-nums text-center">
+                      <td className="td td-left text-g-500 font-mono text-xs">{p.nota || '—'}</td>
+                      <td className="td td-left text-xs text-g-600 tabular-nums">
                         {p.parcela_atual && p.parcela_total ? `${p.parcela_atual} / ${p.parcela_total}` : '—'}
                       </td>
                       <td className="td td-left text-xs text-g-500 tabular-nums">
@@ -1932,13 +2135,10 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
                           {p._status === 'vencida' && <AlertTriangle className="w-3 h-3 text-red-500" />}
                         </span>
                       </td>
-                      <td className="td font-mono font-semibold text-g-300 tabular-nums text-sm">
+                      <td className="td td-right font-mono font-semibold text-g-300 tabular-nums text-sm">
                         {brl(p.valor_atualizado ?? p.valor_parcela)}
-                        {p.valor_atualizado && p.valor_atualizado !== p.valor_parcela && (
-                          <span className="block text-g-700 text-xs font-normal">{brl(p.valor_parcela)} orig.</span>
-                        )}
                       </td>
-                      <td className="td"><FinBadge status={p._status} /></td>
+                      <td className="td td-center"><FinBadge status={p._status} /></td>
                       <td className="td td-left text-xs tabular-nums">
                         {previsao ? (
                           <span className={`flex items-center gap-1 ${prevAtrasada ? 'text-red-500 font-medium' : 'text-g-500'}`}>
@@ -1947,7 +2147,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
                           </span>
                         ) : '—'}
                       </td>
-                      <td className="td" onClick={e => e.stopPropagation()}>
+                      <td className="td td-right !pr-1.5" onClick={e => e.stopPropagation()}>
                         {p._isSintetica ? (
                           <div className="flex items-center justify-end gap-1">
                             <span className="text-[10px] text-g-700 italic px-1">via NF</span>
@@ -2253,9 +2453,13 @@ function AnaliseTab({ year, vehicles }) {
 // ════════════════════════════════════════════════════════════════════
 // PÁGINA PRINCIPAL
 // ════════════════════════════════════════════════════════════════════
-export default function MaintenancePage({ year, vehicles = [] }) {
+export default function MaintenancePage({ 
+  year, 
+  vehicles = [], 
+  finAlertDismissed, 
+  setFinAlertDismissed 
+}) {
   const [tab, setTab] = useState('gestao')
-  const [finAlertDismissed, setFinAlertDismissed] = useState(false)
 
   return (
     <div className="flex flex-col gap-6">
@@ -2281,7 +2485,7 @@ export default function MaintenancePage({ year, vehicles = [] }) {
         ))}
       </div>
 
-      {tab === 'gestao'     && <GestaoTab />}
+      {tab === 'gestao'     && <GestaoTab year={year} />}
       {tab === 'financeiro' && <FinanceiroTab year={year} alertDismissed={finAlertDismissed} onAlertDismiss={() => setFinAlertDismissed(true)} />}
       {tab === 'analise'    && <AnaliseTab year={year} vehicles={vehicles} />}
     </div>
