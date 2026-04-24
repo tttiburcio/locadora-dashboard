@@ -118,14 +118,18 @@ export default function VehicleModal({ placa, year, onClose }) {
 
   useEffect(() => {
     setLoading(true)
-    getVehicle(placa, year).then(setData).finally(() => setLoading(false))
+    setData(null)
+    getVehicle(placa, year)
+      .then(res => setData(res?.info ? res : null))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false))
   }, [placa, year])
 
   if (!placa) return null
 
-  const info = data?.info ?? null
-  const k = data?.kpis ?? {}
-  const isLucr = (k.margem ?? 0) >= 0
+  const info = data?.info
+  const k = data?.kpis
+  const isLucr = k?.margem >= 0
 
   return createPortal(
     <div 
@@ -164,7 +168,7 @@ export default function VehicleModal({ placa, year, onClose }) {
           </button>
         </div>
 
-        {!loading && data && (
+        {!loading && data && info && (
           <div className="flex border-b border-g-900 px-8">
             {[
               { key: 'kpis',      label: 'KPIs & Financeiro' },
@@ -193,7 +197,7 @@ export default function VehicleModal({ placa, year, onClose }) {
           </div>
         )}
 
-        {!loading && data && (
+        {!loading && data && k && (
           <div className="p-8 flex-1 flex flex-col gap-8 overflow-y-auto custom-scrollbar">
             {tab === 'contratos' && (
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -336,7 +340,7 @@ export default function VehicleModal({ placa, year, onClose }) {
                   <SectionTitle icon={Calendar}>Evolução Mensal</SectionTitle>
                   <div className="card p-4">
                     <div className="h-64">
-                      <VehicleMonthlyChart monthly={data.monthly ?? []} />
+                      <VehicleMonthlyChart monthly={data.monthly} />
                     </div>
                   </div>
                 </div>
@@ -352,7 +356,7 @@ export default function VehicleModal({ placa, year, onClose }) {
                   <div>
                     <SectionTitle icon={Calendar}>Dias Trabalhados / Mês</SectionTitle>
                     <div className="card p-4 h-64 overflow-y-auto space-y-3">
-                      {(data.monthly ?? []).filter(m => m.dias_trabalhado > 0).map(m => (
+                      {data.monthly.filter(m => m.dias_trabalhado > 0).map(m => (
                         <div key={m.month} className="flex items-center gap-2">
                           <span className="text-g-600 text-[10px] w-6 uppercase">{m.monthName.slice(0, 3)}</span>
                           <div className="flex-1 bg-g-850 rounded-full h-2 overflow-hidden border border-g-800">

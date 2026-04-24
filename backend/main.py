@@ -929,23 +929,47 @@ def get_regions(year: int = Query(...)):
 
 @app.get("/api/vehicle/{placa}")
 def get_vehicle(placa: str, year: int = Query(...)):
+    import traceback as _tb
+    _empty = {"info": {}, "kpis": {}, "monthly": [], "by_contract": [], "maintenance": []}
+    try:
+        return _get_vehicle_body(placa, year)
+    except Exception:
+        print(f"[get_vehicle] ERRO {placa} year={year}:\n{_tb.format_exc()}")
+        return _empty
+
+
+def _get_vehicle_body(placa: str, year: int):
     df, _, _, fat, reimb, manut, seg, rast, _ = compute(year)
 
-    mask = df["Placa"] == placa
+    placa_norm = placa.strip().upper()
+    mask = df["Placa"].str.strip().str.upper() == placa_norm
     if not mask.any():
-        return {"error": "Vehicle not found"}
+        return {"info": {}, "kpis": {}, "monthly": [], "by_contract": [], "maintenance": []}
 
     row  = df[mask].iloc[0]
     id_v = row["IDVeiculo"]
 
+    def _s(v):
+        """str() seguro: NaN/None → '—'"""
+        if v is None:
+            return "—"
+        try:
+            import math
+            if isinstance(v, float) and math.isnan(v):
+                return "—"
+        except Exception:
+            pass
+        s = str(v)
+        return "—" if s.lower() in ("nan", "none", "nat") else s
+
     info = {
-        "placa":      str(row["Placa"]),
-        "marca":      str(row["Marca"]),
-        "modelo":     str(row["Modelo"]),
-        "tipagem":    str(row.get("Tipagem", "")),
-        "implemento": str(row.get("Implemento", "")),
-        "status":     str(row["Status"]),
-        "contrato":   str(row.get("Contrato", "—")),
+        "placa":      _s(row["Placa"]),
+        "marca":      _s(row["Marca"]),
+        "modelo":     _s(row["Modelo"]),
+        "tipagem":    _s(row.get("Tipagem", "")),
+        "implemento": _s(row.get("Implemento", "")),
+        "status":     _s(row["Status"]),
+        "contrato":   _s(row.get("Contrato", "—")),
         "valor_total": safe(row.get("ValorTotal", 0)),
     }
 
@@ -1017,19 +1041,20 @@ def get_vehicle(placa: str, year: int = Query(...)):
     if not manut_v.empty:
         for _, mrow in manut_v.iterrows():
             dt = mrow.get("DataExecução")
+            ev = mrow.get("evento")
             maintenance.append({
-                "ordem":           str(mrow.get("IDOrdServ", "—")),
-                "data":            str(dt)[:10] if pd.notna(dt) else "—",
-                "valor":           safe(mrow.get("TotalOS", 0)),
-                "fornecedor":      str(mrow.get("Fornecedor", "—")),
-                "sistema":         str(mrow.get("Sistema", "—")),
-                "servico":         str(mrow.get("Serviço", "—")),
-                "tipo":            str(mrow.get("TipoManutencao", "—")),
-                "km":              safe(mrow.get("KM", 0)) if pd.notna(mrow.get("KM")) else None,
-                "prox_km":         safe(mrow.get("ProxKM", 0)) if pd.notna(mrow.get("ProxKM")) else None,
-                "prox_data":       str(mrow.get("ProxData", ""))[:10] if pd.notna(mrow.get("ProxData")) else None,
-                "qtd_notas":       int(mrow.get("qtd_notas", 0)) if pd.notna(mrow.get("qtd_notas")) else 0,
-                "evento":          mrow.get("evento"),
+                "ordem":     _s(mrow.get("IDOrdServ")) if pd.notna(mrow.get("IDOrdServ")) else "—",
+                "data":      str(dt)[:10] if pd.notna(dt) else "—",
+                "valor":     safe(mrow.get("TotalOS", 0)),
+                "fornecedor": _s(mrow.get("Fornecedor")),
+                "sistema":   _s(mrow.get("Sistema")),
+                "servico":   _s(mrow.get("Serviço")),
+                "tipo":      _s(mrow.get("TipoManutencao")),
+                "km":        safe(mrow.get("KM", 0)) if pd.notna(mrow.get("KM")) else None,
+                "prox_km":   safe(mrow.get("ProxKM", 0)) if pd.notna(mrow.get("ProxKM")) else None,
+                "prox_data": str(mrow.get("ProxData", ""))[:10] if pd.notna(mrow.get("ProxData")) else None,
+                "qtd_notas": int(mrow.get("qtd_notas", 0)) if pd.notna(mrow.get("qtd_notas")) else 0,
+                "evento":    ev if (ev is not None and pd.notna(ev)) else None,
             })
 
     return {
