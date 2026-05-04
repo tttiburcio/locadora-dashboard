@@ -2,6 +2,20 @@ import axios from 'axios'
 
 const api = axios.create({ baseURL: '/api' })
 
+api.interceptors.response.use(
+  res => res,
+  err => {
+    const status = err.response?.status
+    const url    = err.config?.url ?? ''
+    if (status >= 500) {
+      console.error(`[API] Erro ${status} em ${url}:`, err.response?.data)
+    } else if (status >= 400) {
+      console.warn(`[API] ${status} em ${url}:`, err.response?.data)
+    }
+    return Promise.reject(err)
+  }
+)
+
 export const getYears              = ()                    => api.get('/years').then(r => r.data)
 export const getKpis               = (year)                => api.get('/kpis',     { params: { year } }).then(r => r.data)
 export const getMonthly            = (year)                => api.get('/monthly',  { params: { year } }).then(r => r.data)

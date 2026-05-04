@@ -9,13 +9,18 @@ import {
 import {
   X, TrendingUp, TrendingDown, Wrench, Shield, FileText,
   MapPin, Calendar, DollarSign, Percent, Clock, AlertTriangle,
-  ChevronRight, Loader2,
+  ChevronRight, Loader2, Route, Flame,
 } from 'lucide-react'
+import { useVehicleTrackerData } from '../hooks/useVehicleTrackerData'
+import TrackerVehicleTab from './tracker/TrackerVehicleTab'
 
 const TOOLTIP_STYLE = {
-  background: '#18181b', border: '1px solid #3f3f46',
-  borderRadius: 8, fontSize: 12, boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+  background: '#ffffff', border: '1px solid #e5e7eb',
+  borderRadius: 8, fontSize: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
 }
+
+
+
 
 function ContractBreakdown({ contracts = [] }) {
   if (!contracts.length) return (
@@ -29,13 +34,15 @@ function ContractBreakdown({ contracts = [] }) {
           layout="vertical"
           margin={{ top: 4, right: 12, bottom: 4, left: 80 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" horizontal={false} />
           <XAxis type="number" tickFormatter={brlShort}
-            tick={{ fill: '#52525b', fontSize: 10 }} axisLine={false} tickLine={false} />
+            tick={{ fill: '#4b5563', fontSize: 10 }} axisLine={false} tickLine={false} />
           <YAxis type="category" dataKey="contrato" width={78}
-            tick={{ fill: '#a1a1aa', fontSize: 10.5 }} axisLine={false} tickLine={false} />
+            tick={{ fill: '#374151', fontSize: 10.5 }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
+            labelStyle={{ color: '#111827', fontWeight: '600' }}
+            itemStyle={{ color: '#005743', fontWeight: 'bold' }}
             formatter={v => [brl(v), 'Receita']}
           />
           <Bar dataKey="receita" name="Receita" radius={[0, 4, 4, 0]} maxBarSize={22}>
@@ -111,10 +118,14 @@ function formatTitle(text) {
   }).join(' ');
 }
 
-export default function VehicleModal({ placa, year, onClose }) {
+export default function VehicleModal({ placa, year, onClose, trackerOnline = null, isHighUsage = false }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('kpis')
+
+  const { loading: trackerLoading, kmData, alerts } = useVehicleTrackerData({
+    placa, year, activeTab: tab,
+  })
 
   useEffect(() => {
     setLoading(true)
@@ -145,15 +156,25 @@ export default function VehicleModal({ placa, year, onClose }) {
               <div className="h-9 w-40 bg-g-800 animate-pulse rounded" />
             ) : (
               <>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="text-3xl font-black text-g-50 tracking-tighter">{placa}</h2>
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-widest border ${
                     info?.status === 'Frota' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-g-800 text-g-400 border-g-700'
                   }`}>
                     {info?.status}
                   </span>
+                  {isHighUsage && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-widest bg-red-500/10 text-red-400 border border-red-500/20">
+                      <Flame className="w-3 h-3" />
+                      Uso Excessivo
+                    </span>
+                  )}
                 </div>
-                <p className="text-g-400 text-base mt-1">{info?.marca} · {info?.modelo}</p>
+                <p className="text-g-400 text-base mt-1">
+                  {info?.marca} · {info?.modelo}
+                  {info?.ano_modelo && info.ano_modelo !== '—' && ` · ${info.ano_modelo}`}
+                  {info?.implemento && info.implemento !== '0' && info.implemento !== '0.0' && info.implemento !== '—' && ` · ${info.implemento}`}
+                </p>
                 {(info?.valor_total || 0) > 0 && (
                   <p className="text-g-600 text-sm mt-1">Ativo: {brl(info.valor_total)}</p>
                 )}
@@ -174,6 +195,7 @@ export default function VehicleModal({ placa, year, onClose }) {
               { key: 'kpis',      label: 'KPIs & Financeiro' },
               { key: 'contratos', label: 'Por Contrato / Região' },
               { key: 'manut',     label: 'Manutenção' },
+              ...(trackerOnline === true ? [{ key: 'tracker', label: 'Rastreamento', icon: Route }] : []),
             ].map(t => (
               <button
                 key={t.key}
@@ -211,26 +233,26 @@ export default function VehicleModal({ placa, year, onClose }) {
             {tab === 'manut' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {data.maintenance?.length > 0 ? (
-                  <div className="card overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-sm min-w-[700px]">
+                  <div className="card overflow-hidden">
+                    <table className="w-full text-xs">
                       <thead className="bg-g-900/50 border-b border-g-800">
                         <tr>
-                          <th className="px-5 py-3 text-left font-bold text-g-500 uppercase tracking-widest text-[11px]">OS</th>
-                          <th className="px-5 py-3 text-center font-bold text-g-500 uppercase tracking-widest text-[11px]">Data</th>
-                          <th className="px-5 py-3 text-left font-bold text-g-500 uppercase tracking-widest text-[11px]">Sistema</th>
-                          <th className="px-5 py-3 text-left font-bold text-g-500 uppercase tracking-widest text-[11px]">Serviço</th>
-                          <th className="px-5 py-3 text-center font-bold text-g-500 uppercase tracking-widest text-[11px]">Tipo</th>
-                          <th className="px-5 py-3 text-center font-bold text-g-500 uppercase tracking-widest text-[11px]">Notas</th>
-                          <th className="px-5 py-3 text-center font-bold text-g-500 uppercase tracking-widest text-[11px]">KM</th>
-                          <th className="px-5 py-3 text-right font-bold text-g-500 uppercase tracking-widest text-[11px]">Valor</th>
+                          <th className="px-2 py-2.5 text-left font-bold text-g-500 uppercase tracking-widest text-[10px]">OS</th>
+                          <th className="px-2 py-2.5 text-left font-bold text-g-500 uppercase tracking-widest text-[10px]">Data</th>
+                          <th className="px-2 py-2.5 text-left font-bold text-g-500 uppercase tracking-widest text-[10px]">Sistema</th>
+                          <th className="px-2 py-2.5 text-left font-bold text-g-500 uppercase tracking-widest text-[10px]">Serviço</th>
+                          <th className="px-2 py-2.5 text-left font-bold text-g-500 uppercase tracking-widest text-[10px]">Tipo</th>
+                          <th className="px-2 py-2.5 text-left font-bold text-g-500 uppercase tracking-widest text-[10px]">Notas</th>
+                          <th className="px-2 py-2.5 text-left font-bold text-g-500 uppercase tracking-widest text-[10px]">KM</th>
+                          <th className="px-2 py-2.5 text-left font-bold text-g-500 uppercase tracking-widest text-[10px]">Valor</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-g-900">
                         {data.maintenance.map((m, i) => (
                           <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
-                            <td className="px-5 py-4 font-mono text-g-500 font-medium whitespace-nowrap">{m.ordem}</td>
-                            <td className="px-5 py-4 text-center text-g-500 tabular-nums whitespace-nowrap">{dateBR(m.data)}</td>
-                            <td className="px-5 py-4 text-g-400 font-medium">
+                            <td className="px-2 py-2.5 font-mono text-g-500 font-medium whitespace-nowrap">{m.ordem}</td>
+                            <td className="px-2 py-2.5 text-left text-g-500 tabular-nums whitespace-nowrap">{dateBR(m.data)}</td>
+                            <td className="px-2 py-2.5 text-g-400 font-medium">
                               <div className="flex flex-col min-w-[100px]">
                                 <span>{m.sistema || '—'}</span>
                                 {m.evento === 'Revisão' && (
@@ -238,11 +260,11 @@ export default function VehicleModal({ placa, year, onClose }) {
                                 )}
                               </div>
                             </td>
-                            <td className="px-5 py-4">
+                            <td className="px-2 py-2.5">
                               <span className="text-g-400 font-medium">{formatTitle(m.servico)}</span>
                             </td>
-                            <td className="px-5 py-4 text-center">
-                              <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                            <td className="px-2 py-2.5 text-left">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
                                 m.tipo === 'Preventiva' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                                 m.tipo === 'Corretiva'  ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
                                 'bg-g-800 text-g-500 border-g-700'
@@ -250,15 +272,15 @@ export default function VehicleModal({ placa, year, onClose }) {
                                 {m.tipo}
                               </span>
                             </td>
-                            <td className="px-5 py-4 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
+                            <td className="px-2 py-2.5 text-left">
+                              <div className="flex items-center gap-1.5">
                                 <FileText className="w-3.5 h-3.5 text-g-700" />
                                 <span className="text-g-500 font-mono">{m.qtd_notas || 0}</span>
                               </div>
                             </td>
-                            <td className="px-5 py-4 text-center text-g-500 tabular-nums whitespace-nowrap">{m.km ? num(m.km) + ' km' : '—'}</td>
-                            <td className="px-5 py-4 text-right">
-                              <span className="text-orange-400/90 font-mono font-bold tabular-nums text-base">{brl(m.valor)}</span>
+                            <td className="px-2 py-2.5 text-left text-g-500 tabular-nums whitespace-nowrap">{m.km ? num(m.km) + ' km' : '—'}</td>
+                            <td className="px-2 py-2.5 text-left whitespace-nowrap">
+                              <span className="text-orange-400/90 font-mono font-bold tabular-nums text-sm">{brl(m.valor)}</span>
                             </td>
                           </tr>
                         ))}
@@ -271,6 +293,10 @@ export default function VehicleModal({ placa, year, onClose }) {
                   </p>
                 )}
               </div>
+            )}
+
+            {tab === 'tracker' && (
+              <TrackerVehicleTab loading={trackerLoading} kmData={kmData} alerts={alerts} placa={placa} />
             )}
 
             {tab === 'kpis' && (

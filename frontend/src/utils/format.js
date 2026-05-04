@@ -35,6 +35,11 @@ export function isNeg(v) {
   return typeof v === 'number' && v < 0
 }
 
+export function km(v) {
+  if (v == null || isNaN(v)) return '—'
+  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(v) + ' km'
+}
+
 export function dateBR(v) {
   if (!v) return '—'
   const [y, m, d] = String(v).split('-')

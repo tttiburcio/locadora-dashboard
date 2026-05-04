@@ -1,4 +1,9 @@
 import { brl, pct, num, brlShort } from '../utils/format'
+import { useTrackerData } from '../hooks/useTrackerData'
+import TrackerKpiRow from '../components/tracker/TrackerKpiRow'
+import TrackerStatusBadge from '../components/tracker/TrackerStatusBadge'
+import TrackerInsightsCard from '../components/tracker/TrackerInsightsCard'
+import TrackerActionCenter from '../components/tracker/TrackerActionCenter'
 import KPICard from '../components/KPICard'
 import { MonthlyRevenueChart, MonthlyCostChart } from '../components/charts/MonthlyChart'
 import { FleetHealthPie, CostPie, TopVehiclesChart } from '../components/charts/FleetCharts'
@@ -8,7 +13,7 @@ import {
   BarChart2, Target, AlertTriangle,
 } from 'lucide-react'
 
-function Section({ title, icon: Icon, children }) {
+function Section({ title, icon: Icon, badge, children }) {
   return (
     <section>
       <div className="flex items-center gap-2.5 mb-4">
@@ -16,6 +21,7 @@ function Section({ title, icon: Icon, children }) {
           <Icon className="w-4 h-4 text-g-600" />
         </div>
         <h2 className="text-g-500 font-semibold text-xs uppercase tracking-widest">{title}</h2>
+        {badge && <span>{badge}</span>}
         <div className="flex-1 h-px bg-g-800" />
       </div>
       {children}
@@ -63,7 +69,19 @@ function InconsistencyBanner({ items }) {
   )
 }
 
-export default function OverviewPage({ kpis: k, monthly, vehicles }) {
+export default function OverviewPage({ kpis: k, monthly, vehicles, year, setPage, setTrackerFilter }) {
+  const {
+    trackerOnline, trackerKpis, trackerUsage,
+    highUsageVehicles, idleVehicles, topKmVehicles,
+    fleetHealthScore, recommendedActions,
+  } = useTrackerData({ year })
+
+  function handleDrillDown(filterTarget) {
+    if (!setTrackerFilter || !setPage) return
+    setTrackerFilter(filterTarget)
+    setPage('vehicles')
+  }
+
   const margem_pos  = k.margem >= 0
   const pct_lucr    = k.veiculos_ativos > 0 ? k.veiculos_lucrativos / k.veiculos_ativos * 100 : 0
 
@@ -74,7 +92,8 @@ export default function OverviewPage({ kpis: k, monthly, vehicles }) {
       <InconsistencyBanner items={k.inconsistencias} />
 
       {/* ── KPIs primários ── */}
-      <Section title="Indicadores Chave" icon={BarChart2}>
+      <Section title="Indicadores Chave" icon={BarChart2}
+        badge={<TrackerStatusBadge online={trackerOnline} />}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
             { icon: Truck,      label: 'Veículos Ativos',  rawValue: k.veiculos_ativos,
@@ -117,6 +136,20 @@ export default function OverviewPage({ kpis: k, monthly, vehicles }) {
             <KPICard key={props.label} {...props} delay={delay} />
           ))}
         </div>
+
+        <TrackerKpiRow trackerKpis={trackerKpis} />
+        <TrackerInsightsCard
+          highUsageVehicles={highUsageVehicles}
+          idleVehicles={idleVehicles}
+          topKmVehicles={topKmVehicles}
+          trackerUsage={trackerUsage}
+        />
+        <TrackerActionCenter
+          recommendedActions={recommendedActions}
+          fleetHealthScore={fleetHealthScore}
+          trackerUsage={trackerUsage}
+          onDrillDown={handleDrillDown}
+        />
       </Section>
 
       {/* ── Melhor / Pior ── */}

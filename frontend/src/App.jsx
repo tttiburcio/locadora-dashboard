@@ -22,7 +22,8 @@ export default function App() {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [finAlertDismissed, setFinAlertDismissed]     = useState(false)
+  const [finAlertDismissed, setFinAlertDismissed]   = useState(false)
+  const [trackerFilter, setTrackerFilter]           = useState(null)
 
   useEffect(() => {
     getYears()
@@ -148,7 +149,11 @@ export default function App() {
 
           {!loading && kpis && page === 'overview' && (
             <div key={`overview-${year}`} className="animate-page-fade">
-              <OverviewPage kpis={kpis} monthly={monthly} vehicles={vehicles} year={year} />
+              <OverviewPage
+                kpis={kpis} monthly={monthly} vehicles={vehicles} year={year}
+                setPage={setPage}
+                setTrackerFilter={setTrackerFilter}
+              />
             </div>
           )}
 
@@ -160,6 +165,8 @@ export default function App() {
                 regions={regions}
                 region={region}
                 onRegionChange={handleRegionChange}
+                trackerFilter={trackerFilter}
+                onTrackerFilterConsumed={() => setTrackerFilter(null)}
               />
             </div>
           )}

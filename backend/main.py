@@ -5,11 +5,18 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import io
+import logging
 
 # ── Banco de dados ────────────────────────────────────────────────
 from database import get_db, init_db, engine
 import models
 import schemas
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("locadora")
 
 app = FastAPI(title="TKJ Locadora API", version="2.1.0")
 
@@ -102,7 +109,7 @@ def _migrate_parcelas_prorrogacao():
         if not (row and row[0] == 1):
             return  # já nullable, nada a fazer
 
-        print("[migration] Relaxando NOT NULL em manutencao_parcelas.manutencao_id ...")
+        logger.info("Relaxando NOT NULL em manutencao_parcelas.manutencao_id ...")
         con.execute("PRAGMA foreign_keys=OFF")
         con.execute("BEGIN")
         try:
@@ -126,10 +133,10 @@ def _migrate_parcelas_prorrogacao():
             con.execute("COMMIT")
             con.execute("CREATE INDEX IF NOT EXISTS idx_parcela_nf ON manutencao_parcelas(nf_id)")
             con.execute("CREATE INDEX IF NOT EXISTS idx_parcela_venc ON manutencao_parcelas(data_vencimento)")
-            print("[migration] manutencao_parcelas.manutencao_id agora permite NULL")
+            logger.info("manutencao_parcelas.manutencao_id agora permite NULL")
         except Exception as e:
             con.execute("ROLLBACK")
-            print(f"[migration] Erro relaxando NOT NULL: {e}")
+            logger.error("Erro relaxando NOT NULL em manutencao_parcelas: %s", e)
             raise
         finally:
             con.execute("PRAGMA foreign_keys=ON")
@@ -401,20 +408,27 @@ def _migrate_1to1_safe():
             db.commit()
     except Exception as e:
         db.rollback()
-        print(f"[migration 1:1] ERRO: {e}")
+        logger.error("[migration 1:1] ERRO: %s", e)
     finally:
         db.close()
 
 
+import os as _os
+
+_CORS_ORIGINS = _os.getenv(
+    "CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
-EXCEL_PATH = Path(__file__).parent.parent / "Locadora.xlsx"
+_excel_env = _os.getenv("EXCEL_PATH")
+EXCEL_PATH = Path(_excel_env) if _excel_env else Path(__file__).parent.parent / "Locadora.xlsx"
 
 SHEETS = {
     "frota":            "🚛 FROTA",
@@ -450,7 +464,7 @@ def load_raw() -> dict:
             try:
                 _cache[key] = xl.parse(name)
             except Exception as e:
-                print(f"Warning: sheet '{name}' not found: {e}")
+                logger.warning("Sheet '%s' não encontrada: %s", name, e)
                 _cache[key] = pd.DataFrame()
     return _cache
 
@@ -574,10 +588,10 @@ def compute(year: int):
                 frota = pd.concat([frota, sql_frota], ignore_index=True).drop_duplicates(subset=["Placa"], keep="last")
             
             # 2. Carregar OS Finalizadas do SQL para o ano selecionado
-            sql_os = pd.read_sql(f"""
-                SELECT os.id as id_sql, os.id_veiculo as IDVeiculo, os.placa as Placa, 
-                       COALESCE(os.data_execucao, os.data_entrada) as DataExecução, 
-                       COALESCE(os.total_os, (SELECT SUM(valor_total_nf) FROM notas_fiscais WHERE os_id = os.id AND deletado_em IS NULL), 0) as TotalOS, 
+            sql_os = pd.read_sql("""
+                SELECT os.id as id_sql, os.id_veiculo as IDVeiculo, os.placa as Placa,
+                       COALESCE(os.data_execucao, os.data_entrada) as DataExecução,
+                       COALESCE(os.total_os, (SELECT SUM(valor_total_nf) FROM notas_fiscais WHERE os_id = os.id AND deletado_em IS NULL), 0) as TotalOS,
                        os.fornecedor as Fornecedor, os.modelo as Modelo, os.numero_os as IDOrdServ,
                        os.tipo_manutencao as TipoManutencao, os.km as KM, os.prox_km as ProxKM, os.prox_data as ProxData,
                        (SELECT sistema FROM os_itens WHERE os_id = os.id LIMIT 1) as Sistema,
@@ -585,8 +599,8 @@ def compute(year: int):
                        (SELECT COUNT(*) FROM notas_fiscais WHERE os_id = os.id AND deletado_em IS NULL) as qtd_notas
                 FROM ordens_servico os
                 WHERE os.deletado_em IS NULL
-                  AND strftime('%Y', COALESCE(os.data_execucao, os.data_entrada)) = '{year}'
-            """, conn)
+                  AND strftime('%Y', COALESCE(os.data_execucao, os.data_entrada)) = :year
+            """, conn, params={"year": str(year)})
             
             if not sql_os.empty:
                 sql_os["DataExecução"] = pd.to_datetime(sql_os["DataExecução"])
@@ -597,7 +611,7 @@ def compute(year: int):
                 
                 manut_raw = pd.concat([manut_raw, sql_os], ignore_index=True)
     except Exception as e:
-        print(f"Erro ao integrar SQL no Dashboard: {e}")
+        logger.error("Erro ao integrar SQL no Dashboard: %s", e)
 
     # ── Lógica de Reclassificação e Notas ─────────────────
     if not manut_raw.empty:
@@ -670,8 +684,7 @@ def compute(year: int):
                          .rename("Contrato")
                          .reset_index())
 
-    # ── Consolidar na frota ──────────────────────────────────
-    base_cols = ["IDVeiculo", "Placa", "Marca", "Modelo", "Status", "Tipagem", "Implemento"]
+    base_cols = ["IDVeiculo", "Placa", "Marca", "Modelo", "Status", "Tipagem", "Implemento", "AnoModelo"]
     base_cols = [c for c in base_cols if c in frota.columns]
     if "ValorTotal" in frota.columns:
         base_cols.append("ValorTotal")
@@ -846,14 +859,15 @@ def get_years():
         years.update(fsh["Emissão"].dropna().dt.year.astype(int).tolist())
     # Also include years from OS records in the DB
     try:
-        with get_db() as conn:
-            rows = conn.execute("""
+        from sqlalchemy import text as _text
+        with engine.connect() as conn:
+            rows = conn.execute(_text("""
                 SELECT DISTINCT CAST(strftime('%Y', data_entrada) AS INTEGER) as yr
                 FROM ordens_servico WHERE data_entrada IS NOT NULL
                 UNION
                 SELECT DISTINCT CAST(strftime('%Y', data_execucao) AS INTEGER) as yr
                 FROM ordens_servico WHERE data_execucao IS NOT NULL
-            """).fetchall()
+            """)).fetchall()
             years.update(r[0] for r in rows if r[0])
     except Exception:
         pass
@@ -861,13 +875,13 @@ def get_years():
 
 
 @app.get("/api/kpis")
-def get_kpis(year: int = Query(...)):
+def get_kpis(year: int = Query(..., ge=2000, le=2100)):
     _, _, kpis, *_ = compute(year)
     return kpis
 
 
 @app.get("/api/monthly")
-def get_monthly(year: int = Query(...)):
+def get_monthly(year: int = Query(..., ge=2000, le=2100)):
     _, monthly, *_ = compute(year)
     records = []
     for _, row in monthly.iterrows():
@@ -876,7 +890,7 @@ def get_monthly(year: int = Query(...)):
 
 
 @app.get("/api/vehicles")
-def get_vehicles(year: int = Query(...), region: str = Query(None)):
+def get_vehicles(year: int = Query(..., ge=2000, le=2100), region: str = Query(None)):
     df, _, _, fat, *_ = compute(year)
 
     # Optional region/contract filter
@@ -894,6 +908,7 @@ def get_vehicles(year: int = Query(...), region: str = Query(None)):
             "modelo":             str(row.get("Modelo", "")),
             "tipagem":            str(row.get("Tipagem", "")),
             "implemento":         str(row.get("Implemento", "")),
+            "ano_modelo":         str(row.get("AnoModelo", "")),
             "status":             str(row.get("Status", "")),
             "contrato":           str(row.get("Contrato", "—")),
             "valor_total":        safe(row.get("ValorTotal", 0)),
@@ -918,7 +933,7 @@ def get_vehicles(year: int = Query(...), region: str = Query(None)):
 
 
 @app.get("/api/regions")
-def get_regions(year: int = Query(...)):
+def get_regions(year: int = Query(..., ge=2000, le=2100)):
     data  = load_raw()
     fat   = _filter_year(_parse(data["fat_unitario"].copy(), "Mes"), "Mes", year)
     if fat.empty or "Contrato" not in fat.columns:
@@ -928,13 +943,13 @@ def get_regions(year: int = Query(...)):
 
 
 @app.get("/api/vehicle/{placa}")
-def get_vehicle(placa: str, year: int = Query(...)):
+def get_vehicle(placa: str, year: int = Query(..., ge=2000, le=2100)):
     import traceback as _tb
     _empty = {"info": {}, "kpis": {}, "monthly": [], "by_contract": [], "maintenance": []}
     try:
         return _get_vehicle_body(placa, year)
     except Exception:
-        print(f"[get_vehicle] ERRO {placa} year={year}:\n{_tb.format_exc()}")
+        logger.error("[get_vehicle] ERRO %s year=%s:\n%s", placa, year, _tb.format_exc())
         return _empty
 
 
@@ -971,6 +986,7 @@ def _get_vehicle_body(placa: str, year: int):
         "status":     _s(row["Status"]),
         "contrato":   _s(row.get("Contrato", "—")),
         "valor_total": safe(row.get("ValorTotal", 0)),
+        "ano_modelo": _s(row.get("AnoModelo", "")),
     }
 
     kpis_v = {
@@ -1067,8 +1083,9 @@ def _get_vehicle_body(placa: str, year: int):
 
 
 @app.get("/api/maintenance_analysis")
-def get_maintenance_analysis(year: int = Query(...), placa: str = Query(None)):
+def get_maintenance_analysis(year: int = Query(..., ge=2000, le=2100), placa: str = Query(None)):
     _, _, _, _, _, manut, *_ = compute(year)
+    manut_all = manut.copy()
 
     if placa and not manut.empty and "Placa" in manut.columns:
         manut = manut[manut["Placa"] == placa]
