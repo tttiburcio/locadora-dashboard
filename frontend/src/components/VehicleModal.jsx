@@ -175,9 +175,11 @@ export default function VehicleModal({ placa, year, onClose, trackerOnline = nul
                   {info?.ano_modelo && info.ano_modelo !== '—' && ` · ${info.ano_modelo}`}
                   {info?.implemento && info.implemento !== '0' && info.implemento !== '0.0' && info.implemento !== '—' && ` · ${info.implemento}`}
                 </p>
-                {(info?.valor_total || 0) > 0 && (
-                  <p className="text-g-600 text-sm mt-1">Ativo: {brl(info.valor_total)}</p>
-                )}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-sm text-g-400 font-medium">
+                  {info?.valor_tabela > 0 && <span>Tabela FIPE: <strong className="text-g-100">{brl(info.valor_tabela)}</strong></span>}
+                  {info?.valor_implemento > 0 && <span>Valor Implemento: <strong className="text-g-100">{brl(info.valor_implemento)}</strong></span>}
+                  {info?.valor_total > 0 && <span>Valor Total Ativo: <strong className="text-emerald-400">{brl(info.valor_total)}</strong></span>}
+                </div>
               </>
             )}
           </div>
@@ -326,7 +328,7 @@ export default function VehicleModal({ placa, year, onClose, trackerOnline = nul
                 {/* Revenue Section */}
                 <div>
                   <SectionTitle icon={DollarSign}>Receita</SectionTitle>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                     <MiniKPI label="Total"     value={brl(k.receita_total)}     color="text-emerald-600" icon={DollarSign} />
                     <MiniKPI label="Locação"   value={brl(k.receita_locacao)}   color="text-g-200"       icon={FileText} iconColor="text-g-500" />
                     <MiniKPI label="Reembolso" value={brl(k.receita_reembolso)} color="text-g-200"       icon={ChevronRight} iconColor="text-g-500" />
@@ -336,7 +338,7 @@ export default function VehicleModal({ placa, year, onClose, trackerOnline = nul
                 {/* Costs Section */}
                 <div>
                   <SectionTitle icon={Wrench}>Custos</SectionTitle>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                     <MiniKPI label="Manutenção"   value={brl(k.custo_manutencao)}   color="text-orange-400" icon={Wrench} />
                     <MiniKPI label="Seguro"       value={brl(k.custo_seguro)}       color="text-red-400"    icon={Shield} />
                     <MiniKPI label="Impostos"     value={brl(k.custo_impostos)}     color="text-purple-400" icon={FileText} />
@@ -351,7 +353,7 @@ export default function VehicleModal({ placa, year, onClose, trackerOnline = nul
                 {/* Operation Section */}
                 <div>
                   <SectionTitle icon={Clock}>Operação</SectionTitle>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                     <MiniKPI label="Dias Trabalhados" value={dias(k.dias_trabalhado)} icon={Calendar} iconColor="text-g-500" />
                     <MiniKPI label="Dias Parado"      value={dias(k.dias_parado)} icon={AlertTriangle} iconColor="text-g-500" color="text-emerald-600" />
                     <MiniKPI label="Utilização"       value={pct(k.dias_trabalhado / (k.dias_trabalhado + k.dias_parado) * 100)} icon={Percent} iconColor="text-g-500" color="text-emerald-600" />
@@ -372,7 +374,7 @@ export default function VehicleModal({ placa, year, onClose, trackerOnline = nul
                 </div>
 
                 {/* Bottom Charts */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <div>
                     <SectionTitle icon={Percent}>Composição de Custos</SectionTitle>
                     <div className="card p-4 h-64">

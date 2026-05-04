@@ -18,6 +18,8 @@ const STATUS_COLORS = {
   'LOCADO':     'bg-emerald-50 text-emerald-900 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700/40 text-xs font-bold px-2 py-0.5 rounded-full inline-block select-none shadow-sm',
   'FROTA':      'bg-emerald-50 text-emerald-900 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-700/40 text-xs font-bold px-2 py-0.5 rounded-full inline-block select-none shadow-sm',
   'ADM':        'bg-blue-50 text-blue-900 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/40 text-xs font-bold px-2 py-0.5 rounded-full inline-block select-none shadow-sm',
+  'ADMINISTRAÇÃO': 'bg-blue-50 text-blue-900 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/40 text-xs font-bold px-2 py-0.5 rounded-full inline-block select-none shadow-sm',
+  'ADMINISTRACAO': 'bg-blue-50 text-blue-900 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-700/40 text-xs font-bold px-2 py-0.5 rounded-full inline-block select-none shadow-sm',
   'VENDIDO':    'bg-gray-50 text-gray-900 border border-gray-200 dark:bg-gray-900/40 dark:text-gray-300 dark:border-gray-700/40 text-xs font-bold px-2 py-0.5 rounded-full inline-block select-none shadow-sm',
   'DESATIVADO': 'bg-red-50 text-red-900 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-700/40 text-xs font-bold px-2 py-0.5 rounded-full inline-block select-none shadow-sm',
   'MANUT':      'bg-amber-50 text-amber-900 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700/40 text-xs font-bold px-2 py-0.5 rounded-full inline-block select-none shadow-sm',
@@ -30,7 +32,7 @@ function statusBadge(status) {
   if (s.includes('FROTA') || s.includes('ATIVO') || s.includes('LOCADO')) {
     return <span style={{ backgroundColor: '#ecfdf5', color: '#064e3b', borderColor: '#a7f3d0', borderWidth: '1px', borderStyle: 'solid', padding: '2px 8px', borderRadius: '9999px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block', whiteSpace: 'nowrap' }}>{status}</span>
   }
-  if (s.includes('ADM')) {
+  if (s.includes('ADM') || s.includes('ADMINISTRAÇÃO') || s.includes('ADMINISTRACAO')) {
     return <span style={{ backgroundColor: '#eff6ff', color: '#1e3a8a', borderColor: '#bfdbfe', borderWidth: '1px', borderStyle: 'solid', padding: '2px 8px', borderRadius: '9999px', fontSize: '12px', fontWeight: 'bold', display: 'inline-block', whiteSpace: 'nowrap' }}>{status}</span>
   }
   if (s.includes('VENDIDO')) {
@@ -111,12 +113,15 @@ export default function VehiclesPage({
     return vkm !== null && vkm.kmDia > HIGH_USAGE_THRESHOLD
   }, [selectedPlaca, getVehicleKm])
 
+  const [filterImplemento, setFilterImplemento] = useState('')
+
   const vehiclesEnriched = useMemo(() =>
     vehicles.map(v => {
       const isAdm = v.placa && (v.placa.toUpperCase() === 'TJW7I85' || v.placa.toUpperCase() === 'ERA6A58')
+      const sVal = isAdm || (v.status && v.status.toUpperCase() === 'ADM') ? 'Administração' : v.status
       return {
         ...v,
-        status: isAdm ? 'ADM' : v.status,
+        status: sVal,
         _km_mes: getVehicleKm(v.placa)?.km ?? null
       }
     }),
@@ -126,6 +131,11 @@ export default function VehiclesPage({
 
   const statuses = useMemo(() =>
     [...new Set(vehiclesEnriched.map(v => v.status).filter(Boolean))].sort(),
+    [vehiclesEnriched]
+  )
+
+  const implementos = useMemo(() =>
+    [...new Set(vehiclesEnriched.map(v => v.implemento).filter(Boolean))].sort(),
     [vehiclesEnriched]
   )
 
@@ -140,6 +150,7 @@ export default function VehiclesPage({
       )
     }
     if (filterStatus) list = list.filter(v => v.status === filterStatus)
+    if (filterImplemento) list = list.filter(v => v.implemento === filterImplemento)
     if (showOnly === 'profit')     list = list.filter(v => v.margem >= 0)
     if (showOnly === 'loss')       list = list.filter(v => v.margem < 0)
     if (showOnly === 'high_usage') list = list.filter(v => highUsagePlacas.has(normalizePlaca(v.placa)))
@@ -157,7 +168,7 @@ export default function VehiclesPage({
       return sortDir === 'asc' ? av - bv : bv - av
     })
     return list
-  }, [vehiclesEnriched, search, sortCol, sortDir, filterStatus, showOnly, highUsagePlacas, idlePlacas])
+  }, [vehiclesEnriched, search, sortCol, sortDir, filterStatus, filterImplemento, showOnly, highUsagePlacas, idlePlacas])
 
   const handleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -177,121 +188,163 @@ export default function VehiclesPage({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        {/* Region/contract filter */}
-        {regions.length > 0 && (
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-g-500" />
+      {/* Combined Action & Search Row */}
+      <div className="flex flex-nowrap items-center justify-between gap-3 bg-g-900/40 p-2.5 rounded-2xl border border-g-800 shadow-sm overflow-x-auto select-none">
+        <div className="flex flex-nowrap items-center gap-2.5 flex-shrink-0">
+          {/* Search bar */}
+          <div className="relative min-w-[140px] max-w-[180px] flex-shrink-0">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-500" />
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-8 pr-8 py-1.5 bg-g-950/60 border border-g-800 rounded-xl text-g-100 text-xs placeholder-g-600 focus:outline-none focus:border-emerald-500/40 transition-all focus:ring-4 focus:ring-emerald-500/5 shadow-inner"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-g-600 hover:text-g-300">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Region Filter */}
+          {regions.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-shrink-0 select-none">
+              <span className="text-xs text-g-400">Região:</span>
+              <select
+                value={region || ''}
+                onChange={e => onRegionChange && onRegionChange(e.target.value || null)}
+                className="bg-g-950/60 border border-g-800 rounded-xl text-g-200 text-xs font-medium px-2 py-1.5 focus:outline-none focus:border-emerald-500/40 transition-all focus:ring-4 focus:ring-emerald-500/5 shadow-sm cursor-pointer select-none"
+              >
+                <option value="">Todas</option>
+                {regions.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Status Filter */}
+          <div className="flex items-center gap-1.5 flex-shrink-0 select-none">
+            <span className="text-xs text-g-400">Status:</span>
             <select
-              value={region || ''}
-              onChange={e => onRegionChange && onRegionChange(e.target.value || null)}
-              className="bg-g-900 border border-g-800 rounded-xl text-g-200 text-sm px-4 py-2.5 focus:outline-none focus:border-g-600 shadow-sm appearance-none cursor-pointer"
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className="bg-g-950/60 border border-g-800 rounded-xl text-g-200 text-xs font-medium px-2 py-1.5 focus:outline-none focus:border-emerald-500/40 transition-all focus:ring-4 focus:ring-emerald-500/5 shadow-sm cursor-pointer select-none"
             >
-              <option value="">Todas as regiões</option>
-              {regions.map(r => <option key={r} value={r}>{r}</option>)}
+              <option value="">Todos</option>
+              {statuses.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-        )}
 
-        <div className="relative flex-1 min-w-[240px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-g-500" />
-          <input
-            type="text"
-            placeholder="Buscar placa ou modelo…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-3 py-2.5 bg-g-900 border border-g-800 rounded-xl text-g-100 text-sm placeholder-g-700 focus:outline-none focus:border-g-600 transition-colors shadow-sm"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-              <X className="w-3.5 h-3.5 text-g-600 hover:text-g-300" />
+          {/* Implement Filter */}
+          {implementos.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-shrink-0 select-none">
+              <span className="text-xs text-g-400">Implemento:</span>
+              <select
+                value={filterImplemento}
+                onChange={e => setFilterImplemento(e.target.value)}
+                className="bg-g-950/60 border border-g-800 rounded-xl text-g-200 text-xs font-medium px-2 py-1.5 focus:outline-none focus:border-emerald-500/40 transition-all focus:ring-4 focus:ring-emerald-500/5 shadow-sm cursor-pointer select-none"
+              >
+                <option value="">Todos</option>
+                {implementos.map(imp => <option key={imp} value={imp}>{imp}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* Reset Button */}
+          {(region || filterStatus || filterImplemento || search || showOnly !== 'all') && (
+            <button
+              onClick={() => {
+                setSearch('')
+                if (onRegionChange) onRegionChange(null)
+                setFilterStatus('')
+                setFilterImplemento('')
+                handleShowOnly('all')
+              }}
+              className="flex items-center gap-1 flex-shrink-0 px-2 py-1.5 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-400 text-xs font-bold uppercase tracking-wide transition-all shadow-sm cursor-pointer select-none"
+            >
+              <X className="w-3.5 h-3.5" />
+              Limpar
             </button>
+          )}
+
+          {/* Quick tracker filters */}
+          {trackerOnline === true && (highUsageVehicles.length > 0 || idleVehicles.length > 0) && (
+            <div className="flex items-center gap-1 flex-shrink-0 bg-g-950/40 border border-g-800 rounded-xl p-0.5 shadow-sm select-none">
+              {highUsageVehicles.length > 0 && (
+                <button
+                  onClick={() => handleShowOnly(showOnly === 'high_usage' ? 'all' : 'high_usage')}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                    showOnly === 'high_usage'
+                      ? 'bg-red-500/20 text-red-400'
+                      : 'text-g-600 hover:text-red-400'
+                  }`}
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  {highUsageVehicles.length}
+                </button>
+              )}
+              {idleVehicles.length > 0 && (
+                <button
+                  onClick={() => handleShowOnly(showOnly === 'idle' ? 'all' : 'idle')}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                    showOnly === 'idle'
+                      ? 'bg-amber-500/20 text-amber-400'
+                      : 'text-g-600 hover:text-amber-400'
+                  }`}
+                >
+                  <ZapOff className="w-3.5 h-3.5" />
+                  {idleVehicles.length}
+                </button>
+              )}
+            </div>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-g-500" />
-          <select
-            value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-            className="bg-g-900 border border-g-800 rounded-xl text-g-200 text-sm px-4 py-2.5 focus:outline-none focus:border-g-600 shadow-sm appearance-none cursor-pointer"
-          >
-            <option value="">Todos os status</option>
-            {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-1 bg-g-900 border border-g-800 rounded-xl p-1 shadow-sm">
-          {[
-            { val: 'all',    label: 'Todos' },
-            { val: 'profit', label: 'Lucrativos' },
-            { val: 'loss',   label: 'Deficitários' },
-          ].map(o => (
-            <button
-              key={o.val}
-              onClick={() => handleShowOnly(o.val)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                showOnly === o.val
-                  ? 'bg-g-700/30 text-g-50'
-                  : 'text-g-600 hover:text-g-300'
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-
-        <span className="text-g-700 text-xs tabular-nums">
-          {filtered.length} veículo{filtered.length !== 1 ? 's' : ''}
-        </span>
-        <TrackerStatusBadge online={trackerOnline} />
-        {trackerOnline === true && (
-          <a
-            href={MAPWS_BASE}
-            target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-indigo-50/80 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 transition-all cursor-pointer shadow-sm"
-          >
-            <MapPin className="w-3 h-3 text-indigo-600" />
-            MapWS
-          </a>
-        )}
-
-        {/* Tracker quick filters — only when data available */}
-        {trackerOnline === true && (highUsageVehicles.length > 0 || idleVehicles.length > 0) && (
-          <div className="flex items-center gap-1 bg-g-900 border border-g-800 rounded-xl p-1 shadow-sm">
-            {highUsageVehicles.length > 0 && (
+        {/* Financial Filters, Badges & MapWS link */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 bg-g-950/60 border border-g-800 rounded-xl p-0.5 select-none flex-shrink-0">
+            {[
+              { val: 'all',    label: 'Todos' },
+              { val: 'profit', label: 'Lucrativos' },
+              { val: 'loss',   label: 'Deficitários' },
+            ].map(o => (
               <button
-                onClick={() => handleShowOnly(showOnly === 'high_usage' ? 'all' : 'high_usage')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  showOnly === 'high_usage'
-                    ? 'bg-red-500/20 text-red-400'
-                    : 'text-g-600 hover:text-red-400'
+                key={o.val}
+                onClick={() => handleShowOnly(o.val)}
+                className={`px-3 py-1 rounded-lg text-[11px] font-semibold uppercase tracking-wide transition-all ${
+                  showOnly === o.val
+                    ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shadow-sm'
+                    : 'text-g-500 hover:text-g-200'
                 }`}
               >
-                <Flame className="w-3 h-3" />
-                Uso Excessivo ({highUsageVehicles.length})
+                {o.label}
               </button>
-            )}
-            {idleVehicles.length > 0 && (
-              <button
-                onClick={() => handleShowOnly(showOnly === 'idle' ? 'all' : 'idle')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  showOnly === 'idle'
-                    ? 'bg-amber-500/20 text-amber-400'
-                    : 'text-g-600 hover:text-amber-400'
-                }`}
-              >
-                <ZapOff className="w-3 h-3" />
-                Ociosos ({idleVehicles.length})
-              </button>
-            )}
+            ))}
           </div>
-        )}
+
+          <span className="text-g-600 text-xs font-semibold bg-g-950/40 border border-g-800/60 px-2.5 py-1.5 rounded-xl tabular-nums select-none flex-shrink-0">
+            {filtered.length} {filtered.length === 1 ? 'veículo' : 'veículos'}
+          </span>
+          <div className="flex-shrink-0">
+            <TrackerStatusBadge online={trackerOnline} />
+          </div>
+          {trackerOnline === true && (
+            <a
+              href={MAPWS_BASE}
+              target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wide bg-indigo-50/5 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-all cursor-pointer shadow-sm select-none flex-shrink-0"
+            >
+              <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+              MapWS
+            </a>
+          )}
+        </div>
       </div>
 
+
       {/* Summary totals */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="card p-3.5 flex flex-col gap-1">
           <span className="text-g-600 text-[10px] uppercase tracking-widest font-bold">Receita Filtrada</span>
           <span className="text-g-500 font-bold font-mono text-xl tabular-nums">{brl(totals.receita_total)}</span>

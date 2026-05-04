@@ -5,7 +5,7 @@ import OverviewPage from './pages/OverviewPage'
 import VehiclesPage from './pages/VehiclesPage'
 import MaintenancePage from './pages/MaintenancePage'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, Menu, RefreshCw } from 'lucide-react'
 
 const HEADER_ACTIONS = {}
 
@@ -22,6 +22,7 @@ export default function App() {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState(null)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen]     = useState(false)
   const [finAlertDismissed, setFinAlertDismissed]   = useState(false)
   const [trackerFilter, setTrackerFilter]           = useState(null)
 
@@ -55,6 +56,20 @@ export default function App() {
       setLoading(false)
     }
   }, [])
+
+  const handleRefresh = useCallback(async () => {
+    try {
+      setLoading(true)
+      const d = await getYears()
+      setYears(d.years)
+      if (d.years.length > 0 && !year) setYear(d.years[0])
+      await loadData(year, region)
+    } catch {
+      setError('Erro ao atualizar os dados.')
+    } finally {
+      setLoading(false)
+    }
+  }, [year, region, loadData])
 
   useEffect(() => { loadData(year, region) }, [year, region, loadData])
 
@@ -99,13 +114,21 @@ export default function App() {
         setYear={setYear}
         isCollapsed={isSidebarCollapsed}
         setIsCollapsed={setIsSidebarCollapsed}
+        isMobileOpen={isMobileMenuOpen}
+        setIsMobileOpen={setIsMobileMenuOpen}
       />
 
       <main className="flex-1 overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-g-900/95 backdrop-blur-sm border-b border-g-800 px-6 py-3.5 flex items-center justify-between">
+        <div className="sticky top-0 z-10 bg-g-900/95 backdrop-blur-sm border-b border-g-800 px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/icon.png" alt="" className="w-5 h-5 object-contain opacity-50" />
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="p-1.5 -ml-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 transition-colors block md:hidden"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <img src="/icon.png" alt="" className="w-5 h-5 object-contain opacity-50 hidden sm:block" />
             <div>
               <h1 className="text-g-200 font-bold text-lg tracking-wide">
                 {pageTitle[page]}
@@ -124,6 +147,16 @@ export default function App() {
               </div>
             )}
             {error && !loading && <span className="text-red-500 text-xs">{error}</span>}
+
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              title="Atualizar dados"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-g-850 border border-g-700 text-g-100 hover:bg-g-800 hover:text-white rounded-lg transition-colors cursor-pointer text-xs font-semibold shadow-sm hover:shadow active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </button>
 
             {/* Ações contextuais por página */}
             {HEADER_ACTIONS[page]?.map(action => (

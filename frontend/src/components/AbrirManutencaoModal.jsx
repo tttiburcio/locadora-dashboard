@@ -139,7 +139,7 @@ export default function AbrirManutencaoModal({ onClose, onSaved, manutencao = nu
         <form onSubmit={handleSubmit} className="overflow-y-auto px-5 py-4 flex flex-col gap-4">
 
           {/* Veículo */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <div>
               <label className={LABEL}>Placa *</label>
               <select value={form.placa} onChange={handlePlaca} className={`${FIELD} font-mono`} required disabled={loadingFrota || isEditMode}>
@@ -169,7 +169,7 @@ export default function AbrirManutencaoModal({ onClose, onSaved, manutencao = nu
           </div>
 
           {/* Fornecedor + Tipo */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={LABEL}>Fornecedor / Oficina</label>
               <input
@@ -188,7 +188,7 @@ export default function AbrirManutencaoModal({ onClose, onSaved, manutencao = nu
           </div>
 
           {/* Sistema + Serviço */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className={LABEL}>Sistema</label>
               <select value={form.sistema} onChange={e => set('sistema', e.target.value)} className={FIELD}>
@@ -220,7 +220,7 @@ export default function AbrirManutencaoModal({ onClose, onSaved, manutencao = nu
           </div>
 
           {/* KM + Responsável + Status */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <div>
               <label className={LABEL}>KM Atual</label>
               <input

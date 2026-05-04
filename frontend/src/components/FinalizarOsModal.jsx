@@ -14,12 +14,24 @@ const H = 'h-[38px]'
 const FIELD = `w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors ${H}`
 const LABEL = 'text-g-600 text-[10px] uppercase tracking-widest font-bold mb-1.5 block'
 
+function parseMoney(val) {
+  if (!val) return 0;
+  const s = String(val).replace(/[^\d.,-]/g, '');
+  if (s.includes(',') && s.includes('.')) {
+    return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+  if (s.includes(',')) {
+    return parseFloat(s.replace(',', '.')) || 0;
+  }
+  return parseFloat(s) || 0;
+}
+
 function MoneyInput({ value, onChange, disabled, className }) {
   return (
     <div className="relative">
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-g-600 text-xs pointer-events-none select-none">R$</span>
       <input
-        type="number" step="0.01" min="0"
+        type="text"
         value={value}
         onChange={e => onChange(e.target.value)}
         disabled={disabled}
@@ -32,7 +44,7 @@ function MoneyInput({ value, onChange, disabled, className }) {
 
 function gerarParcelas(qtd, valorTotal, dataEmissao) {
   const n = Math.max(1, parseInt(qtd) || 1)
-  const total = parseFloat(valorTotal) || 0
+  const total = parseMoney(valorTotal)
   const base = dataEmissao ? new Date(dataEmissao + 'T12:00:00') : new Date()
   return Array.from({ length: n }, (_, i) => {
     const d = new Date(base)
@@ -139,13 +151,13 @@ function validarLocal(nfs, osItens) {
     if (!nf.empresa_faturada)
       erros.push(`${label}: empresa faturada é obrigatória`)
 
-    const valorNf = parseFloat(nf.valor_total_nf) || 0
+    const valorNf = parseMoney(nf.valor_total_nf)
     if (valorNf <= 0)
       erros.push(`${label}: valor total é obrigatório`)
 
     const itensVinculados = nf.itens.filter(it => it.incluir && itemMatchesTipo(it, nf.tipo_nf))
     if (itensVinculados.length > 0) {
-      const somaItens = itensVinculados.reduce((s, it) => s + (parseFloat(it.valor_total_item) || 0), 0)
+      const somaItens = itensVinculados.reduce((s, it) => s + parseMoney(it.valor_total_item), 0)
       if (valorNf > 0 && Math.abs(somaItens - valorNf) > 0.01)
         erros.push(`${label}: soma dos itens (${brl(somaItens)}) ≠ valor total NF (${brl(valorNf)})`)
     }
@@ -153,7 +165,7 @@ function validarLocal(nfs, osItens) {
     if (nf.parcelas.length === 0)
       erros.push(`${label}: adicione ao menos uma parcela`)
 
-    const somaParcelas = nf.parcelas.reduce((s, p) => s + (parseFloat(p.valor_parcela) || 0), 0)
+    const somaParcelas = nf.parcelas.reduce((s, p) => s + parseMoney(p.valor_parcela), 0)
     if (valorNf > 0 && Math.abs(somaParcelas - valorNf) > 0.01)
       erros.push(`${label}: soma das parcelas (${brl(somaParcelas)}) ≠ valor total NF (${brl(valorNf)})`)
   })
@@ -299,9 +311,9 @@ export default function FinalizarOsModal({ os, onClose, onSaved, editMode = fals
       if (iidx !== realIdx) return it
       const updated = { ...it, [k]: v }
       if (k === 'quantidade' || k === 'valor_unitario') {
-        const qtd  = parseFloat(k === 'quantidade'     ? v : it.quantidade)     || 0
-        const unit = parseFloat(k === 'valor_unitario' ? v : it.valor_unitario) || 0
-        updated.valor_total_item = qtd && unit ? (qtd * unit).toFixed(2) : ''
+        const qtd  = parseMoney(k === 'quantidade'     ? v : it.quantidade)
+        const unit = parseMoney(k === 'valor_unitario' ? v : it.valor_unitario)
+        updated.valor_total_item = (qtd * unit).toFixed(2)
       }
       return updated
     }),
@@ -314,25 +326,25 @@ export default function FinalizarOsModal({ os, onClose, onSaved, editMode = fals
   // Constrói payload de uma NF para envio ao backend
   const buildNfPayload = (nf) => {
     const itensVinculados = nf.itens.filter(it =>
-      it.incluir && itemMatchesTipo(it, nf.tipo_nf) && (it.valor_total_item || it.valor_unitario)
+      it.incluir && itemMatchesTipo(it, nf.tipo_nf) && (parseMoney(it.valor_total_item) > 0 || parseMoney(it.valor_unitario) > 0)
     )
     return {
       numero_nf:        nf.numero_nf        || null,
       tipo_nf:          nf.tipo_nf,
       empresa_faturada: nf.empresa_faturada || null,
       fornecedor:       nf.fornecedor       || null,
-      valor_total_nf:   nf.valor_total_nf   ? parseFloat(nf.valor_total_nf) : null,
+      valor_total_nf:   parseMoney(nf.valor_total_nf),
       data_emissao:     nf.data_emissao     || null,
       observacoes:      nf.observacoes      || null,
       itens: itensVinculados.map(it => ({
         os_item_id:       it.os_item_id,
-        quantidade:       parseFloat(it.quantidade)       || 1,
-        valor_unitario:   parseFloat(it.valor_unitario)   || null,
-        valor_total_item: parseFloat(it.valor_total_item) || null,
+        quantidade:       parseMoney(it.quantidade) || 1,
+        valor_unitario:   parseMoney(it.valor_unitario),
+        valor_total_item: parseMoney(it.valor_total_item),
       })),
-      parcelas: nf.parcelas.filter(p => p.valor_parcela).map((p, i, arr) => ({
+      parcelas: nf.parcelas.filter(p => parseMoney(p.valor_parcela) > 0).map((p, i, arr) => ({
         data_vencimento:  p.data_vencimento || null,
-        valor_parcela:    parseFloat(p.valor_parcela),
+        valor_parcela:    parseMoney(p.valor_parcela),
         forma_pgto:       p.forma_pgto,
         status_pagamento: p.status_pagamento,
         parcela_atual:    p.parcela_atual || (i + 1),
@@ -345,8 +357,9 @@ export default function FinalizarOsModal({ os, onClose, onSaved, editMode = fals
   
   const salvarNfEspecifica = async (ni) => {
     const nf = nfs[ni]
-    if (!nf.empresa_faturada || !nf.valor_total_nf || nf.parcelas.length === 0) {
-       setError(`Preencha a Empresa e o Valor Total da ${nfLabel(nf, ni)} antes de salvar.`)
+    const numValor = parseMoney(nf.valor_total_nf)
+    if (!nf.empresa_faturada || numValor <= 0 || nf.parcelas.length === 0) {
+       setError(`Preencha a Empresa e um Valor Total válido da ${nfLabel(nf, ni)} antes de salvar.`)
        return
     }
     setSaving(true); setError(null)
@@ -509,7 +522,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved, editMode = fals
                   {/* Dados de Execução Editáveis */}
                   <div className="bg-g-850 border border-g-800 rounded-xl p-4 flex flex-col gap-3">
                     <p className="text-g-500 text-xs font-semibold uppercase tracking-wider">Dados de Execução</p>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className={LABEL}>Data de Execução</label>
                         <input type="date" value={execFormEdit.data_execucao}
@@ -564,7 +577,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved, editMode = fals
               ) : (
                 <>
                   <p className="text-g-500 text-sm">Registre a data de execução e o resultado do serviço.</p>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <label className={LABEL}>Data de Execução *</label>
                       <input type="date" value={execForm.data_execucao}
@@ -634,9 +647,9 @@ export default function FinalizarOsModal({ os, onClose, onSaved, editMode = fals
                 )
 
                 const itensVisiveis  = nf.itens.filter(it => itemMatchesTipo(it, nf.tipo_nf))
-                const somaItens      = itensVisiveis.filter(it => it.incluir).reduce((s, it) => s + (parseFloat(it.valor_total_item) || 0), 0)
-                const somaParcelas   = nf.parcelas.reduce((s, p) => s + (parseFloat(p.valor_parcela) || 0), 0)
-                const valorNf        = parseFloat(nf.valor_total_nf) || 0
+                const somaItens      = itensVisiveis.filter(it => it.incluir).reduce((s, it) => s + parseMoney(it.valor_total_item), 0)
+                const somaParcelas   = nf.parcelas.reduce((s, p) => s + parseMoney(p.valor_parcela), 0)
+                const valorNf        = parseMoney(nf.valor_total_nf)
                 const difereItens    = valorNf > 0 && itensVisiveis.some(it => it.incluir) && Math.abs(somaItens - valorNf) > 0.01
                 const difereParcelas = valorNf > 0 && Math.abs(somaParcelas - valorNf) > 0.01
 
@@ -673,7 +686,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved, editMode = fals
                     <div className="p-5 flex flex-col gap-4">
 
                       {/* Linha 1: tipo_nf, numero_nf, empresa_faturada */}
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         <div>
                           <label className={LABEL}>Tipo NF *</label>
                           <select value={nf.tipo_nf} onChange={e => setNf(ni, 'tipo_nf', e.target.value)} className={FIELD}>
@@ -696,7 +709,7 @@ export default function FinalizarOsModal({ os, onClose, onSaved, editMode = fals
                       </div>
 
                       {/* Linha 2: fornecedor, data_emissao, valor_total_nf */}
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         <div>
                           <label className={LABEL}>Fornecedor</label>
                           <input value={nf.fornecedor}

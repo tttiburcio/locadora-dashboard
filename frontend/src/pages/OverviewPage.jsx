@@ -94,7 +94,7 @@ export default function OverviewPage({ kpis: k, monthly, vehicles, year, setPage
       {/* ── KPIs primários ── */}
       <Section title="Indicadores Chave" icon={BarChart2}
         badge={<TrackerStatusBadge online={trackerOnline} />}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { icon: Truck,      label: 'Veículos Ativos',  rawValue: k.veiculos_ativos,
               formatter: num,   sub: `${num(k.veiculos_total)} total · ${num(k.veiculos_lucrativos)} lucrativos`,
@@ -118,7 +118,7 @@ export default function OverviewPage({ kpis: k, monthly, vehicles, year, setPage
           ))}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
           {[
             { icon: Percent,  label: '% Lucrativos',   rawValue: pct_lucr,
               formatter: v => pct(v),
@@ -154,7 +154,7 @@ export default function OverviewPage({ kpis: k, monthly, vehicles, year, setPage
 
       {/* ── Melhor / Pior ── */}
       {(k.melhor_veiculo || k.pior_veiculo) && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {k.melhor_veiculo && (
             <div className="card border-g-700/60 p-4 flex items-center gap-3 stagger-child" style={{'--i': 1}}>
               <div className="p-2.5 bg-g-800 rounded-lg shrink-0 border border-g-700">
@@ -189,7 +189,7 @@ export default function OverviewPage({ kpis: k, monthly, vehicles, year, setPage
 
       {/* ── Receita ── */}
       <Section title="Receita" icon={DollarSign}>
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
           <KPICard icon={DollarSign} label="Rec. Locação"
             rawValue={k.receita_locacao} formatter={brlShort}
             sub={pct(k.receita_total > 0 ? k.receita_locacao / k.receita_total * 100 : 0) + ' do total'} />
@@ -215,7 +215,7 @@ export default function OverviewPage({ kpis: k, monthly, vehicles, year, setPage
 
       {/* ── Custos ── */}
       <Section title="Estrutura de Custos" icon={Wrench}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <KPICard icon={Wrench}   label="Manutenção"   rawValue={k.custo_manutencao}   formatter={brlShort}
             sub={pct(k.custo_total > 0 ? k.custo_manutencao   / k.custo_total * 100 : 0) + ' dos custos'} />
           <KPICard icon={Shield}   label="Seguro"        rawValue={k.custo_seguro}        formatter={brlShort}
@@ -225,8 +225,8 @@ export default function OverviewPage({ kpis: k, monthly, vehicles, year, setPage
           <KPICard icon={MapPin}   label="Rastreamento"  rawValue={k.custo_rastreamento}  formatter={brlShort}
             sub={pct(k.custo_total > 0 ? k.custo_rastreamento  / k.custo_total * 100 : 0) + ' dos custos'} />
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
             <ChartCard title="Receita vs Custos por Mês">
               <MonthlyCostChart data={monthly} />
             </ChartCard>
@@ -245,14 +245,14 @@ export default function OverviewPage({ kpis: k, monthly, vehicles, year, setPage
       {/* ── Saúde da frota ── */}
       {vehicles.length > 0 && (
         <Section title="Saúde da Frota" icon={Activity}>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <ChartCard title="Lucrativos vs Deficitários">
               <FleetHealthPie
                 lucrativos={k.veiculos_lucrativos}
                 deficitarios={k.veiculos_deficitarios}
               />
             </ChartCard>
-            <div className="col-span-2">
+            <div className="lg:col-span-2">
               <ChartCard title={`Top ${Math.min(10, vehicles.length)} Veículos por Margem`}>
                 <TopVehiclesChart vehicles={vehicles} n={10} />
               </ChartCard>

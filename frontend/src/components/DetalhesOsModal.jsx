@@ -198,8 +198,23 @@ export default function DetalhesOsModal({ manutencao: os, onClose, onDeleted }) 
   )]
 
   const allParcelas = (os.notas_fiscais || []).flatMap(nf => nf.parcelas || [])
-  const totalParcelas = allParcelas.length
-  const pagas = allParcelas.filter(p => p.status_pagamento === 'Pago').length
+  
+  const boletosUnicos = []
+  const mapaBoletos = {}
+  allParcelas.forEach(p => {
+    if (p.data_vencimento) {
+      if (!mapaBoletos[p.data_vencimento]) {
+        mapaBoletos[p.data_vencimento] = []
+        boletosUnicos.push(mapaBoletos[p.data_vencimento])
+      }
+      mapaBoletos[p.data_vencimento].push(p)
+    } else {
+      boletosUnicos.push([p])
+    }
+  })
+  
+  const totalParcelas = boletosUnicos.length
+  const pagas = boletosUnicos.filter(grupo => grupo.every(p => p.status_pagamento === 'Pago')).length
   const totalNfs = (os.notas_fiscais || []).reduce((s, nf) => s + (nf.valor_total_nf || 0), 0)
 
   const STATUS_COLOR = {
@@ -269,7 +284,7 @@ export default function DetalhesOsModal({ manutencao: os, onClose, onDeleted }) 
           {/* ── 1. Identificação da OS ── */}
           <div>
             <SectionTitle icon={Wrench} label="Ordem de Serviço" />
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
               <Field label="Data de Entrada"     value={dateBR(os.data_entrada)} />
               <Field label="Data de Execução"    value={dateBR(os.data_execucao)} />
               {dias !== null && (
@@ -365,7 +380,7 @@ export default function DetalhesOsModal({ manutencao: os, onClose, onDeleted }) 
             <div>
               <SectionTitle icon={FileText} label="Notas Fiscais" count={os.notas_fiscais.length} />
               {/* Resumo financeiro */}
-              <div className="grid grid-cols-3 gap-4 mb-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
                 <div className="bg-g-850 border border-g-800 rounded-xl p-4 text-center">
                   <p className="text-g-600 text-xs uppercase font-bold tracking-wider mb-1.5">Total NFs</p>
                   <p className="text-g-50 text-mono font-extrabold text-lg">{brl(totalNfs)}</p>

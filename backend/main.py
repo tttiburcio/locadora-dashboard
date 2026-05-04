@@ -149,18 +149,36 @@ def _migrate_parcelas_prorrogacao():
 def generate_numero_os_atomic(db: Session) -> str:
     """Gera numero_os atomicamente via UPSERT na tabela os_counters.
 
-    Seguro em concorrência (SQLite serializa writes). UNIQUE em
-    ordens_servico.numero_os é rede de proteção final.
+    Seguro em concorrência (SQLite serializa writes). Sincroniza com o maior
+    número de OS já existente no banco para evitar conflitos após migrações.
     """
     from sqlalchemy import text
     from datetime import datetime as _dt
     year = _dt.now().year
+    
+    # 1. Descobre o maior número de OS já existente (nova ou legado)
+    row_max = db.execute(text("""
+        SELECT COALESCE(MAX(CAST(SUBSTR(numero_os, 9) AS INTEGER)), 0) FROM (
+            SELECT numero_os FROM ordens_servico WHERE numero_os LIKE 'OS-' || :y || '-%'
+            UNION ALL
+            SELECT id_ord_serv as numero_os FROM manutencoes WHERE id_ord_serv LIKE 'OS-' || :y || '-%'
+        )
+    """), {"y": year}).fetchone()
+    max_existente = row_max[0] if row_max else 0
+
+    # 2. Garante que o contador nunca seja menor que o máximo existente
+    db.execute(text("""
+        INSERT INTO os_counters (ano, ultimo) VALUES (:y, :max_val)
+        ON CONFLICT(ano) DO UPDATE SET ultimo = MAX(ultimo, :max_val)
+    """), {"y": year, "max_val": max_existente})
+
+    # 3. Incrementa atomicamente e retorna o novo valor
     row = db.execute(text("""
-        INSERT INTO os_counters (ano, ultimo) VALUES (:y, 1)
-        ON CONFLICT(ano) DO UPDATE SET ultimo = os_counters.ultimo + 1
+        UPDATE os_counters SET ultimo = ultimo + 1 WHERE ano = :y
         RETURNING ultimo
     """), {"y": year}).fetchone()
     db.flush()
+    
     numero = row[0] if row else 1
     return f"OS-{year}-{str(numero).zfill(4)}"
 
@@ -585,6 +603,10 @@ def compute(year: int):
             # 1. Carregar Veículos da SQL para garantir que placas novas apareçam
             sql_frota = pd.read_sql("SELECT id as IDVeiculo, placa as Placa, marca as Marca, modelo as Modelo, status as Status, tipagem as Tipagem, implemento as Implemento FROM frota", conn)
             if not sql_frota.empty:
+                cols_to_merge = [c for c in ["AnoModelo", "TabelaFipe", "ValorImplemento", "ValorTotal"] if c in frota.columns]
+                if "Placa" in frota.columns and cols_to_merge:
+                    excel_data = frota[["Placa"] + cols_to_merge].dropna(subset=["Placa"]).drop_duplicates(subset=["Placa"])
+                    sql_frota = sql_frota.merge(excel_data, on="Placa", how="left")
                 frota = pd.concat([frota, sql_frota], ignore_index=True).drop_duplicates(subset=["Placa"], keep="last")
             
             # 2. Carregar OS Finalizadas do SQL para o ano selecionado
@@ -684,10 +706,8 @@ def compute(year: int):
                          .rename("Contrato")
                          .reset_index())
 
-    base_cols = ["IDVeiculo", "Placa", "Marca", "Modelo", "Status", "Tipagem", "Implemento", "AnoModelo"]
+    base_cols = ["IDVeiculo", "Placa", "Marca", "Modelo", "Status", "Tipagem", "Implemento", "AnoModelo", "TabelaFipe", "ValorImplemento", "ValorTotal"]
     base_cols = [c for c in base_cols if c in frota.columns]
-    if "ValorTotal" in frota.columns:
-        base_cols.append("ValorTotal")
 
     df = (
         frota[base_cols]
@@ -699,9 +719,17 @@ def compute(year: int):
         .join(c_imp,    how="left")
         .join(c_rast,   how="left")
         .join(dias,     how="left")
-        .fillna(0)
         .reset_index()
     )
+
+    numeric_cols = [
+        "ReceitaLocacao", "ReceitaReembolso", "ReceitaTotal", "CustoManutencao", 
+        "CustoSeguro", "CustoImpostos", "CustoRastreamento", "CustoTotal", 
+        "Trabalhado", "Parado"
+    ]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
     if not contrato_info.empty:
         df = df.merge(contrato_info, on="IDVeiculo", how="left")
@@ -889,6 +917,29 @@ def get_monthly(year: int = Query(..., ge=2000, le=2100)):
     return {"monthly": records}
 
 
+def _clean_year(val):
+    if pd.isna(val) or val is None:
+        return ""
+    try:
+        f = float(val)
+        if f == 0.0:
+            return ""
+        return str(int(f))
+    except Exception:
+        pass
+    s = str(val).strip()
+    if s.lower() in ("nan", "none", "nat", "0", "0.0", "—", ""):
+        return ""
+    return s
+
+def _clean_implemento(val):
+    if pd.isna(val) or val is None:
+        return ""
+    s = str(val).strip()
+    if s.lower() in ("nan", "none", "nat", "0", "0.0", "—", ""):
+        return ""
+    return s
+
 @app.get("/api/vehicles")
 def get_vehicles(year: int = Query(..., ge=2000, le=2100), region: str = Query(None)):
     df, _, _, fat, *_ = compute(year)
@@ -907,8 +958,8 @@ def get_vehicles(year: int = Query(..., ge=2000, le=2100), region: str = Query(N
             "marca":              str(row.get("Marca", "")),
             "modelo":             str(row.get("Modelo", "")),
             "tipagem":            str(row.get("Tipagem", "")),
-            "implemento":         str(row.get("Implemento", "")),
-            "ano_modelo":         str(row.get("AnoModelo", "")),
+            "implemento":         _clean_implemento(row.get("Implemento", "")),
+            "ano_modelo":         _clean_year(row.get("AnoModelo", "")),
             "status":             str(row.get("Status", "")),
             "contrato":           str(row.get("Contrato", "—")),
             "valor_total":        safe(row.get("ValorTotal", 0)),
@@ -982,11 +1033,13 @@ def _get_vehicle_body(placa: str, year: int):
         "marca":      _s(row["Marca"]),
         "modelo":     _s(row["Modelo"]),
         "tipagem":    _s(row.get("Tipagem", "")),
-        "implemento": _s(row.get("Implemento", "")),
+        "implemento": _clean_implemento(row.get("Implemento", "")),
         "status":     _s(row["Status"]),
         "contrato":   _s(row.get("Contrato", "—")),
         "valor_total": safe(row.get("ValorTotal", 0)),
-        "ano_modelo": _s(row.get("AnoModelo", "")),
+        "valor_tabela": safe(row.get("TabelaFipe", 0)),
+        "valor_implemento": safe(row.get("ValorImplemento", 0)),
+        "ano_modelo": _clean_year(row.get("AnoModelo", "")),
     }
 
     kpis_v = {
@@ -1631,6 +1684,123 @@ def executar_os(os_id: int, payload: schemas.OsExecutar, db: Session = Depends(g
     return os
 
 
+def _sync_os_to_excel(os: models.OrdemServico):
+    """Sincroniza OS finalizada para a aba 🔧 MANUTENCOES da planilha Locadora.xlsx."""
+    import pandas as pd
+    import numpy as np
+    from pathlib import Path
+
+    file_path = Path(__file__).parent.parent / "Locadora.xlsx"
+    if not file_path.exists():
+        logger.warning(f"Planilha {file_path} não encontrada para sincronização.")
+        return
+
+    try:
+        with pd.ExcelFile(file_path) as xl:
+            sheet_name = next((s for s in xl.sheet_names if "manutencao" in s.lower()), None)
+            if not sheet_name:
+                logger.warning("Aba de manutenção não encontrada no Excel.")
+                return
+            df = xl.parse(sheet_name)
+    except PermissionError:
+        raise HTTPException(
+            status_code=400,
+            detail="Erro ao ler a planilha Excel: o arquivo Locadora.xlsx está aberto. Por favor, feche-o e tente novamente."
+        )
+    except Exception as e:
+        logger.error(f"Erro ao ler a planilha para sincronização: {e}")
+        return
+
+    # Se a OS já existe na aba de manutenções, removemos para evitar duplicidade
+    if not df.empty and "IDOrdServ" in df.columns and os.numero_os:
+        df = df[df["IDOrdServ"].astype(str).str.strip() != str(os.numero_os).strip()].copy()
+
+    first_item = os.itens[0] if os.itens else None
+
+    # Gerar novos IDs incrementais
+    next_id = 1
+    if not df.empty and "IDManutencao" in df.columns:
+        valid_ids = pd.to_numeric(df["IDManutencao"], errors="coerce").dropna()
+        if not valid_ids.empty:
+            next_id = int(valid_ids.max()) + 1
+
+    new_rows = []
+    nfs_ativas = [nf for nf in os.notas_fiscais if nf.deletado_em is None]
+    
+    for nf in nfs_ativas:
+        parcelas_ativas = [p for p in nf.parcelas if p.deletado_em is None]
+        for p in parcelas_ativas:
+            new_rows.append({
+                "IDManutencao": next_id,
+                "ValidaNovaOS": np.nan,
+                "IDOrdServ": os.numero_os,
+                "NFOrdem": nf.nf_ordem_origem if hasattr(nf, "nf_ordem_origem") and nf.nf_ordem_origem else np.nan,
+                "TotalOS": float(os.total_os) if os.total_os else np.nan,
+                "Empresa": os.empresa,
+                "Placa": os.placa,
+                "IDVeiculo": os.id_veiculo,
+                "IDContrato": os.id_contrato,
+                "Modelo": os.modelo,
+                "Implemento": os.implemento,
+                "Fornecedor": nf.fornecedor or os.fornecedor,
+                "Nota": nf.numero_nf,
+                "Data Venc.": pd.to_datetime(p.data_vencimento).strftime("%Y-%m-%d") if p.data_vencimento else np.nan,
+                "ParcelaAtual": p.parcela_atual,
+                "ParcelaTotal": p.parcela_total,
+                "ValorParcela": float(p.valor_parcela) if p.valor_parcela else np.nan,
+                "FormaPgto": p.forma_pgto,
+                "Categoria": nf.tipo_nf or os.categoria,
+                "Status": p.status_pagamento,
+                "TipoManutencao": os.tipo_manutencao,
+                "Sistema": first_item.sistema if first_item else np.nan,
+                "Serviço": first_item.servico if first_item else np.nan,
+                "Descricao": first_item.descricao if first_item else np.nan,
+                "QtdItens": first_item.qtd_itens if first_item else np.nan,
+                "KM": float(os.km) if os.km else np.nan,
+                "PosiçãoPneu": first_item.posicao_pneu if first_item else np.nan,
+                "QtdPneu": first_item.qtd_pneu if first_item else np.nan,
+                "EspecificaçãoPneu": first_item.espec_pneu if first_item else np.nan,
+                "MarcaPneu": first_item.marca_pneu if first_item else np.nan,
+                "ManejoPneu": first_item.manejo_pneu if first_item else np.nan,
+                "DataExecução": pd.to_datetime(os.data_execucao or os.data_entrada).strftime("%Y-%m-%d") if (os.data_execucao or os.data_entrada) else np.nan,
+                "ResponsavelTec": os.responsavel_tec,
+                "Indisponível": 1 if os.indisponivel else 0,
+                "ProxKM": float(os.prox_km) if os.prox_km else np.nan,
+                "ProxData": pd.to_datetime(os.prox_data).strftime("%Y-%m-%d") if os.prox_data else np.nan,
+                "Obsercacoes": os.observacoes,
+            })
+            next_id += 1
+
+    if new_rows:
+        # Corrige case das colunas de acordo com as colunas já existentes no dataframe
+        for r in new_rows:
+            r_copy = r.copy()
+            for k, v in r_copy.items():
+                matching_col = next((c for c in df.columns if c.lower() == k.lower()), None)
+                if matching_col and matching_col != k:
+                    r[matching_col] = r.pop(k)
+
+        df_new = pd.DataFrame(new_rows)
+        # Garante que todas as colunas existem
+        for col in df.columns:
+            if col not in df_new.columns:
+                df_new[col] = np.nan
+        df_new = df_new[df.columns]
+        
+        df_final = pd.concat([df, df_new], ignore_index=True)
+        
+        try:
+            with pd.ExcelWriter(file_path, mode="a", engine="openpyxl", if_sheet_exists="replace") as writer:
+                df_final.to_excel(writer, sheet_name=sheet_name, index=False)
+        except PermissionError:
+            raise HTTPException(
+                status_code=400,
+                detail="Erro ao salvar na planilha Excel: o arquivo Locadora.xlsx está aberto. Por favor, feche-o e tente novamente."
+            )
+        except Exception as e:
+            logger.error(f"Erro ao gravar os dados de OS na planilha: {e}")
+
+
 @app.post("/api/db/os/{os_id}/finalizar", response_model=schemas.OsResponse)
 def finalizar_os(os_id: int, db: Session = Depends(get_db)):
     """Finaliza OS. Retorna 422 se inconsistência financeira."""
@@ -1651,6 +1821,7 @@ def finalizar_os(os_id: int, db: Session = Depends(get_db)):
 
     os.status_os = "finalizada"
     os.indisponivel = False
+    _sync_os_to_excel(os)
     db.commit()
     db.refresh(os)
     return os
@@ -1703,11 +1874,35 @@ def listar_nfs(os_id: int, db: Session = Depends(get_db)):
     return [nf for nf in os.notas_fiscais if nf.deletado_em is None]
 
 
+def _validar_nf_duplicada(db: Session, numero_nf: str, fornecedor: str, current_nf_id: int = None, os_id: int = None):
+    if not numero_nf or not fornecedor:
+        return
+    n = str(numero_nf).strip()
+    f = str(fornecedor).strip()
+    if not n or not f:
+        return
+        
+    q = db.query(models.NotaFiscal).filter(
+        models.NotaFiscal.numero_nf == n,
+        models.NotaFiscal.fornecedor == f,
+        models.NotaFiscal.deletado_em == None
+    )
+    if os_id:
+        q = q.filter(models.NotaFiscal.os_id == os_id)
+        
+    if current_nf_id:
+        q = q.filter(models.NotaFiscal.id != current_nf_id)
+        
+    if q.first():
+        raise HTTPException(400, f"A Nota Fiscal '{n}' já foi lançada para o fornecedor '{f}' nesta mesma OS.")
+
 @app.post("/api/db/os/{os_id}/nfs", response_model=schemas.NotaFiscalResponse, status_code=201)
 def adicionar_nf(os_id: int, payload: schemas.NotaFiscalCreate, db: Session = Depends(get_db)):
     os = db.get(models.OrdemServico, os_id)
     if not os or os.deletado_em is not None:
         raise HTTPException(404, "OS não encontrada")
+
+    _validar_nf_duplicada(db, payload.numero_nf, payload.fornecedor, os_id=os_id)
 
     # Gera numero_os atomicamente na 1ª NF
     if os.numero_os is None:
@@ -1738,14 +1933,8 @@ def sync_nfs(os_id: int, payload: list[schemas.NotaFiscalCreate], db: Session = 
     if not os_obj or os_obj.deletado_em is not None:
         raise HTTPException(404, "OS não encontrada")
 
-    # Verifica se existem parcelas pagas, para bloquear exclusão
-    for old_nf in os_obj.notas_fiscais:
-        if old_nf.deletado_em is None:
-            for p in old_nf.parcelas:
-                if p.status_pagamento == "Pago":
-                    raise HTTPException(400, "A OS possui parcelas já pagas e não pode ter suas NFs recriadas.")
-
-    # Hard delete das notas antigas (estamos em modo rascunho de finalização)
+    # Permite edição/recriação completa durante a finalização/edição da OS
+    # para permitir que o usuário adicione notas fiscais e atualize parcelas.
     for old_nf in list(os_obj.notas_fiscais):
         db.delete(old_nf)
     db.flush()
@@ -1755,6 +1944,7 @@ def sync_nfs(os_id: int, payload: list[schemas.NotaFiscalCreate], db: Session = 
 
     nfs_criadas = []
     for nf_data in payload:
+        _validar_nf_duplicada(db, nf_data.numero_nf, nf_data.fornecedor, os_id=os_id)
         data = nf_data.model_dump(exclude={"itens", "parcelas"})
         nf = models.NotaFiscal(os_id=os_id, **data)
         db.add(nf)
@@ -1786,6 +1976,9 @@ def atualizar_nf(nf_id: int, payload: schemas.NotaFiscalUpdate, db: Session = De
 
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(nf, field, value)
+
+    _validar_nf_duplicada(db, nf.numero_nf, nf.fornecedor, current_nf_id=nf.id, os_id=nf.os_id)
+
     db.commit()
     db.refresh(nf)
     return nf

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Truck, Wrench, ChevronDown, Menu } from 'lucide-react'
+import { LayoutDashboard, Truck, Wrench, ChevronDown, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 
 const LEGENDS = {
@@ -34,23 +34,43 @@ const NAV = [
   { key: 'maintenance',  label: 'Manutenção',   icon: Wrench },
 ]
 
-export default function Sidebar({ page, setPage, years, year, setYear, isCollapsed, setIsCollapsed }) {
+export default function Sidebar({ page, setPage, years, year, setYear, isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen }) {
   const legend = LEGENDS[page] || LEGENDS.overview
   const [showYears, setShowYears] = useState(false)
 
   return (
-    <aside className={`${isCollapsed ? 'w-20' : 'w-56'} shrink-0 flex flex-col bg-g-950 border-r border-g-900 h-screen transition-all duration-300 ease-in-out`}>
-      {/* Topo */}
-      <div className={`px-4 pt-2 pb-3 border-b border-g-900 flex flex-col ${isCollapsed ? 'items-center' : ''}`}>
-        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'} mb-1`}>
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 transition-colors"
-            title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-        </div>
+    <>
+      {/* Overlay para mobile */}
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm animate-fade-in"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      <aside 
+        className={`fixed inset-y-0 left-0 z-50 md:relative md:flex ${
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        } ${isCollapsed ? 'w-20' : 'w-56'} shrink-0 flex flex-col bg-g-950 border-r border-g-900 h-screen transition-all duration-300 ease-in-out`}
+      >
+        {/* Topo */}
+        <div className={`px-4 pt-2 pb-3 border-b border-g-900 flex flex-col ${isCollapsed ? 'items-center' : ''}`}>
+          <div className={`flex items-center justify-between mb-1`}>
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 transition-colors hidden md:block"
+              title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              className="p-1.5 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 transition-colors block md:hidden"
+              title="Fechar menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
         {!isCollapsed ? (
           <div className="flex flex-col items-center px-1">
@@ -119,7 +139,7 @@ export default function Sidebar({ page, setPage, years, year, setYear, isCollaps
         {NAV.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setPage(key)}
+            onClick={() => { setPage(key); setIsMobileOpen && setIsMobileOpen(false); }}
             className={`nav-item flex items-center gap-3 transition-all duration-200 ${
               page === key ? 'nav-item-active' : 'nav-item-inactive'
             } ${isCollapsed ? 'w-10 h-10 justify-center px-0' : 'w-full px-3'}`}
@@ -153,6 +173,7 @@ export default function Sidebar({ page, setPage, years, year, setYear, isCollaps
           </div>
         </div>
       )}
-    </aside>
+      </aside>
+    </>
   )
 }

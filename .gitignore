@@ -21,5 +21,4 @@ Thumbs.db
 .claude/
 
 # Runtime artifacts
-locadora.db
 *.log

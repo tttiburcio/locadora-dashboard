@@ -58,6 +58,8 @@ const EMPRESA_NOME_MAP = {
   'TKJ': 'TKJ', 'FINITA': 'FINITA', 'LANDKRAFT': 'LANDKRAFT',
   '1': 'TKJ', '2': 'FINITA', '3': 'LANDKRAFT',
 }
+const MONTHS_BR = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
 function resolveEmpresaNome(cod) {
   if (!cod) return null
   const key = String(cod).toUpperCase().trim()
@@ -432,8 +434,25 @@ function GestaoTab({ year }) {
   // flatten first item for filter/sort display
   const withDisplay = list => list.map(o => {
     const allParcelas = (o.notas_fiscais || []).flatMap(nf => nf.parcelas || [])
-    const totalParcelas = allParcelas.length
-    const pagas = allParcelas.filter(p => p.status_pagamento === 'Pago').length
+    
+    // Agrupar parcelas por data de vencimento (mesmo boleto)
+    const boletosUnicos = []
+    const mapaBoletos = {}
+    allParcelas.forEach(p => {
+      if (p.data_vencimento) {
+        if (!mapaBoletos[p.data_vencimento]) {
+          mapaBoletos[p.data_vencimento] = []
+          boletosUnicos.push(mapaBoletos[p.data_vencimento])
+        }
+        mapaBoletos[p.data_vencimento].push(p)
+      } else {
+        boletosUnicos.push([p])
+      }
+    })
+    
+    const totalParcelas = boletosUnicos.length
+    const pagas = boletosUnicos.filter(grupo => grupo.every(p => p.status_pagamento === 'Pago')).length
+    
     return {
       ...o,
       _sistema: o.itens?.[0]?.sistema || '',
@@ -453,8 +472,8 @@ function GestaoTab({ year }) {
   const filteredFin = useMemo(() => {
     const byYear = year
       ? finalizadas.filter(o => {
-          const dateStr = o.data_execucao || o.data_entrada
-          if (!dateStr) return false
+          const dateStr = o.data_execucao || o.data_entrada || o.criado_em || (o.notas_fiscais?.[0]?.data_emissao)
+          if (!dateStr) return true // Para evitar que a OS suma do sistema
           return new Date(dateStr).getFullYear() === parseInt(year)
         })
       : finalizadas
@@ -465,7 +484,7 @@ function GestaoTab({ year }) {
     <div className="flex flex-col gap-6">
 
       {/* KPIs rápidos */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="card p-4 flex items-center gap-3">
           <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg">
             <Clock className="w-4 h-4 text-amber-600" />
@@ -587,7 +606,7 @@ function GestaoTab({ year }) {
                 <Search className="w-4 h-4" /> Nenhum resultado para "{filterAberta}"
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', padding: '24px' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                 {filteredAbertas.map(o => {
                   const dias = o.indisponivel && o.data_entrada ? diasParados(o.data_entrada) : null;
                   const borderCol = o.status_os === 'aguardando_peca' ? 'border-orange-500' :
@@ -758,7 +777,7 @@ function GestaoTab({ year }) {
                 <Search className="w-4 h-4" /> Nenhum resultado para "{filterFin}"
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', padding: '24px' }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
                 {filteredFin.map(o => {
                   const dias = o.indisponivel && o.data_entrada && o.data_execucao ? diasParados(o.data_entrada, o.data_execucao) : null
                   const totalParcelas = o._totalParcelas ?? 0
@@ -941,12 +960,15 @@ function statusFinanceiro(p) {
   return 'pendente'
 }
 
-function calcValorComEncargos(valorBase, multaPct, jurosDiarioPct, dataVenc) {
+function calcValorComEncargos(valorBase, multaPct, jurosDiarioPct, dataVenc, dataFim = null) {
   if (!valorBase) return valorBase
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
   const venc = parseLocalDate(dataVenc)
   if (!venc) return valorBase
-  const diasAtraso = Math.max(0, Math.round((hoje - venc) / 86400000))
+  
+  const fim = dataFim ? parseLocalDate(dataFim) : new Date()
+  if (!dataFim) fim.setHours(0, 0, 0, 0)
+  
+  const diasAtraso = Math.max(0, Math.round((fim - venc) / 86400000))
   const multa = valorBase * ((parseFloat(multaPct) || 0) / 100)
   const juros = valorBase * ((parseFloat(jurosDiarioPct) || 0) / 100) * diasAtraso
   return valorBase + multa + juros
@@ -1058,17 +1080,20 @@ function ProrrogarParcelaModal({ parcela: p, onClose, onSaved }) {
   const valorBase = parseFloat(p.valor_parcela) || 0
   const dataVencRef = p.data_vencimento_original || p.data_vencimento
 
-  const valorEncargos = useMemo(() => {
-    if (modo === 'prorrogada_encargos' || modo === 'cartorio') {
-      return calcValorComEncargos(valorBase, form.multa_pct, form.juros_diario_pct, dataVencRef)
-    }
-    return null
-  }, [modo, form.multa_pct, form.juros_diario_pct, valorBase, dataVencRef])
-
   const dataCartorio = useMemo(() =>
     calcDataCartorio(dataVencRef, form.dias_cartorio),
     [dataVencRef, form.dias_cartorio]
   )
+
+  const dataAlvoEncargos = form.data_prevista_pagamento || form.nova_data || null
+
+  const valorEncargos = useMemo(() => {
+    if (modo === 'prorrogada_encargos' || modo === 'cartorio') {
+      const alvo = modo === 'cartorio' ? dataCartorio : dataAlvoEncargos
+      return calcValorComEncargos(valorBase, form.multa_pct, form.juros_diario_pct, dataVencRef, alvo)
+    }
+    return null
+  }, [modo, form.multa_pct, form.juros_diario_pct, valorBase, dataVencRef, dataAlvoEncargos, dataCartorio])
 
   const handleSave = async () => {
     setError(null)
@@ -1228,6 +1253,21 @@ function ProrrogarParcelaModal({ parcela: p, onClose, onSaved }) {
                 <div className="bg-g-850 border border-g-800 rounded-xl px-4 py-3 text-xs flex flex-col gap-1">
                   <div className="flex justify-between text-g-600"><span>Valor base</span><span className="font-mono">{brl(valorBase)}</span></div>
                   <div className="flex justify-between text-g-600"><span>Multa ({form.multa_pct || 0}%)</span><span className="font-mono">{brl(valorBase * ((parseFloat(form.multa_pct) || 0) / 100))}</span></div>
+                  {(() => {
+                    const alvo = modo === 'cartorio' ? dataCartorio : dataAlvoEncargos
+                    if (!alvo || !dataVencRef) return null
+                    const v = parseLocalDate(dataVencRef)
+                    const f = parseLocalDate(alvo)
+                    if (!v || !f) return null
+                    const dias = Math.max(0, Math.round((f - v) / 86400000))
+                    const juros = valorBase * ((parseFloat(form.juros_diario_pct) || 0) / 100) * dias
+                    return (
+                      <div className="flex justify-between text-g-600">
+                        <span>Juros ({form.juros_diario_pct || 0}% x {dias} dias)</span>
+                        <span className="font-mono">{brl(juros)}</span>
+                      </div>
+                    )
+                  })()}
                   <div className="flex justify-between text-g-600 border-t border-g-800 pt-1 mt-1"><span>Valor atualizado</span><span className="font-mono font-semibold text-amber-400">{brl(valorEncargos)}</span></div>
                 </div>
               )}
@@ -1552,11 +1592,10 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
       const [parcelasReal, osListData] = await Promise.all([dbListParcelas(year), dbListOs()])
       const osList = osListData
 
-      // NFs que já têm parcelas explícitas (usa nf.parcelas do OS para cobrir todos os anos,
-      // não apenas o ano filtrado — evita dupla contagem inter-anos)
-      const nfIdsComParcelas = new Set(
-        osList.flatMap(os => (os.notas_fiscais || []).filter(nf => nf.parcelas?.length > 0).map(nf => nf.id))
-      )
+      // NFs que já têm parcelas explícitas registradas no banco (em qualquer ano)
+      // Para ser 100% preciso, precisaríamos saber se a NF tem parcelas em qualquer ano, 
+      // mas como dbListParcelas(year) é filtrado, vamos considerar apenas as do ano atual para o filtro de sintéticas.
+      const nfIdsComParcelas = new Set(parcelasReal.map(p => p.nf_id).filter(Boolean))
       const anoSelecionado = year ? parseInt(year) : null
 
       const sinteticas = []
@@ -1676,9 +1715,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
     let r = baseFiltered
     if (categoria !== 'todas') {
       r = r.filter(p => {
-        if (categoria === 'pendente') {
-          return ['pendente', 'prorrogada', 'vencida', 'vence_hoje'].includes(p._status)
-        }
+        if (categoria === 'pendente') return ['pendente', 'prorrogada', 'vencida', 'vence_hoje'].includes(p._status)
         return p._status === categoria
       })
     }
@@ -1696,7 +1733,33 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
       })
     }
     return r
-  }, [enriched, categoria, filterText, filterEmpresa, filterMes, sort])
+  }, [baseFiltered, categoria, sort])
+
+  // Filtro específico para Por Nota: ignora o mês para mostrar o ano todo com separação mensal
+  const nfFiltered = useMemo(() => {
+    let r = enriched
+    if (filterEmpresa) {
+      r = r.filter(p => {
+        const cod = String(parseInt(parseFloat(p.empresa)))
+        const sigla = empresaSigla(p.empresa, p.empresa_nome)
+        return cod === filterEmpresa || sigla === filterEmpresa
+      })
+    }
+    if (filterText.trim()) {
+      const q = filterText.toLowerCase()
+      r = r.filter(p =>
+        [p.placa, p.fornecedor, p.id_ord_serv, p.nota, p.modelo, p.empresa_nome, p.contrato_nome]
+          .some(f => (f || '').toLowerCase().includes(q))
+      )
+    }
+    if (categoria !== 'todas') {
+      r = r.filter(p => {
+        if (categoria === 'pendente') return ['pendente', 'prorrogada', 'vencida', 'vence_hoje'].includes(p._status)
+        return p._status === categoria
+      })
+    }
+    return r
+  }, [enriched, filterText, filterEmpresa, categoria])
 
   const venceHojeList = useMemo(() => baseFiltered.filter(p => p._status === 'vence_hoje' || p._status === 'vencida'), [baseFiltered])
 
@@ -1707,54 +1770,84 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
   }, [loading, enriched, alertDismissed])
 
 
-  // ── Agrupamento por Nota Fiscal ────────────────────────────────────
-  const nfGroups = useMemo(() => {
-    const nfMeta = new Map()
-    for (const os of osList) {
-      for (const nf of os.notas_fiscais || []) {
-        if (!nfMeta.has(nf.id)) {
-          const empCod = nf.empresa_faturada || os.empresa
-          nfMeta.set(nf.id, {
-            nf_id:       nf.id,
-            numero_nf:   nf.numero_nf,
-            fornecedor:  nf.fornecedor || os.fornecedor,
-            fornecedor_os: os.fornecedor,
-            placa:       os.placa,
-            modelo:      os.modelo,
-            empresa:     empCod,
-            empresa_nome: resolveEmpresaNome(empCod),
-            id_contrato: os.id_contrato,
-            numero_os:   os.numero_os,
-            valor_total_nf: nf.valor_total_nf,
-            data_emissao:   nf.data_emissao,
-            data_execucao:  os.data_execucao,
-            parcelas:    [],
-          })
+  // Agrupamento por Mês e depois por Nota Fiscal
+  const nfGroupsByMonth = useMemo(() => {
+    const monthsMap = new Map() // Map<number, Map<string, object>>
+
+    // 1. Mapeia as parcelas para seus respectivos meses e grupos de NF
+    for (const p of nfFiltered) {
+      const date = p.data_prevista_pagamento || p.data_vencimento
+      const month = date ? parseInt(date.slice(5, 7)) : 0 // 0 = Sem data
+      
+      if (!monthsMap.has(month)) monthsMap.set(month, new Map())
+      const monthGroup = monthsMap.get(month)
+      
+      const nfKey = `${p.nota || 'S/N'}|${p.fornecedor || 'Desconhecido'}`.toLowerCase()
+      
+      if (!monthGroup.has(nfKey)) {
+        monthGroup.set(nfKey, {
+          nfKey,
+          numero_nf: p.nota,
+          fornecedor: p.fornecedor,
+          placas: new Set(),
+          osList: new Set(),
+          parcelas: [],
+          month,
+        })
+      }
+      
+      const g = monthGroup.get(nfKey)
+      g.parcelas.push(p)
+      if (p.placa) g.placas.add(p.placa)
+      if (p.id_ord_serv) g.osList.add(p.id_ord_serv)
+    }
+
+    // 2. Transforma em array e enriquece com metadados e subtotais
+    const result = []
+    const sortedMonths = Array.from(monthsMap.keys()).sort((a, b) => a - b)
+
+    for (const mIdx of sortedMonths) {
+      const invoicesMap = monthsMap.get(mIdx)
+      const invoices = Array.from(invoicesMap.values()).map(g => {
+        const pList = g.parcelas
+        
+        const hasVencida    = pList.some(p => p._status === 'vencida')
+        const hasVenceHoje  = pList.some(p => p._status === 'vence_hoje')
+        const hasProrrogada = pList.some(p => p._status === 'prorrogada')
+        
+        // Dados globais da NF para o contador total (pode haver parcelas em outros meses)
+        const globalNfParcelas = enriched.filter(p => 
+          `${p.nota || 'S/N'}|${p.fornecedor || 'Desconhecido'}`.toLowerCase() === g.nfKey
+        )
+        const globalPago = globalNfParcelas.filter(p => p._status === 'pago').length
+        const globalTotal = globalNfParcelas.length
+        const allPagoGlobal = globalTotal > 0 && globalPago === globalTotal
+
+        const nextPending = pList.filter(p => p._status !== 'pago').sort((a, b) => (a.data_vencimento || '').localeCompare(b.data_vencimento || ''))[0]
+
+        return {
+          ...g,
+          placasList: Array.from(g.placas).sort(),
+          osList: Array.from(g.osList).sort(),
+          nextVencimento: nextPending ? nextPending.data_vencimento : pList[0]?.data_vencimento,
+          nextValor: nextPending ? (parseFloat(nextPending.valor_atualizado ?? nextPending.valor_parcela) || 0) : 0,
+          totalGeral: pList.reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0),
+          countPago: globalPago,
+          countTotal: globalTotal,
+          allPago: allPagoGlobal,
+          hasVencida, hasVenceHoje, hasProrrogada
         }
-      }
-    }
-    // Usa "filtered" (respeita categoria e busca) para popular as parcelas dos grupos
-    for (const p of filtered) {
-      if (p.nf_id && nfMeta.has(p.nf_id)) {
-        nfMeta.get(p.nf_id).parcelas.push(p)
-      }
-    }
-    return [...nfMeta.values()]
-      .filter(g => g.parcelas.length > 0)
-      .map(g => {
-        const totalPago     = g.parcelas.filter(p => p._status === 'pago').reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
-        const totalPendente = g.parcelas.filter(p => p._status !== 'pago').reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
-        const hasVencida    = g.parcelas.some(p => p._status === 'vencida')
-        const hasVenceHoje  = g.parcelas.some(p => p._status === 'vence_hoje')
-        const allPago       = g.parcelas.every(p => p._status === 'pago')
-        return { ...g, totalPago, totalPendente, hasVencida, hasVenceHoje, allPago }
+      }).sort((a, b) => (a.nextVencimento || '').localeCompare(b.nextVencimento || ''))
+
+      result.push({
+        month: mIdx,
+        monthName: mIdx ? MONTHS_BR[mIdx - 1] : 'Sem data',
+        invoices,
+        subtotal: invoices.reduce((s, inv) => s + inv.totalGeral, 0)
       })
-      .sort((a, b) => {
-        const aDate = a.parcelas.map(p => p.data_vencimento).filter(Boolean).sort()[0] || ''
-        const bDate = b.parcelas.map(p => p.data_vencimento).filter(Boolean).sort()[0] || ''
-        return aDate.localeCompare(bDate)
-      })
-  }, [baseFiltered, osList])
+    }
+    return result
+  }, [nfFiltered, enriched])
 
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
   const totalPendente  = baseFiltered.filter(p => p._status !== 'pago').reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
@@ -1905,159 +1998,224 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
       {/* View: Por Nota Fiscal */}
       {!loading && viewMode === 'notas' && (
         <div className="flex flex-col gap-3">
-          {nfGroups.length === 0 ? (
+          {nfGroupsByMonth.length === 0 ? (
             <div className="card flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
               <Search className="w-4 h-4" /> Nenhuma nota nesta categoria
             </div>
-          ) : nfGroups.map(g => {
-            const expanded = expandedNfs.has(g.nf_id)
-            const toggleExpand = () => setExpandedNfs(prev => {
-              const next = new Set(prev)
-              expanded ? next.delete(g.nf_id) : next.add(g.nf_id)
-              return next
-            })
-            const statusColor = g.hasVencida    ? 'border-l-red-500'
-                               : g.hasVenceHoje  ? 'border-l-orange-400'
-                               : g.allPago       ? 'border-l-emerald-500'
-                               : 'border-l-g-700'
-            return (
-              <div key={g.nf_id} className={`card border-l-4 ${statusColor} overflow-hidden`}>
-                {/* Header da NF */}
-                <button
-                  onClick={toggleExpand}
-                  className="w-full flex items-center gap-3 p-4 hover:bg-g-850 transition-colors text-left"
-                >
-                  <div className="flex-1 grid grid-cols-[80px_1.5fr_1fr_1fr_auto_80px] gap-x-2.5 items-center min-w-0">
-                    <span className="font-mono font-bold text-g-200 text-sm">{g.placa}</span>
-                    <span className="text-g-500 text-xs truncate">{g.fornecedor || '—'}</span>
-                    <span className="text-g-600 text-xs font-mono truncate">{g.numero_os || '—'}</span>
-                    <span className="text-g-500 text-xs truncate">
-                      NF <span className="text-g-300 font-medium">{g.numero_nf || '—'}</span>
-                    </span>
-                    <div className="text-right">
-                      <span className="font-mono font-bold text-g-200 text-sm tabular-nums">{brl(g.valor_total_nf)}</span>
-                      {g.totalPago > 0 && g.totalPago < (g.valor_total_nf || 0) && (
-                        <span className="block text-emerald-600 text-xs">{brl(g.totalPago)} pago</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 ml-2">
-                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
-                        g.hasVencida   ? 'bg-red-50/20 text-red-400 border-red-400/30'
-                        : g.hasVenceHoje ? 'bg-orange-50/20 text-orange-400 border-orange-400/30'
-                        : g.allPago    ? 'bg-emerald-50/20 text-emerald-500 border-emerald-500/30'
-                        : 'bg-slate-50/10 text-g-500 border-g-700'
-                      }`}>
-                        {g.hasVencida ? 'Vencida' : g.hasVenceHoje ? 'Vence hoje' : g.allPago ? 'Pago' : 'Pendente'}
-                      </span>
-                      {expanded
-                        ? <ChevronUp className="w-3.5 h-3.5 text-g-600" />
-                        : <ChevronDown className="w-3.5 h-3.5 text-g-600" />}
-                    </div>
-                  </div>
-                </button>
-
-                {/* Parcelas expandidas */}
-                {expanded && (
-                  <div className="border-t border-g-800">
-                    <table className="w-full">
-                      <thead className="bg-g-850">
-                        <tr>
-                          <th className="th th-left text-[10px]">Parcela</th>
-                          <th className="th th-left text-[10px]">Vencimento</th>
-                          <th className="th text-[10px]">Valor</th>
-                          <th className="th text-[10px]">Status</th>
-                          <th className="th th-left text-[10px]">Previsão Pgto</th>
-                          <th className="th text-[10px]">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {g.parcelas.map(p => {
-                          const previsao = p.prorrogada
-                            ? (p.data_prevista_pagamento || p.data_vencimento)
-                            : p.data_prevista_pagamento
-                          const prevAtrasada = previsao && p.status_pagamento !== 'Pago' && new Date(previsao) < hoje
-                          return (
-                            <tr
-                              key={p.id}
-                              onClick={() => setModalDetalhe(p)}
-                              className="border-b border-g-800 hover:bg-g-850 transition-colors cursor-pointer"
-                            >
-                              <td className="td td-left text-xs text-g-600 tabular-nums">
-                                {p.parcela_atual && p.parcela_total ? `${p.parcela_atual} / ${p.parcela_total}` : '—'}
-                              </td>
-                              <td className="td td-left text-xs text-g-500 tabular-nums">
-                                <span className="flex items-center gap-1">
-                                  {p.prorrogada ? dateBR(p.data_vencimento_original) : dateBR(p.data_vencimento)}
-                                  {p.prorrogada && <span className="text-purple-500 text-xs" title={`Nova data: ${dateBR(p.data_vencimento)}`}>↻</span>}
-                                  {p._status === 'vencida' && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                                </span>
-                              </td>
-                              <td className="td font-mono font-semibold text-g-300 tabular-nums text-sm">
-                                {brl(p.valor_atualizado ?? p.valor_parcela)}
-                                {p.valor_atualizado && p.valor_atualizado !== p.valor_parcela && (
-                                  <span className="block text-g-700 text-xs font-normal">{brl(p.valor_parcela)} orig.</span>
-                                )}
-                              </td>
-                              <td className="td"><FinBadge status={p._status} /></td>
-                              <td className="td td-left text-xs tabular-nums">
-                                {previsao ? (
-                                  <span className={`flex items-center gap-1 ${prevAtrasada ? 'text-red-500 font-medium' : 'text-g-500'}`}>
-                                    {dateBR(previsao)}{prevAtrasada && <AlertTriangle className="w-3 h-3" />}
-                                  </span>
-                                ) : '—'}
-                              </td>
-                              <td className="td td-right !pr-1.5" onClick={e => e.stopPropagation()}>
-                                {p._isSintetica ? (
-                                  <div className="flex items-center justify-end gap-1">
-                                    <span className="text-[10px] text-g-700 italic px-1">via NF</span>
-                                    <button onClick={() => handleMarcarPagoSintetica(p)} className="px-2 py-1 text-xs text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors">Pago</button>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center justify-end gap-1">
-                                    {p._status !== 'pago' && (
-                                      <button onClick={() => setModalProrrogar(p)} className="px-2 py-1 text-xs text-g-400 border border-g-800 rounded-lg hover:bg-g-850 hover:text-g-200 transition-colors flex items-center gap-1">
-                                        <CalendarClock className="w-3 h-3" /> Prorrogar
-                                      </button>
-                                    )}
-                                    {p._status !== 'pago' && (
-                                      <button onClick={() => handleMarcarPago(p)} className="px-2 py-1 text-xs text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors">Pago</button>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                      <tfoot className="bg-g-850 border-t border-g-700">
-                        <tr>
-                          <td colSpan={2} className="td td-left text-xs text-g-600 font-semibold uppercase tracking-wider">
-                            {g.parcelas.length} {g.parcelas.length === 1 ? 'parcela' : 'parcelas'}
-                          </td>
-                          <td className="td font-mono font-bold text-g-200 tabular-nums text-sm">
-                            {brl(g.totalPendente + g.totalPago)}
-                            {g.totalPago > 0 && <span className="block text-emerald-600 text-xs font-normal">{brl(g.totalPago)} pago</span>}
-                          </td>
-                          <td colSpan={3} />
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          {nfGroups.length > 0 && (
-            <div className="card p-4 flex items-center justify-end gap-10">
-              <span className="text-g-600 text-xs font-semibold uppercase tracking-wider">
-                Total Geral ({nfGroups.length} notas)
-              </span>
-              <div className="text-right">
-                <span className="text-g-600 text-[10px] block uppercase font-bold mb-0.5">Soma Total</span>
-                <span className="font-mono font-bold text-g-200 text-xl tabular-nums">
-                  {brl(nfGroups.reduce((s, g) => s + g.totalPendente + g.totalPago, 0))}
+          ) : nfGroupsByMonth.map(mGroup => (
+            <div key={mGroup.month} className="flex flex-col gap-3">
+              {/* Cabeçalho do Mês */}
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-g-500 text-[10px] uppercase font-bold tracking-[0.2em] whitespace-nowrap">
+                  {mGroup.monthName}
                 </span>
+                <div className="h-px w-full bg-g-800/60" />
               </div>
+
+              {/* Lista de Notas do Mês */}
+              {mGroup.invoices.map(g => {
+                const expanded = expandedNfs.has(g.nfKey)
+                const toggleExpand = () => setExpandedNfs(prev => {
+                  const next = new Set(prev)
+                  expanded ? next.delete(g.nfKey) : next.add(g.nfKey)
+                  return next
+                })
+                const statusColor = g.hasVencida    ? 'border-l-red-500'
+                                   : g.hasVenceHoje  ? 'border-l-orange-400'
+                                   : g.hasProrrogada ? 'border-l-purple-500'
+                                   : g.allPago       ? 'border-l-emerald-500'
+                                   : 'border-l-blue-500'
+
+                return (
+                  <div key={`${mGroup.month}-${g.nfKey}`} className={`card border-l-4 ${statusColor} overflow-hidden mb-1`}>
+                    {/* Header da NF */}
+                    <button
+                      onClick={toggleExpand}
+                      className="w-full flex items-center gap-3 p-4 hover:bg-g-850 transition-colors text-left"
+                    >
+                      <div className="flex-1 grid grid-cols-[100px_140px_1.5fr_1.2fr_110px_110px_110px_auto] gap-x-4 items-center min-w-0">
+                        {/* Vencimento */}
+                        <div>
+                          <span className="text-g-600 text-[10px] uppercase font-bold tracking-widest block mb-0.5">Vencimento</span>
+                          <div className="flex flex-col leading-none">
+                            <span className="text-emerald-600 text-lg font-black font-mono tracking-tighter">
+                              {g.nextVencimento ? dateBR(g.nextVencimento).slice(0, 5) : '—'}
+                            </span>
+                            <span className="text-emerald-600/60 text-xs font-mono mt-0.5">
+                              {g.nextVencimento ? `/${dateBR(g.nextVencimento).slice(6)}` : ''}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Placas */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {g.placasList.map(p => (
+                            <span key={p} className="px-2 py-1 bg-g-800/40 border border-g-700/50 rounded-md font-mono text-sm font-black text-g-400 shadow-sm">
+                              {p}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Fornecedor */}
+                        <div className="min-w-0">
+                          <span className="text-g-200 text-sm font-bold truncate block">{g.fornecedor || '—'}</span>
+                          <span className="text-g-500 text-xs uppercase tracking-wider block truncate font-medium">
+                            {g.osList.length > 1 ? `${g.osList.length} Ordens de Serviço` : g.osList[0] || 'Sem OS'}
+                          </span>
+                        </div>
+
+                        {/* NF + Parcelas */}
+                        <div>
+                          <span className="text-g-500 text-sm truncate block font-medium">
+                            NF <span className="text-g-200 font-black">{g.numero_nf || '—'}</span>
+                          </span>
+                          <span className="text-g-600 text-xs font-mono block">
+                            {g.countPago} / {g.countTotal} parcelas pagas
+                          </span>
+                        </div>
+
+                        {/* Valor Parcela Atual */}
+                        <div>
+                          <span className="text-g-600 text-[10px] uppercase font-bold tracking-tighter block mb-0.5">Parcela Atual</span>
+                          <span className="text-g-400 text-base font-mono font-black block">
+                            {g.nextValor > 0 ? brl(g.nextValor) : '—'}
+                          </span>
+                        </div>
+
+                        {/* Valor Total NF */}
+                        <div>
+                          <span className="text-g-600 text-[10px] uppercase font-bold tracking-tighter block mb-0.5">Total da NF</span>
+                          <span className="text-g-400 text-base font-mono font-black block">{brl(g.totalGeral)}</span>
+                        </div>
+
+                        {/* Status */}
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full border shadow-sm ${
+                            g.hasVencida   ? 'bg-red-500/10 text-red-500 border-red-500/30'
+                            : g.hasVenceHoje ? 'bg-orange-500/10 text-orange-500 border-orange-500/30'
+                            : g.hasProrrogada ? 'bg-purple-500/10 text-purple-500 border-purple-500/30'
+                            : g.allPago    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                            : 'bg-blue-500/10 text-blue-500 border-blue-500/30'
+                          }`}>
+                            {g.hasVencida ? 'Vencida' : g.hasVenceHoje ? 'Vence hoje' : g.hasProrrogada ? 'Prorrogada' : g.allPago ? 'Pago' : 'Pendente'}
+                          </span>
+                        </div>
+
+                        {/* Chevron */}
+                        <div className="flex justify-end">
+                          {expanded
+                            ? <ChevronUp className="w-4 h-4 text-g-600" />
+                            : <ChevronDown className="w-4 h-4 text-g-600" />}
+                        </div>
+                      </div>
+                    </button>
+
+                    {/* Parcelas expandidas (apenas as do mês corrente) */}
+                    {expanded && (
+                      <div className="border-t border-g-800">
+                        <table className="w-full">
+                          <thead className="bg-g-850">
+                            <tr>
+                              <th className="th th-left text-[10px]">Veículo</th>
+                              <th className="th th-left text-[10px]">Parcela</th>
+                              <th className="th th-left text-[10px]">Vencimento</th>
+                              <th className="th text-[10px]">Valor</th>
+                              <th className="th text-[10px]">Status</th>
+                              <th className="th th-left text-[10px]">Previsão Pgto</th>
+                              <th className="th text-[10px]">Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {g.parcelas.map(p => {
+                              const previsao = p.prorrogada
+                                ? (p.data_prevista_pagamento || p.data_vencimento)
+                                : p.data_prevista_pagamento
+                              const prevAtrasada = previsao && p.status_pagamento !== 'Pago' && new Date(previsao) < hoje
+                              return (
+                                <tr
+                                  key={p.id}
+                                  onClick={() => setModalDetalhe(p)}
+                                  className="border-b border-g-800 hover:bg-g-850 transition-colors cursor-pointer"
+                                >
+                                  <td className="td td-left text-xs font-mono font-bold text-g-500">
+                                    {p.placa}
+                                  </td>
+                                  <td className="td td-left text-xs text-g-600 tabular-nums">
+                                    {p.parcela_atual && p.parcela_total ? `${p.parcela_atual} / ${p.parcela_total}` : '—'}
+                                  </td>
+                                  <td className="td td-left text-xs text-g-500 tabular-nums">
+                                    <span className="flex items-center gap-1">
+                                      {p.prorrogada ? dateBR(p.data_vencimento_original) : dateBR(p.data_vencimento)}
+                                      {p.prorrogada && <span className="text-purple-500 text-xs" title={`Nova data: ${dateBR(p.data_vencimento)}`}>↻</span>}
+                                      {p._status === 'vencida' && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                                    </span>
+                                  </td>
+                                  <td className="td font-mono font-semibold text-g-300 tabular-nums text-sm">
+                                    {brl(p.valor_atualizado ?? p.valor_parcela)}
+                                    {p.valor_atualizado && p.valor_atualizado !== p.valor_parcela && (
+                                      <span className="block text-g-700 text-xs font-normal">{brl(p.valor_parcela)} orig.</span>
+                                    )}
+                                  </td>
+                                  <td className="td"><FinBadge status={p._status} /></td>
+                                  <td className="td td-left text-xs tabular-nums">
+                                    {previsao ? (
+                                      <span className={`flex items-center gap-1 ${prevAtrasada ? 'text-red-500 font-medium' : 'text-g-500'}`}>
+                                        {dateBR(previsao)}{prevAtrasada && <AlertTriangle className="w-3 h-3" />}
+                                      </span>
+                                    ) : '—'}
+                                  </td>
+                                  <td className="td td-right !pr-1.5" onClick={e => e.stopPropagation()}>
+                                    {p._isSintetica ? (
+                                      <div className="flex items-center justify-end gap-1">
+                                        <span className="text-[10px] text-g-700 italic px-1">via NF</span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-end gap-1">
+                                        {p.status_pagamento !== 'Pago' && (
+                                          <button
+                                            onClick={() => setModalProrrogar(p)}
+                                            className="p-1 rounded bg-g-850 border border-g-800 text-g-600 hover:text-purple-400 transition-colors"
+                                            title="Prorrogar"
+                                          >
+                                            <CalendarClock className="w-3 h-3" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Subtotal do Mês */}
+              <div className="flex items-center justify-end p-4 bg-g-900/50 rounded-xl border border-g-800/50 mt-1 mb-8 gap-10">
+                <div className="text-right">
+                  <span className="text-g-600 text-[10px] block uppercase font-bold mb-0.5">Total {mGroup.monthName}</span>
+                  <span className="font-mono font-bold text-g-200 text-xl tabular-nums">
+                    {brl(mGroup.subtotal)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))
+        }
+        {nfGroupsByMonth.length > 0 && (
+          <div className="card p-6 flex items-center justify-end gap-10 bg-g-900 border-t-4 border-t-emerald-600">
+            <span className="text-g-500 text-sm font-bold uppercase tracking-[0.2em]">
+              Total Geral do Ano
+            </span>
+            <div className="text-right">
+              <span className="text-g-600 text-[10px] block uppercase font-bold mb-0.5">Soma de todos os meses</span>
+              <span className="font-mono font-bold text-emerald-600 text-3xl tabular-nums">
+                {brl(nfGroupsByMonth.reduce((s, m) => s + m.subtotal, 0))}
+              </span>
             </div>
           )}
         </div>

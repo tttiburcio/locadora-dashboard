@@ -130,7 +130,7 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
         <form onSubmit={handleSubmit} className="overflow-y-auto px-5 py-4 flex flex-col gap-4">
 
           {/* Veículo */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <div>
               <label className={LABEL}>Placa *</label>
               <select value={form.placa} onChange={handlePlaca} className={`${FIELD} font-mono`}
@@ -150,7 +150,7 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
           </div>
 
           {/* Tipo + KM + Status + Responsável */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             <div>
               <label className={LABEL}>Tipo de Manutenção</label>
               <select value={form.tipo_manutencao} onChange={e => set('tipo_manutencao', e.target.value)} className={FIELD}>
@@ -190,36 +190,36 @@ export default function AbrirOsModal({ onClose, onSaved, os = null }) {
             </div>
             <div className="flex flex-col gap-2">
               {itens.map((it, i) => (
-                <div key={i} className="bg-g-850 border border-g-800 rounded-xl p-3 flex items-end gap-2">
-                  <div className="w-[88px] shrink-0">
+                <div key={i} className="bg-g-850 border border-g-800 rounded-xl p-3 flex flex-col sm:flex-row items-stretch sm:items-end gap-3 sm:gap-2">
+                  <div className="w-full sm:w-[88px] shrink-0">
                     <label className={LABEL}>Categoria</label>
                     <select value={it.categoria} onChange={e => setItem(i, 'categoria', e.target.value)} className={`${FIELD} bg-g-900`}>
                       {CATEGORIAS_ITEM.map(c => <option key={c}>{c}</option>)}
                     </select>
                   </div>
-                  <div className="w-[120px] shrink-0">
+                  <div className="w-full sm:w-[120px] shrink-0">
                     <label className={LABEL}>Sistema</label>
                     <select value={it.sistema} onChange={e => setItem(i, 'sistema', e.target.value)} className={`${FIELD} bg-g-900`}>
                       <option value="">Selecione…</option>
                       {SISTEMAS.map(s => <option key={s}>{s}</option>)}
                     </select>
                   </div>
-                  <div className="flex-[2] min-w-0">
+                  <div className="w-full sm:flex-[2] sm:w-auto min-w-0">
                     <label className={LABEL}>Item</label>
                     <input value={it.servico} onChange={e => setItem(i, 'servico', e.target.value)}
                       placeholder="Ex: Troca de óleo…" className={`${FIELD} bg-g-900`} />
                   </div>
-                  <div className="flex-[2] min-w-0">
+                  <div className="w-full sm:flex-[2] sm:w-auto min-w-0">
                     <label className={LABEL}>Descrição</label>
                     <input value={it.descricao} onChange={e => setItem(i, 'descricao', e.target.value)}
                       placeholder="Detalhes…" className={`${FIELD} bg-g-900`} />
                   </div>
-                  <div className="w-[56px] shrink-0">
+                  <div className="w-full sm:w-[56px] shrink-0">
                     <label className={LABEL}>Qtd</label>
                     <input type="number" value={it.qtd_itens} onChange={e => setItem(i, 'qtd_itens', e.target.value)}
                       placeholder="1" className={`${FIELD} bg-g-900`} />
                   </div>
-                  <div className="shrink-0 w-7 flex justify-center pb-0.5">
+                  <div className="w-full sm:w-7 flex sm:justify-center sm:pb-0.5 mt-1 sm:mt-0 items-end justify-end">
                     {itens.length > 1 && (
                       <button type="button" onClick={() => removeItem(i)}
                         className="p-1.5 text-g-600 hover:text-red-500 transition-colors">
