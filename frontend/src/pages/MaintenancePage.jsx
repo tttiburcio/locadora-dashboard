@@ -2217,8 +2217,8 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
                 {brl(nfGroupsByMonth.reduce((s, m) => s + m.subtotal, 0))}
               </span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       )}
 
       {/* Tabela de parcelas */}
