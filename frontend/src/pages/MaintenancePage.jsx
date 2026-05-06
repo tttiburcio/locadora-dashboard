@@ -1,13 +1,14 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import html2pdf from 'html2pdf.js'
 import { getMaintenanceAnalysis, dbListManutencoes, dbAtualizarManutencao, dbDeletarManutencao, dbAtualizarParcela, dbListParcelas, dbListOs, dbAtualizarOs, dbDeletarOs, dbCriarParcelaNf } from '../utils/api'
-import { brl, brlShort, num, dateBR } from '../utils/format'
+import { brl, brlShort, num, dateBR, titleCase, shortenProviderName } from '../utils/format'
 import KPICard from '../components/KPICard'
-import AbrirManutencaoModal   from '../components/AbrirManutencaoModal'
+import AbrirManutencaoModal from '../components/AbrirManutencaoModal'
 import FinalizarManutencaoModal from '../components/FinalizarManutencaoModal'
-import AbrirOsModal     from '../components/AbrirOsModal'
+import AbrirOsModal from '../components/AbrirOsModal'
 import FinalizarOsModal from '../components/FinalizarOsModal'
-import DetalhesOsModal  from '../components/DetalhesOsModal'
+import DetalhesOsModal from '../components/DetalhesOsModal'
 import {
   FornecedorChart, SistemaTreemap, TipoPie,
   ImplementoRadial, TrendProjectionChart, ServicosChart,
@@ -18,7 +19,7 @@ import {
   Calendar, AlertTriangle, ChevronDown, ChevronUp,
   Activity, Loader2, TrendingUp, Plus, CheckCircle,
   Truck, Clock, AlertCircle, Trash2, BarChart2, Pencil, Bell,
-  CreditCard, CalendarClock, Ban, RotateCcw,
+  CreditCard, CalendarClock, Ban, RotateCcw, Printer, FileText,
 } from 'lucide-react'
 
 // ── Empresas ─────────────────────────────────────────────────────────
@@ -44,12 +45,12 @@ function parseLocalDate(s) {
 
 // ── Status helpers ────────────────────────────────────────────────────
 const STATUS_LABEL = {
-  aberta:                   { label: 'Aberta',              color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  em_andamento:             { label: 'Em andamento',         color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  aguardando_peca:          { label: 'Aguardando peça',      color: 'bg-orange-50 text-orange-700 border-orange-200' },
-  executado_aguardando_nf:  { label: 'Aguardando NF',        color: 'bg-purple-50 text-purple-700 border-purple-200' },
-  pendente:                 { label: 'Pendente',             color: 'bg-slate-100 text-slate-600 border-slate-300' },
-  finalizada:               { label: 'Finalizada',           color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  aberta: { label: 'Aberta', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  em_andamento: { label: 'Em andamento', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  aguardando_peca: { label: 'Aguardando peça', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+  executado_aguardando_nf: { label: 'Aguardando NF', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  pendente: { label: 'Pendente', color: 'bg-slate-100 text-slate-600 border-slate-300' },
+  finalizada: { label: 'Finalizada', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
 }
 
 
@@ -188,7 +189,7 @@ function Field({ label, value, mono = false, full = false }) {
 function DetalhesManutencaoModal({ manutencao: m, onClose, onDeleted }) {
   const isFinalizada = m.status_manutencao === 'finalizada'
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [deleting,      setDeleting]      = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -203,7 +204,7 @@ function DetalhesManutencaoModal({ manutencao: m, onClose, onDeleted }) {
   const dias = m.data_entrada
     ? diasParados(m.data_entrada, isFinalizada ? m.data_execucao : null)
     : null
-  const hasPneu    = m.posicao_pneu || m.espec_pneu || m.marca_pneu
+  const hasPneu = m.posicao_pneu || m.espec_pneu || m.marca_pneu
   const hasParcelas = m.parcelas?.length > 0
 
   return createPortal(
@@ -242,12 +243,12 @@ function DetalhesManutencaoModal({ manutencao: m, onClose, onDeleted }) {
             <p className="text-g-600 text-xs font-semibold uppercase tracking-wider mb-3">Identificação</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               <Field label="Fornecedor / Oficina" value={m.fornecedor} />
-              <Field label="Tipo de Manutenção"   value={m.tipo_manutencao} />
-              <Field label="Sistema"              value={m.sistema} />
-              <Field label="Serviço"              value={m.servico} />
-              <Field label="Data de Entrada"      value={dateBR(m.data_entrada)} />
-              <Field label="KM"                   value={m.km ? `${num(m.km)} km` : null} />
-              <Field label="Responsável Técnico"  value={m.responsavel_tec} />
+              <Field label="Tipo de Manutenção" value={m.tipo_manutencao} />
+              <Field label="Sistema" value={m.sistema} />
+              <Field label="Serviço" value={m.servico} />
+              <Field label="Data de Entrada" value={dateBR(m.data_entrada)} />
+              <Field label="KM" value={m.km ? `${num(m.km)} km` : null} />
+              <Field label="Responsável Técnico" value={m.responsavel_tec} />
               <div>
                 <p className="text-g-700 text-xs mb-0.5">Veículo Indisponível</p>
                 <p className={`text-sm font-medium ${m.indisponivel ? 'text-amber-500' : 'text-g-500'}`}>
@@ -262,7 +263,7 @@ function DetalhesManutencaoModal({ manutencao: m, onClose, onDeleted }) {
                   </p>
                 </div>
               )}
-              {m.descricao  && <Field label="Descrição"   value={m.descricao}   full />}
+              {m.descricao && <Field label="Descrição" value={m.descricao} full />}
               {m.observacoes && <Field label="Observações" value={m.observacoes} full />}
             </div>
           </div>
@@ -272,12 +273,12 @@ function DetalhesManutencaoModal({ manutencao: m, onClose, onDeleted }) {
             <div className="border-t border-g-800 pt-5">
               <p className="text-g-600 text-xs font-semibold uppercase tracking-wider mb-3">Ordem de Serviço</p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                <Field label="Nº da OS"          value={m.id_ord_serv}              mono />
-                <Field label="Data de Execução"  value={dateBR(m.data_execucao)} />
-                <Field label="Valor Total"        value={m.total_os ? brl(m.total_os) : null} mono />
-                <Field label="Categoria"          value={m.categoria} />
+                <Field label="Nº da OS" value={m.id_ord_serv} mono />
+                <Field label="Data de Execução" value={dateBR(m.data_execucao)} />
+                <Field label="Valor Total" value={m.total_os ? brl(m.total_os) : null} mono />
+                <Field label="Categoria" value={m.categoria} />
                 {m.qtd_itens && <Field label="Qtd. Itens" value={String(m.qtd_itens)} />}
-                {m.prox_km   && <Field label="Próx. KM"   value={`${num(m.prox_km)} km`} />}
+                {m.prox_km && <Field label="Próx. KM" value={`${num(m.prox_km)} km`} />}
                 {m.prox_data && <Field label="Próx. Data" value={dateBR(m.prox_data)} />}
               </div>
             </div>
@@ -288,11 +289,11 @@ function DetalhesManutencaoModal({ manutencao: m, onClose, onDeleted }) {
             <div className="border-t border-g-800 pt-5">
               <p className="text-g-600 text-xs font-semibold uppercase tracking-wider mb-3">Dados de Pneu</p>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                <Field label="Posição"       value={m.posicao_pneu} />
-                <Field label="Qtd."          value={m.qtd_pneu ? String(m.qtd_pneu) : null} />
+                <Field label="Posição" value={m.posicao_pneu} />
+                <Field label="Qtd." value={m.qtd_pneu ? String(m.qtd_pneu) : null} />
                 <Field label="Especificação" value={m.espec_pneu} />
-                <Field label="Marca"         value={m.marca_pneu} />
-                <Field label="Manejo"        value={m.manejo_pneu} />
+                <Field label="Marca" value={m.marca_pneu} />
+                <Field label="Manejo" value={m.manejo_pneu} />
               </div>
             </div>
           )}
@@ -372,19 +373,19 @@ function DetalhesManutencaoModal({ manutencao: m, onClose, onDeleted }) {
 // ABA GESTÃO — tabelas CRUD
 // ════════════════════════════════════════════════════════════════════
 function GestaoTab({ year }) {
-  const [abertas,      setAbertas]      = useState([])
-  const [finalizadas,  setFinalizadas]  = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [subTab,       setSubTab]       = useState('em_andamento')
-  const [modalAbrir,   setModalAbrir]   = useState(false)
-  const [modalFin,     setModalFin]     = useState(null)
-  const [modalEdit,    setModalEdit]    = useState(null)
+  const [abertas, setAbertas] = useState([])
+  const [finalizadas, setFinalizadas] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [subTab, setSubTab] = useState('em_andamento')
+  const [modalAbrir, setModalAbrir] = useState(false)
+  const [modalFin, setModalFin] = useState(null)
+  const [modalEdit, setModalEdit] = useState(null)
   const [modalDetalhe, setModalDetalhe] = useState(null)
-  const [confirmDel,   setConfirmDel]   = useState(null)
+  const [confirmDel, setConfirmDel] = useState(null)
   const [filterAberta, setFilterAberta] = useState('')
-  const [filterFin,    setFilterFin]    = useState('')
-  const [sortAberta,   setSortAberta]   = useState({ col: 'data_entrada', dir: 'desc' })
-  const [sortFin,      setSortFin]      = useState({ col: 'data_execucao', dir: 'desc' })
+  const [filterFin, setFilterFin] = useState('')
+  const [sortAberta, setSortAberta] = useState({ col: 'data_entrada', dir: 'desc' })
+  const [sortFin, setSortFin] = useState({ col: 'data_execucao', dir: 'desc' })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -424,17 +425,17 @@ function GestaoTab({ year }) {
   }
 
   const sortAbertaBy = col => setSortAberta(s => s.col !== col ? { col, dir: 'asc' } : s.dir === 'asc' ? { col, dir: 'desc' } : { col: null, dir: 'asc' })
-  const sortFinBy    = col => setSortFin(s => s.col !== col ? { col, dir: 'asc' } : s.dir === 'asc' ? { col, dir: 'desc' } : { col: null, dir: 'asc' })
+  const sortFinBy = col => setSortFin(s => s.col !== col ? { col, dir: 'asc' } : s.dir === 'asc' ? { col, dir: 'desc' } : { col: null, dir: 'asc' })
 
-  const emAndamento  = abertas.filter(o => o.status_os === 'em_andamento')
-  const aguardando   = abertas.filter(o => o.status_os === 'aguardando_peca')
-  const agNf         = abertas.filter(o => o.status_os === 'executado_aguardando_nf')
+  const emAndamento = abertas.filter(o => o.status_os === 'em_andamento')
+  const aguardando = abertas.filter(o => o.status_os === 'aguardando_peca')
+  const agNf = abertas.filter(o => o.status_os === 'executado_aguardando_nf')
   const todasAbertas = abertas
 
   // flatten first item for filter/sort display
   const withDisplay = list => list.map(o => {
     const allParcelas = (o.notas_fiscais || []).flatMap(nf => nf.parcelas || [])
-    
+
     // Agrupar parcelas por data de vencimento (mesmo boleto)
     const boletosUnicos = []
     const mapaBoletos = {}
@@ -449,10 +450,10 @@ function GestaoTab({ year }) {
         boletosUnicos.push([p])
       }
     })
-    
+
     const totalParcelas = boletosUnicos.length
     const pagas = boletosUnicos.filter(grupo => grupo.every(p => p.status_pagamento === 'Pago')).length
-    
+
     return {
       ...o,
       _sistema: o.itens?.[0]?.sistema || '',
@@ -472,10 +473,10 @@ function GestaoTab({ year }) {
   const filteredFin = useMemo(() => {
     const byYear = year
       ? finalizadas.filter(o => {
-          const dateStr = o.data_execucao || o.data_entrada || o.criado_em || (o.notas_fiscais?.[0]?.data_emissao)
-          if (!dateStr) return true // Para evitar que a OS suma do sistema
-          return new Date(dateStr).getFullYear() === parseInt(year)
-        })
+        const dateStr = o.data_execucao || o.data_entrada || o.criado_em || (o.notas_fiscais?.[0]?.data_emissao)
+        if (!dateStr) return true // Para evitar que a OS suma do sistema
+        return new Date(dateStr).getFullYear() === parseInt(year)
+      })
       : finalizadas
     return applyFilterSort(withDisplay(byYear), filterFin, sortFin, ['placa', 'fornecedor', 'modelo', '_sistema', '_servico', 'numero_os'])
   }, [finalizadas, filterFin, sortFin, year])
@@ -528,16 +529,15 @@ function GestaoTab({ year }) {
         <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1">
           {[
             { key: 'em_andamento', label: `Em andamento (${todasAbertas.length})` },
-            { key: 'finalizadas',  label: `Finalizadas (${finalizadas.length})` },
+            { key: 'finalizadas', label: `Finalizadas (${finalizadas.length})` },
           ].map(t => (
             <button
               key={t.key}
               onClick={() => setSubTab(t.key)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                subTab === t.key
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${subTab === t.key
                   ? 'bg-white shadow-sm text-g-200 border border-g-800'
                   : 'text-g-600 hover:text-g-400'
-              }`}
+                }`}
             >
               {t.label}
             </button>
@@ -610,12 +610,12 @@ function GestaoTab({ year }) {
                 {filteredAbertas.map(o => {
                   const dias = o.indisponivel && o.data_entrada ? diasParados(o.data_entrada) : null;
                   const borderCol = o.status_os === 'aguardando_peca' ? 'border-orange-500' :
-                                    o.status_os === 'executado_aguardando_nf' ? 'border-purple-500' :
-                                    'border-amber-500';
-                  
+                    o.status_os === 'executado_aguardando_nf' ? 'border-purple-500' :
+                      'border-amber-500';
+
                   return (
-                    <div 
-                      key={o.id} 
+                    <div
+                      key={o.id}
                       onClick={() => setModalDetalhe(o)}
                       className={`border-l-4 ${borderCol} rounded-xl bg-white shadow-sm hover:shadow-md transition-all cursor-pointer p-6 flex flex-col gap-5 relative group`}
                     >
@@ -639,7 +639,7 @@ function GestaoTab({ year }) {
                           )}
                         </div>
                       </div>
-                      
+
                       {/* Body Info */}
                       <div className="flex-1 flex flex-col gap-4">
                         <div className="grid grid-cols-2 gap-4">
@@ -666,7 +666,7 @@ function GestaoTab({ year }) {
                             {!o._sistema && !o._servico && <span className="text-g-700 italic text-xs">Não informado</span>}
                           </div>
                         </div>
-                        
+
                         {(o.km || o.prox_km) && (
                           <div className="flex items-center gap-3 pt-1">
                             {o.km && <span className="text-xs font-mono text-g-500 border border-g-800 px-2 py-0.5 rounded font-bold">KM {num(o.km)}</span>}
@@ -674,51 +674,51 @@ function GestaoTab({ year }) {
                           </div>
                         )}
                       </div>
-                      
+
                       {/* Footer Actions */}
                       <div className="flex items-center justify-between border-t border-g-800 pt-3 mt-1" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center gap-1.5">
-                              {o.status_os === 'em_andamento' && (
-                                <button
-                                  onClick={() => handleStatusChange(o, 'aguardando_peca')}
-                                  title="Aguardando peça"
-                                  className="px-2.5 py-1.5 text-xs font-semibold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
-                                >
-                                  Ag. peça
-                                </button>
-                              )}
-                              {o.status_os === 'aguardando_peca' && (
-                                <button
-                                  onClick={() => handleStatusChange(o, 'em_andamento')}
-                                  title="Retomar andamento"
-                                  className="px-2.5 py-1.5 text-xs font-semibold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
-                                >
-                                  Retomar
-                                </button>
-                              )}
-                          </div>
-                          
-                          <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => setModalEdit(o)}
-                                title="Editar OS"
-                                className="p-2 text-g-500 bg-g-900 border border-g-800 hover:text-g-100 hover:bg-g-850 rounded-lg transition-colors"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => setModalFin(o)}
-                                className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors border border-emerald-500 shadow-sm"
-                              >
-                                Finalizar
-                              </button>
-                              <button
-                                onClick={() => setConfirmDel(o.id)}
-                                className="p-2 text-g-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-1"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                          </div>
+                        <div className="flex items-center gap-1.5">
+                          {o.status_os === 'em_andamento' && (
+                            <button
+                              onClick={() => handleStatusChange(o, 'aguardando_peca')}
+                              title="Aguardando peça"
+                              className="px-2.5 py-1.5 text-xs font-semibold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors"
+                            >
+                              Ag. peça
+                            </button>
+                          )}
+                          {o.status_os === 'aguardando_peca' && (
+                            <button
+                              onClick={() => handleStatusChange(o, 'em_andamento')}
+                              title="Retomar andamento"
+                              className="px-2.5 py-1.5 text-xs font-semibold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+                            >
+                              Retomar
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setModalEdit(o)}
+                            title="Editar OS"
+                            className="p-2 text-g-500 bg-g-900 border border-g-800 hover:text-g-100 hover:bg-g-850 rounded-lg transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setModalFin(o)}
+                            className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-colors border border-emerald-500 shadow-sm"
+                          >
+                            Finalizar
+                          </button>
+                          <button
+                            onClick={() => setConfirmDel(o.id)}
+                            className="p-2 text-g-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )
@@ -788,20 +788,20 @@ function GestaoTab({ year }) {
                   const pagoParc = !pagoTotal && !pagoNenhum
 
                   // Bar top color: green = quitado, purple = parcial, gray = não pago
-                  const barTopColor = pagoTotal ? '#10b981' : pagoParc ? '#8b5cf6' : '#6b7280'
-                  const pgBarFill  = pagoTotal ? '#10b981' : pagoParc ? '#8b5cf6' : '#9ca3af'
+                  const barTopColor = pagoTotal ? '#10b981' : pagoParc ? '#615cf6' : '#6b7280'
+                  const pgBarFill = pagoTotal ? '#10b981' : pagoParc ? '#615cf6' : '#9ca3af'
                   const pgStatusLabel = pagoTotal ? 'Quitado' : pagoParc ? `${pagas} de ${totalParcelas} pagas` : 'Não pago'
                   const pgLabelStyle = pagoTotal
                     ? { color: '#10b981', background: 'rgba(16,185,129,0.1)' }
                     : pagoParc
-                    ? { color: '#8b5cf6', background: 'rgba(139,92,246,0.1)' }
-                    : { color: '#9ca3af', background: 'rgba(107,114,128,0.1)' }
+                      ? { color: '#615cf6', background: 'rgba(139,92,246,0.1)' }
+                      : { color: '#9ca3af', background: 'rgba(107,114,128,0.1)' }
 
                   // Minimal brand indicators: colored dot + text, no background
                   const empColor = (nome) => {
                     if (!nome) return '#6b7280'
-                    if (nome === 'TKJ') return '#10b981'
-                    if (nome === 'LANDKRAFT') return '#d97706'
+                    if (nome === 'TKJ') return '#04674b'
+                    if (nome === 'LANDKRAFT') return '#8c7900'
                     return '#94a3b8'
                   }
 
@@ -964,10 +964,10 @@ function calcValorComEncargos(valorBase, multaPct, jurosDiarioPct, dataVenc, dat
   if (!valorBase) return valorBase
   const venc = parseLocalDate(dataVenc)
   if (!venc) return valorBase
-  
+
   const fim = dataFim ? parseLocalDate(dataFim) : new Date()
   if (!dataFim) fim.setHours(0, 0, 0, 0)
-  
+
   const diasAtraso = Math.max(0, Math.round((fim - venc) / 86400000))
   const multa = valorBase * ((parseFloat(multaPct) || 0) / 100)
   const juros = valorBase * ((parseFloat(jurosDiarioPct) || 0) / 100) * diasAtraso
@@ -983,11 +983,11 @@ function calcDataCartorio(dataVenc, diasCartorio) {
 }
 
 const FIN_STATUS = {
-  pago:        { label: 'Pago',         color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  pendente:    { label: 'Pendente',     color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  vence_hoje:  { label: 'Vence hoje',   color: 'bg-orange-50 text-orange-700 border-orange-200' },
-  vencida:     { label: 'Vencida',      color: 'bg-red-50 text-red-700 border-red-200' },
-  prorrogada:  { label: 'Prorrogada',   color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  pago: { label: 'Pago', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  pendente: { label: 'Pendente', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  vence_hoje: { label: 'Vence hoje', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+  vencida: { label: 'Vencida', color: 'bg-red-50 text-red-700 border-red-200' },
+  prorrogada: { label: 'Prorrogada', color: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
 function FinBadge({ status }) {
@@ -1020,7 +1020,7 @@ function AlertContasDiaModal({ parcelas, onCiente, onLembrarDepois }) {
         <div className="px-5 py-4 flex flex-col gap-2 max-h-72 overflow-y-auto">
           {parcelas.map(p => {
             const isVencida = p._status === 'vencida'
-            const isHoje    = p._status === 'vence_hoje'
+            const isHoje = p._status === 'vence_hoje'
             return (
               <div key={p.id} className={`bg-g-850 border rounded-xl px-4 py-2.5 flex items-center justify-between text-xs ${isVencida ? 'border-red-500/30' : isHoje ? 'border-orange-500/30' : 'border-g-800'}`}>
                 <div className="flex items-center gap-3">
@@ -1063,17 +1063,17 @@ function ProrrogarParcelaModal({ parcela: p, onClose, onSaved }) {
     ? (p.dias_cartorio ? 'cartorio' : p.isento_encargos ? 'prorrogada_isenta' : 'prorrogada_encargos')
     : null
 
-  const [modo,   setModo]   = useState(modoInicial)
+  const [modo, setModo] = useState(modoInicial)
   const [saving, setSaving] = useState(false)
-  const [error,  setError]  = useState(null)
-  const [form,   setForm]   = useState({
-    nova_data:               p.prorrogada ? (p.data_vencimento || '') : '',
-    tipo_pgto:               p.tipo_pgto_prorrogacao || 'boleto',
-    chave_pix:               p.chave_pix || '',
-    multa_pct:               p.multa_pct != null ? String(p.multa_pct) : '',
-    juros_diario_pct:        p.juros_diario_pct != null ? String(p.juros_diario_pct) : '',
+  const [error, setError] = useState(null)
+  const [form, setForm] = useState({
+    nova_data: p.prorrogada ? (p.data_vencimento || '') : '',
+    tipo_pgto: p.tipo_pgto_prorrogacao || 'boleto',
+    chave_pix: p.chave_pix || '',
+    multa_pct: p.multa_pct != null ? String(p.multa_pct) : '',
+    juros_diario_pct: p.juros_diario_pct != null ? String(p.juros_diario_pct) : '',
     data_prevista_pagamento: p.data_prevista_pagamento || '',
-    dias_cartorio:           p.dias_cartorio != null ? String(p.dias_cartorio) : '',
+    dias_cartorio: p.dias_cartorio != null ? String(p.dias_cartorio) : '',
   })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -1348,17 +1348,17 @@ function ProrrogarParcelaModal({ parcela: p, onClose, onSaved }) {
 // ── Modal: detalhe de parcela ─────────────────────────────────────────
 function DetalheParcelaModal({ parcela: p, onClose, onSaved }) {
   const LABEL = 'text-g-700 text-xs mb-0.5'
-  const VAL   = 'text-g-300 text-sm break-words'
+  const VAL = 'text-g-300 text-sm break-words'
 
   const [reemb, setReemb] = useState({
-    sera_reembolsado:    p.sera_reembolsado    || false,
-    valor_reembolso:     p.valor_reembolso     ?? '',
+    sera_reembolsado: p.sera_reembolsado || false,
+    valor_reembolso: p.valor_reembolso ?? '',
     qtd_itens_reembolso: p.qtd_itens_reembolso ?? '',
-    motivo_reembolso:    p.motivo_reembolso    || '',
+    motivo_reembolso: p.motivo_reembolso || '',
   })
   const [reembDirty, setReembDirty] = useState(false)
-  const [saving, setSaving]         = useState(false)
-  const [error,  setError]          = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   const setR = (k, v) => { setReemb(r => ({ ...r, [k]: v })); setReembDirty(true) }
 
@@ -1366,10 +1366,10 @@ function DetalheParcelaModal({ parcela: p, onClose, onSaved }) {
     setSaving(true); setError(null)
     try {
       await dbAtualizarParcela(p.id, {
-        sera_reembolsado:    reemb.sera_reembolsado,
-        valor_reembolso:     reemb.valor_reembolso     !== '' ? parseFloat(reemb.valor_reembolso)     : null,
-        qtd_itens_reembolso: reemb.qtd_itens_reembolso !== '' ? parseInt(reemb.qtd_itens_reembolso)   : null,
-        motivo_reembolso:    reemb.motivo_reembolso    || null,
+        sera_reembolsado: reemb.sera_reembolsado,
+        valor_reembolso: reemb.valor_reembolso !== '' ? parseFloat(reemb.valor_reembolso) : null,
+        qtd_itens_reembolso: reemb.qtd_itens_reembolso !== '' ? parseInt(reemb.qtd_itens_reembolso) : null,
+        motivo_reembolso: reemb.motivo_reembolso || null,
       })
       onSaved()
     } catch {
@@ -1385,10 +1385,10 @@ function DetalheParcelaModal({ parcela: p, onClose, onSaved }) {
     </div>
   )
 
-  const tipoProrr = p.isento_encargos === true  ? 'Isenta de encargos'
-                  : p.isento_encargos === false ? 'Com encargos'
-                  : p.dias_cartorio            ? 'Envio ao cartório'
-                  : '—'
+  const tipoProrr = p.isento_encargos === true ? 'Isenta de encargos'
+    : p.isento_encargos === false ? 'Com encargos'
+      : p.dias_cartorio ? 'Envio ao cartório'
+        : '—'
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
@@ -1420,25 +1420,26 @@ function DetalheParcelaModal({ parcela: p, onClose, onSaved }) {
               <span className="text-g-500 text-xs font-semibold uppercase tracking-wider">Ordem de Serviço</span>
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-              <Field label="Placa"       value={p.placa}       mono />
-              <Field label="Fornecedor"  value={p.fornecedor} />
-              <Field label="Nº OS"       value={p.id_ord_serv} mono />
+              <Field label="Placa" value={p.placa} mono />
+              <Field label="Fornecedor" value={p.fornecedor} />
+              <Field label="Nº OS" value={p.id_ord_serv} mono />
               <Field label="Data Execução" value={dateBR(p.data_execucao)} />
-              <Field label="Empresa"     value={empresaSigla(p.empresa, p.empresa_nome)} />
-              <Field label="Modelo"      value={p.modelo} />
+              <Field label="Empresa" value={empresaSigla(p.empresa, p.empresa_nome)} />
+              <Field label="Modelo" value={p.modelo} />
               {p.fornecedor_os && p.fornecedor && p.fornecedor_os !== p.fornecedor && (
                 <Field label="Fornecedor da OS" value={p.fornecedor_os} />
               )}
               {p.tipo_custo && <Field label="Tipo de custo" value={p.tipo_custo} />}
-              {p.descricao && <Field label="Descrição" value={p.descricao} full />}
+              <Field label="Sistema" value={titleCase(p.sistema)} full />
+              {p.descricao && <Field label="Descrição" value={titleCase(p.descricao)} full />}
               {p.contrato_nome && (
                 <>
-                  <Field label="Contratante"   value={p.contrato_nome} full />
-                  <Field label="Cidade/Região"  value={p.contrato_cidade} />
+                  <Field label="Contratante" value={p.contrato_nome} full />
+                  <Field label="Cidade/Região" value={p.contrato_cidade} />
                   <Field label="Período contratual"
-                         value={p.contrato_inicio && p.contrato_fim
-                           ? `${dateBR(p.contrato_inicio)} → ${dateBR(p.contrato_fim)}`
-                           : p.contrato_inicio ? `Desde ${dateBR(p.contrato_inicio)}` : null} />
+                    value={p.contrato_inicio && p.contrato_fim
+                      ? `${dateBR(p.contrato_inicio)} → ${dateBR(p.contrato_fim)}`
+                      : p.contrato_inicio ? `Desde ${dateBR(p.contrato_inicio)}` : null} />
                   <Field label="Status do contrato" value={p.contrato_status} />
                 </>
               )}
@@ -1453,12 +1454,12 @@ function DetalheParcelaModal({ parcela: p, onClose, onSaved }) {
             </div>
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               <Field label="Nota Fiscal" value={p.nota} />
-              <Field label="Parcela"     value={p.parcela_atual && p.parcela_total ? `${p.parcela_atual} de ${p.parcela_total}` : null} />
+              <Field label="Parcela" value={p.parcela_atual && p.parcela_total ? `${p.parcela_atual} de ${p.parcela_total}` : null} />
               <Field label={p.prorrogada ? 'Vencimento original' : 'Vencimento'}
-                     value={dateBR(p.prorrogada ? p.data_vencimento_original : p.data_vencimento)} />
+                value={dateBR(p.prorrogada ? p.data_vencimento_original : p.data_vencimento)} />
               <Field label="Valor original" value={brl(p.valor_parcela)} mono />
-              <Field label="Forma Pgto"  value={p.forma_pgto} />
-              <Field label="Status"      value={FIN_STATUS[statusFinanceiro(p)]?.label} />
+              <Field label="Forma Pgto" value={p.forma_pgto} />
+              <Field label="Status" value={FIN_STATUS[statusFinanceiro(p)]?.label} />
             </div>
           </div>
 
@@ -1470,15 +1471,15 @@ function DetalheParcelaModal({ parcela: p, onClose, onSaved }) {
                 <span className="text-purple-400 text-xs font-semibold uppercase tracking-wider">Prorrogação</span>
               </div>
               <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                <Field label="Tipo"          value={tipoProrr} />
-                <Field label="Nova data"     value={dateBR(p.data_vencimento)} />
-                {p.tipo_pgto_prorrogacao && <Field label="Forma Pgto"  value={p.tipo_pgto_prorrogacao === 'pix' ? 'PIX' : 'Boleto'} />}
-                {p.chave_pix              && <Field label="Chave PIX"  value={p.chave_pix} mono />}
-                {p.multa_pct != null      && <Field label="Multa"      value={`${p.multa_pct}%`} />}
-                {p.juros_diario_pct != null && <Field label="Juros/dia"  value={`${p.juros_diario_pct}%`} />}
+                <Field label="Tipo" value={tipoProrr} />
+                <Field label="Nova data" value={dateBR(p.data_vencimento)} />
+                {p.tipo_pgto_prorrogacao && <Field label="Forma Pgto" value={p.tipo_pgto_prorrogacao === 'pix' ? 'PIX' : 'Boleto'} />}
+                {p.chave_pix && <Field label="Chave PIX" value={p.chave_pix} mono />}
+                {p.multa_pct != null && <Field label="Multa" value={`${p.multa_pct}%`} />}
+                {p.juros_diario_pct != null && <Field label="Juros/dia" value={`${p.juros_diario_pct}%`} />}
                 {p.valor_atualizado != null && <Field label="Valor atualizado" value={brl(p.valor_atualizado)} mono />}
-                {p.data_prevista_pagamento  && <Field label="Previsão Pgto"    value={dateBR(p.data_prevista_pagamento)} />}
-                {p.dias_cartorio            && <Field label="Dias p/ cartório" value={`${p.dias_cartorio} dias`} />}
+                {p.data_prevista_pagamento && <Field label="Previsão Pgto" value={dateBR(p.data_prevista_pagamento)} />}
+                {p.dias_cartorio && <Field label="Dias p/ cartório" value={`${p.dias_cartorio} dias`} />}
               </div>
             </div>
           )}
@@ -1492,57 +1493,57 @@ function DetalheParcelaModal({ parcela: p, onClose, onSaved }) {
 
           {/* Seção Reembolso */}
           {!p._isSintetica && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <RotateCcw className="w-3.5 h-3.5 text-g-600" />
-              <span className="text-g-500 text-xs font-semibold uppercase tracking-wider">Reembolso</span>
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <RotateCcw className="w-3.5 h-3.5 text-g-600" />
+                <span className="text-g-500 text-xs font-semibold uppercase tracking-wider">Reembolso</span>
+              </div>
+              <div className="flex flex-col gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={reemb.sera_reembolsado}
+                    onChange={e => setR('sera_reembolsado', e.target.checked)}
+                    className="w-4 h-4 rounded border-g-700 bg-g-900 text-g-100 focus:ring-g-400"
+                  />
+                  <span className="text-g-400 text-sm">Será reembolsado pelo cliente</span>
+                </label>
+                {reemb.sera_reembolsado && (
+                  <div className="grid grid-cols-2 gap-3 pl-6">
+                    <div>
+                      <label className="text-g-600 text-xs font-medium mb-1 block">Valor a reembolsar (R$)</label>
+                      <input
+                        type="number" step="0.01"
+                        value={reemb.valor_reembolso}
+                        onChange={e => setR('valor_reembolso', e.target.value)}
+                        placeholder="0,00"
+                        className="w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm focus:outline-none focus:border-g-100 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-g-600 text-xs font-medium mb-1 block">Qtd de itens reembolsados</label>
+                      <input
+                        type="number"
+                        value={reemb.qtd_itens_reembolso}
+                        onChange={e => setR('qtd_itens_reembolso', e.target.value)}
+                        placeholder="0"
+                        className="w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm focus:outline-none focus:border-g-100 transition-colors"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-g-600 text-xs font-medium mb-1 block">Motivo do reembolso</label>
+                      <textarea
+                        value={reemb.motivo_reembolso}
+                        onChange={e => setR('motivo_reembolso', e.target.value)}
+                        placeholder="Descreva o motivo…"
+                        rows={3}
+                        className="w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm focus:outline-none focus:border-g-100 transition-colors resize-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={reemb.sera_reembolsado}
-                  onChange={e => setR('sera_reembolsado', e.target.checked)}
-                  className="w-4 h-4 rounded border-g-700 bg-g-900 text-g-100 focus:ring-g-400"
-                />
-                <span className="text-g-400 text-sm">Será reembolsado pelo cliente</span>
-              </label>
-              {reemb.sera_reembolsado && (
-                <div className="grid grid-cols-2 gap-3 pl-6">
-                  <div>
-                    <label className="text-g-600 text-xs font-medium mb-1 block">Valor a reembolsar (R$)</label>
-                    <input
-                      type="number" step="0.01"
-                      value={reemb.valor_reembolso}
-                      onChange={e => setR('valor_reembolso', e.target.value)}
-                      placeholder="0,00"
-                      className="w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm focus:outline-none focus:border-g-100 transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-g-600 text-xs font-medium mb-1 block">Qtd de itens reembolsados</label>
-                    <input
-                      type="number"
-                      value={reemb.qtd_itens_reembolso}
-                      onChange={e => setR('qtd_itens_reembolso', e.target.value)}
-                      placeholder="0"
-                      className="w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm focus:outline-none focus:border-g-100 transition-colors"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-g-600 text-xs font-medium mb-1 block">Motivo do reembolso</label>
-                    <textarea
-                      value={reemb.motivo_reembolso}
-                      onChange={e => setR('motivo_reembolso', e.target.value)}
-                      placeholder="Descreva o motivo…"
-                      rows={3}
-                      className="w-full px-3 py-2 bg-g-900 border border-g-800 rounded-lg text-g-300 text-sm focus:outline-none focus:border-g-100 transition-colors resize-none"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
           )}
 
           {error && <p className="text-red-500 text-xs bg-red-50/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
@@ -1572,19 +1573,24 @@ function DetalheParcelaModal({ parcela: p, onClose, onSaved }) {
 
 // ── Aba Financeiro ────────────────────────────────────────────────────
 function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
-  const [parcelas,       setParcelas]       = useState([])
-  const [osList,         setOsList]         = useState([])
-  const [loading,        setLoading]        = useState(true)
-  const [viewMode,       setViewMode]       = useState('parcelas')   // 'parcelas' | 'notas'
-  const [categoria,      setCategoria]      = useState('pendente')
-  const [alertVisible,   setAlertVisible]   = useState(false)
+  const [parcelas, setParcelas] = useState([])
+  const [osList, setOsList] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [viewMode, setViewMode] = useState('parcelas')   // 'parcelas' | 'notas'
+  const [categoria, setCategoria] = useState('pendente')
+  const [alertVisible, setAlertVisible] = useState(false)
   const [modalProrrogar, setModalProrrogar] = useState(null)
-  const [modalDetalhe,   setModalDetalhe]   = useState(null)
-  const [filterText,     setFilterText]     = useState('')
-  const [filterEmpresa,  setFilterEmpresa]  = useState('')
-  const [filterMes,      setFilterMes]      = useState('')
-  const [sort,           setSort]           = useState({ col: 'data_vencimento', dir: 'asc' })
-  const [expandedNfs,    setExpandedNfs]    = useState(new Set())
+  const [modalDetalhe, setModalDetalhe] = useState(null)
+  const [filterText, setFilterText] = useState('')
+  const [filterEmpresa, setFilterEmpresa] = useState('')
+  const [filterDataDe, setFilterDataDe] = useState('')
+  const [filterDataAte, setFilterDataAte] = useState('')
+  const [sort, setSort] = useState({ col: 'data_vencimento', dir: 'asc' })
+  const [expandedNfs, setExpandedNfs] = useState(new Set())
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
+  const [showReportDropdown, setShowReportDropdown] = useState(false)
+  const [showInstallmentsInReport, setShowInstallmentsInReport] = useState(true)
+  const reportRef = useRef(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -1678,12 +1684,12 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
   }, [enriched])
 
   const CATS = [
-    { key: 'todas',      label: 'Total' },
+    { key: 'todas', label: 'Total' },
     { key: 'vence_hoje', label: 'Vencendo hoje' },
-    { key: 'pendente',   label: 'Pendentes' },
+    { key: 'pendente', label: 'Pendentes' },
     { key: 'prorrogada', label: 'Prorrogadas' },
-    { key: 'vencida',    label: 'Vencidas' },
-    { key: 'pago',       label: 'Pagas' },
+    { key: 'vencida', label: 'Vencidas' },
+    { key: 'pago', label: 'Pagas' },
   ]
 
   // Base: applies empresa + mês + texto — sem categoria. Usado nos KPIs e contagens.
@@ -1696,10 +1702,12 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
         return cod === filterEmpresa || sigla === filterEmpresa
       })
     }
-    if (filterMes) r = r.filter(p => {
-      const dateStr = p.data_prevista_pagamento || p.data_vencimento
+    if (filterDataDe || filterDataAte) r = r.filter(p => {
+      const dateStr = p.data_vencimento
       if (!dateStr) return false
-      return parseInt(String(dateStr).slice(5, 7)) === parseInt(filterMes)
+      if (filterDataDe && dateStr < filterDataDe) return false
+      if (filterDataAte && dateStr > filterDataAte) return false
+      return true
     })
     if (filterText.trim()) {
       const q = filterText.toLowerCase()
@@ -1709,7 +1717,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
       )
     }
     return r
-  }, [enriched, filterText, filterEmpresa, filterMes])
+  }, [enriched, filterText, filterEmpresa, filterDataDe, filterDataAte])
 
   const filtered = useMemo(() => {
     let r = baseFiltered
@@ -1735,7 +1743,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
     return r
   }, [baseFiltered, categoria, sort])
 
-  // Filtro específico para Por Nota: ignora o mês para mostrar o ano todo com separação mensal
+  // Filtro para Por Nota: aplica empresa, texto, categoria e intervalo de datas
   const nfFiltered = useMemo(() => {
     let r = enriched
     if (filterEmpresa) {
@@ -1745,6 +1753,13 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
         return cod === filterEmpresa || sigla === filterEmpresa
       })
     }
+    if (filterDataDe || filterDataAte) r = r.filter(p => {
+      const dateStr = p.data_vencimento
+      if (!dateStr) return false
+      if (filterDataDe && dateStr < filterDataDe) return false
+      if (filterDataAte && dateStr > filterDataAte) return false
+      return true
+    })
     if (filterText.trim()) {
       const q = filterText.toLowerCase()
       r = r.filter(p =>
@@ -1759,7 +1774,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
       })
     }
     return r
-  }, [enriched, filterText, filterEmpresa, categoria])
+  }, [enriched, filterText, filterEmpresa, filterDataDe, filterDataAte, categoria])
 
   const venceHojeList = useMemo(() => baseFiltered.filter(p => p._status === 'vence_hoje' || p._status === 'vencida'), [baseFiltered])
 
@@ -1778,12 +1793,12 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
     for (const p of nfFiltered) {
       const date = p.data_prevista_pagamento || p.data_vencimento
       const month = date ? parseInt(date.slice(5, 7)) : 0 // 0 = Sem data
-      
+
       if (!monthsMap.has(month)) monthsMap.set(month, new Map())
       const monthGroup = monthsMap.get(month)
-      
+
       const nfKey = `${p.nota || 'S/N'}|${p.fornecedor || 'Desconhecido'}`.toLowerCase()
-      
+
       if (!monthGroup.has(nfKey)) {
         monthGroup.set(nfKey, {
           nfKey,
@@ -1792,14 +1807,16 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
           placas: new Set(),
           osList: new Set(),
           parcelas: [],
+          sistemas: new Set(),
           month,
         })
       }
-      
+
       const g = monthGroup.get(nfKey)
       g.parcelas.push(p)
       if (p.placa) g.placas.add(p.placa)
       if (p.id_ord_serv) g.osList.add(p.id_ord_serv)
+      if (p.sistema) g.sistemas.add(p.sistema)
     }
 
     // 2. Transforma em array e enriquece com metadados e subtotais
@@ -1810,31 +1827,41 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
       const invoicesMap = monthsMap.get(mIdx)
       const invoices = Array.from(invoicesMap.values()).map(g => {
         const pList = g.parcelas
-        
-        const hasVencida    = pList.some(p => p._status === 'vencida')
-        const hasVenceHoje  = pList.some(p => p._status === 'vence_hoje')
+        const empresaNome = pList[0]?.empresa_nome || pList[0]?.empresa || 'Empresa não identificada'
+
+        const hasVencida = pList.some(p => p._status === 'vencida')
+        const hasVenceHoje = pList.some(p => p._status === 'vence_hoje')
         const hasProrrogada = pList.some(p => p._status === 'prorrogada')
-        
+
         // Dados globais da NF para o contador total (pode haver parcelas em outros meses)
-        const globalNfParcelas = enriched.filter(p => 
+        const globalNfParcelas = enriched.filter(p =>
           `${p.nota || 'S/N'}|${p.fornecedor || 'Desconhecido'}`.toLowerCase() === g.nfKey
         )
         const globalPago = globalNfParcelas.filter(p => p._status === 'pago').length
         const globalTotal = globalNfParcelas.length
         const allPagoGlobal = globalTotal > 0 && globalPago === globalTotal
 
-        const nextPending = pList.filter(p => p._status !== 'pago').sort((a, b) => (a.data_vencimento || '').localeCompare(b.data_vencimento || ''))[0]
+        const pendentes = pList.filter(p => p._status !== 'pago').sort((a, b) => (a.data_vencimento || '').localeCompare(b.data_vencimento || ''))
+        const nextPending = pendentes[0]
+        const nextVencimento = nextPending ? nextPending.data_vencimento : pList[0]?.data_vencimento
+        const nextValor = nextVencimento
+          ? pendentes
+              .filter(p => p.data_vencimento === nextVencimento)
+              .reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
+          : 0
 
         return {
           ...g,
           placasList: Array.from(g.placas).sort(),
           osList: Array.from(g.osList).sort(),
-          nextVencimento: nextPending ? nextPending.data_vencimento : pList[0]?.data_vencimento,
-          nextValor: nextPending ? (parseFloat(nextPending.valor_atualizado ?? nextPending.valor_parcela) || 0) : 0,
+          sistemasList: Array.from(g.sistemas).sort(),
+          nextVencimento,
+          nextValor,
           totalGeral: pList.reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0),
           countPago: globalPago,
           countTotal: globalTotal,
           allPago: allPagoGlobal,
+          empresa: empresaNome,
           hasVencida, hasVenceHoje, hasProrrogada
         }
       }).sort((a, b) => (a.nextVencimento || '').localeCompare(b.nextVencimento || ''))
@@ -1850,10 +1877,20 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
   }, [nfFiltered, enriched])
 
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
-  const totalPendente  = baseFiltered.filter(p => p._status !== 'pago').reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
-  const totalVencidas  = baseFiltered.filter(p => p._status === 'vencida').length
+  const totalPendente = baseFiltered.filter(p => p._status !== 'pago').reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
+  const totalVencidas = baseFiltered.filter(p => p._status === 'vencida').length
   const totalVenceHoje = venceHojeList.length
-  const totalPago      = baseFiltered.filter(p => p._status === 'pago').reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
+  const totalPago = baseFiltered.filter(p => p._status === 'pago').reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
+
+  const pendingByCompany = useMemo(() => {
+    const map = new Map()
+    baseFiltered.filter(p => p._status !== 'pago').forEach(p => {
+      const company = p.empresa_nome || p.empresa || 'Outros'
+      const val = (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0)
+      map.set(company, (map.get(company) || 0) + val)
+    })
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1])
+  }, [baseFiltered])
 
   const toggleSort = (col) => setSort(s => ({ col, dir: s.col === col && s.dir === 'asc' ? 'desc' : 'asc' }))
   const SortIcon = ({ col }) => sort.col === col
@@ -1875,6 +1912,31 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
       data_vencimento: p.data_vencimento,
     })
     load()
+  }
+
+  const handlePrint = (withInstallments = true) => {
+    if (isGeneratingPdf) return
+    setShowInstallmentsInReport(withInstallments)
+    setIsGeneratingPdf(true)
+    setShowReportDropdown(false)
+
+    // Opções do html2pdf
+    const opt = {
+      margin: [10, 10],
+      filename: `Relatorio_Financeiro_${year || 'Geral'}.pdf`,
+      image: { type: 'png' },
+      html2canvas: { scale: 4, useCORS: true, letterRendering: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    }
+
+    // Pequeno delay para garantir que o estado de "gerando" foi processado (opcional)
+    setTimeout(() => {
+      const element = reportRef.current
+      html2pdf().set(opt).from(element).save().then(() => {
+        setIsGeneratingPdf(false)
+      })
+    }, 500)
   }
 
   return (
@@ -1925,36 +1987,86 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
         <div className="flex items-center justify-between gap-3">
           <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1 w-fit">
             {CATS.map(c => {
-              const count = c.key === 'todas' ? baseFiltered.length 
+              const count = c.key === 'todas' ? baseFiltered.length
                 : c.key === 'pendente' ? baseFiltered.filter(p => p._status === 'pendente' || p._status === 'prorrogada').length
-                : baseFiltered.filter(p => p._status === c.key).length
+                  : baseFiltered.filter(p => p._status === c.key).length
               return (
                 <button
                   key={c.key}
                   onClick={() => setCategoria(c.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    categoria === c.key
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${categoria === c.key
                       ? 'bg-white shadow-sm text-g-200 border border-g-800'
                       : 'text-g-600 hover:text-g-400'
-                  }`}
+                    }`}
                 >
                   {c.label} <span className="opacity-60">({count})</span>
                 </button>
               )
             })}
           </div>
-          <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1">
-            {[{ k: 'parcelas', label: 'Parcelas' }, { k: 'notas', label: 'Por Nota' }].map(({ k, label }) => (
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1">
+              {[{ k: 'parcelas', label: 'Parcelas' }, { k: 'notas', label: 'Por Nota' }].map(({ k, label }) => (
+                <button
+                  key={k}
+                  onClick={() => setViewMode(k)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${viewMode === k
+                      ? 'bg-white shadow-sm text-g-200 border border-g-800'
+                      : 'text-g-600 hover:text-g-400'
+                    }`}
+                >{label}</button>
+              ))}
+            </div>
+
+            <div className="relative">
               <button
-                key={k}
-                onClick={() => setViewMode(k)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  viewMode === k
-                    ? 'bg-white shadow-sm text-g-200 border border-g-800'
-                    : 'text-g-600 hover:text-g-400'
-                }`}
-              >{label}</button>
-            ))}
+                onClick={() => setShowReportDropdown(!showReportDropdown)}
+                disabled={isGeneratingPdf}
+                className={`flex items-center gap-2 px-4 py-1.5 border border-g-800 rounded-xl text-xs font-bold uppercase tracking-widest transition-all no-print ${isGeneratingPdf
+                    ? 'bg-g-800 text-g-500 cursor-not-allowed'
+                    : 'bg-g-850 text-g-200 hover:text-white hover:bg-g-800 hover:border-g-100/30 shadow-lg'
+                  }`}
+              >
+                {isGeneratingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
+                {isGeneratingPdf ? 'Gerando...' : 'Relatório'}
+                <ChevronDown className={`w-3 h-3 transition-transform ${showReportDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showReportDropdown && !isGeneratingPdf && (
+                <>
+                  <div className="fixed inset-0 z-[80] no-print" onClick={() => setShowReportDropdown(false)} />
+                  <div className="absolute right-0 mt-2 w-64 bg-g-900 border border-g-800 rounded-xl shadow-2xl z-[90] overflow-hidden animate-fade-in no-print">
+                    <div className="p-2 flex flex-col gap-1">
+                      <button
+                        onClick={() => handlePrint(true)}
+                        className="flex items-center gap-3 w-full p-3 hover:bg-g-850 rounded-lg transition-colors group text-left"
+                      >
+                        <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg group-hover:bg-emerald-500 transition-colors">
+                          <FileText className="w-4 h-4 text-emerald-500 group-hover:text-white" />
+                        </div>
+                        <div>
+                          <p className="text-g-100 text-[11px] font-bold uppercase tracking-wider">Com Detalhamento</p>
+                          <p className="text-g-600 text-[9px] mt-0.5">Relatório completo com parcelas</p>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => handlePrint(false)}
+                        className="flex items-center gap-3 w-full p-3 hover:bg-g-850 rounded-lg transition-colors group text-left"
+                      >
+                        <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg group-hover:bg-blue-500 transition-colors">
+                          <Printer className="w-4 h-4 text-blue-500 group-hover:text-white" />
+                        </div>
+                        <div>
+                          <p className="text-g-100 text-[11px] font-bold uppercase tracking-wider">Apenas Resumo</p>
+                          <p className="text-g-600 text-[9px] mt-0.5">Listagem simplificada de notas</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -1982,16 +2094,33 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
               {empresas.map(([cod, sigla]) => <option key={cod} value={cod}>{sigla}</option>)}
             </select>
           )}
-          <select
-            value={filterMes}
-            onChange={e => setFilterMes(e.target.value)}
-            className="py-2 px-3 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm focus:outline-none focus:border-g-100 transition-colors"
-          >
-            <option value="">Todos os meses</option>
-            {['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'].map((m, i) => (
-              <option key={i+1} value={i+1}>{m}</option>
-            ))}
-          </select>
+          <div className="flex items-center gap-1.5">
+            <span className="text-g-600 text-xs font-medium whitespace-nowrap">De</span>
+            <input
+              type="date"
+              value={filterDataDe}
+              onChange={e => setFilterDataDe(e.target.value)}
+              className="py-2 px-3 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm focus:outline-none focus:border-g-100 transition-colors"
+            />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-g-600 text-xs font-medium whitespace-nowrap">Até</span>
+            <input
+              type="date"
+              value={filterDataAte}
+              onChange={e => setFilterDataAte(e.target.value)}
+              className="py-2 px-3 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm focus:outline-none focus:border-g-100 transition-colors"
+            />
+          </div>
+          {(filterDataDe || filterDataAte) && (
+            <button
+              onClick={() => { setFilterDataDe(''); setFilterDataAte('') }}
+              className="p-2 rounded-lg text-g-600 hover:text-g-300 hover:bg-g-850 transition-colors"
+              title="Limpar filtro de data"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -2020,11 +2149,11 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
                   expanded ? next.delete(g.nfKey) : next.add(g.nfKey)
                   return next
                 })
-                const statusColor = g.hasVencida    ? 'border-l-red-500'
-                                   : g.hasVenceHoje  ? 'border-l-orange-400'
-                                   : g.hasProrrogada ? 'border-l-purple-500'
-                                   : g.allPago       ? 'border-l-emerald-500'
-                                   : 'border-l-blue-500'
+                const statusColor = g.hasVencida ? 'border-l-red-500'
+                  : g.hasVenceHoje ? 'border-l-orange-400'
+                    : g.hasProrrogada ? 'border-l-purple-500'
+                      : g.allPago ? 'border-l-emerald-500'
+                        : 'border-l-blue-500'
 
                 return (
                   <div key={`${mGroup.month}-${g.nfKey}`} className={`card border-l-4 ${statusColor} overflow-hidden mb-1`}>
@@ -2090,13 +2219,12 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
 
                         {/* Status */}
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs font-bold px-3 py-1 rounded-full border shadow-sm ${
-                            g.hasVencida   ? 'bg-red-500/10 text-red-500 border-red-500/30'
-                            : g.hasVenceHoje ? 'bg-orange-500/10 text-orange-500 border-orange-500/30'
-                            : g.hasProrrogada ? 'bg-purple-500/10 text-purple-500 border-purple-500/30'
-                            : g.allPago    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
-                            : 'bg-blue-500/10 text-blue-500 border-blue-500/30'
-                          }`}>
+                          <span className={`text-xs font-bold px-3 py-1 rounded-full border shadow-sm ${g.hasVencida ? 'bg-red-500/10 text-red-500 border-red-500/30'
+                              : g.hasVenceHoje ? 'bg-orange-500/10 text-orange-500 border-orange-500/30'
+                                : g.hasProrrogada ? 'bg-purple-500/10 text-purple-500 border-purple-500/30'
+                                  : g.allPago ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                                    : 'bg-blue-500/10 text-blue-500 border-blue-500/30'
+                            }`}>
                             {g.hasVencida ? 'Vencida' : g.hasVenceHoje ? 'Vence hoje' : g.hasProrrogada ? 'Prorrogada' : g.allPago ? 'Pago' : 'Pendente'}
                           </span>
                         </div>
@@ -2121,6 +2249,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
                               <th className="th th-left text-[10px]">Vencimento</th>
                               <th className="th text-[10px]">Valor</th>
                               <th className="th text-[10px]">Status</th>
+                              <th className="th th-left text-[10px]">Forma</th>
                               <th className="th th-left text-[10px]">Previsão Pgto</th>
                               <th className="th text-[10px]">Ações</th>
                             </tr>
@@ -2157,6 +2286,9 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
                                     )}
                                   </td>
                                   <td className="td"><FinBadge status={p._status} /></td>
+                                  <td className="td td-left text-xs text-g-500 uppercase font-medium">
+                                    {p.forma_pgto || '—'}
+                                  </td>
                                   <td className="td td-left text-xs tabular-nums">
                                     {previsao ? (
                                       <span className={`flex items-center gap-1 ${prevAtrasada ? 'text-red-500 font-medium' : 'text-g-500'}`}>
@@ -2205,170 +2337,171 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
               </div>
             </div>
           ))
-        }
-        {nfGroupsByMonth.length > 0 && (
-          <div className="card p-6 flex items-center justify-end gap-10 bg-g-900 border-t-4 border-t-emerald-600">
-            <span className="text-g-500 text-sm font-bold uppercase tracking-[0.2em]">
-              Total Geral do Ano
-            </span>
-            <div className="text-right">
-              <span className="text-g-600 text-[10px] block uppercase font-bold mb-0.5">Soma de todos os meses</span>
-              <span className="font-mono font-bold text-emerald-600 text-3xl tabular-nums">
-                {brl(nfGroupsByMonth.reduce((s, m) => s + m.subtotal, 0))}
+          }
+          {nfGroupsByMonth.length > 0 && (
+            <div className="card p-6 flex items-center justify-end gap-10 bg-g-900 border-t-4 border-t-emerald-600">
+              <span className="text-g-500 text-sm font-bold uppercase tracking-[0.2em]">
+                Total Geral do Ano
               </span>
+              <div className="text-right">
+                <span className="text-g-600 text-[10px] block uppercase font-bold mb-0.5">Soma de todos os meses</span>
+                <span className="font-mono font-bold text-emerald-600 text-3xl tabular-nums">
+                  {brl(nfGroupsByMonth.reduce((s, m) => s + m.subtotal, 0))}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       )}
 
       {/* Tabela de parcelas */}
       {!loading && viewMode === 'parcelas' && (
-      <div className="card overflow-hidden">
-        {filtered.length === 0 ? (
-          <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
-            <Search className="w-4 h-4" />
-            {filterText ? `Nenhum resultado para "${filterText}"` : 'Nenhuma parcela nesta categoria'}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full table-fixed">
-              <thead className="bg-g-850 border-b border-g-800">
-                <tr>
-                  {[
-                    { key: 'placa',           label: 'Placa',          cls: 'th-left w-[8%] !pl-1.5' },
-                    { key: 'id_ord_serv',     label: 'Nº OS',          cls: 'th-left w-[12%]' },
-                    { key: 'empresa_nome',    label: 'Empresa',        cls: 'th-left w-[8%]' },
-                    { key: 'fornecedor',      label: 'Fornecedor',     cls: 'th-left w-[18%]' },
-                    { key: 'nota',            label: 'Nota Fiscal',    cls: 'th-left w-[8%]' },
-                    { key: 'parcela_atual',   label: 'Parcela',        cls: 'th-left w-[6%]' },
-                    { key: 'data_vencimento', label: 'Vencimento',     cls: 'th-left w-[8%]' },
-                    { key: 'valor_parcela',   label: 'Valor',          cls: 'th-right w-[9%]' },
-                    { key: 'status_pagamento',label: 'Status',         cls: 'th-center w-[8%]' },
-                    { key: 'data_prevista_pagamento', label: 'Previsão Pgto', cls: 'th-left w-[9%]' }
-                  ].map(({ key, label, cls }, i) => (
-                    <th key={key} onClick={() => toggleSort(key)} className={`th ${cls} cursor-pointer select-none hover:text-g-300 transition-colors truncate`}>
-                      {label}<SortIcon col={key} />
-                    </th>
-                  ))}
-                  <th className="th th-right w-[10%] !pr-1.5">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(p => {
-                  const previsao = p.prorrogada
-                    ? (p.data_prevista_pagamento || p.data_vencimento)
-                    : p.data_prevista_pagamento
-                  const prevAtrasada = previsao
-                    && p.status_pagamento !== 'Pago'
-                    && new Date(previsao) < hoje
-                  const rowBg = p._status === 'vencida'    ? 'bg-red-50/20'
-                              : p._status === 'vence_hoje' ? 'bg-orange-50/20'
-                              : p._status === 'prorrogada' ? 'bg-purple-50/10'
-                              : ''
-                  return (
-                    <tr
-                      key={p.id}
-                      onClick={() => setModalDetalhe(p)}
-                      className={`border-b border-g-800 hover:bg-g-850 transition-colors cursor-pointer ${rowBg}`}
-                    >
-                      <td className="td td-left !pl-1.5 font-mono font-bold text-g-200">{p.placa}</td>
-                      <td className="td td-left text-g-600 font-mono text-[11px] truncate">{p.id_ord_serv || '—'}</td>
-                      <td className="td td-left text-xs text-g-500 tabular-nums" title={p.empresa_nome || ''}>{empresaSigla(p.empresa, p.empresa_nome)}</td>
-                      <td className="td td-left text-g-500 truncate" title={p.fornecedor_os && p.fornecedor_os !== p.fornecedor ? `OS: ${p.fornecedor_os}` : ''}>
-                        <span className="flex items-center gap-1 overflow-hidden">
-                          <span className="truncate">{p.fornecedor || '—'}</span>
-                          {p.fornecedor_os && p.fornecedor && p.fornecedor_os !== p.fornecedor && (
-                            <span className="text-[9px] text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded px-1 flex-shrink-0">≠OS</span>
-                          )}
-                        </span>
-                      </td>
-                      <td className="td td-left text-g-500 font-mono text-xs">{p.nota || '—'}</td>
-                      <td className="td td-left text-xs text-g-600 tabular-nums">
-                        {p.parcela_atual && p.parcela_total ? `${p.parcela_atual} / ${p.parcela_total}` : '—'}
-                      </td>
-                      <td className="td td-left text-xs text-g-500 tabular-nums">
-                        <span className="flex items-center gap-1">
-                          {p.prorrogada ? dateBR(p.data_vencimento_original) : dateBR(p.data_vencimento)}
-                          {p.prorrogada && <span className="text-purple-500 text-xs" title={`Nova data: ${dateBR(p.data_vencimento)}`}>↻</span>}
-                          {p._status === 'vencida' && <AlertTriangle className="w-3 h-3 text-red-500" />}
-                        </span>
-                      </td>
-                      <td className="td td-right font-mono font-semibold text-g-300 tabular-nums text-sm">
-                        {brl(p.valor_atualizado ?? p.valor_parcela)}
-                      </td>
-                      <td className="td td-center"><FinBadge status={p._status} /></td>
-                      <td className="td td-left text-xs tabular-nums">
-                        {previsao ? (
-                          <span className={`flex items-center gap-1 ${prevAtrasada ? 'text-red-500 font-medium' : 'text-g-500'}`}>
-                            {dateBR(previsao)}
-                            {prevAtrasada && <AlertTriangle className="w-3 h-3" />}
+        <div className="card overflow-hidden">
+          {filtered.length === 0 ? (
+            <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
+              <Search className="w-4 h-4" />
+              {filterText ? `Nenhum resultado para "${filterText}"` : 'Nenhuma parcela nesta categoria'}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full table-fixed">
+                <thead className="bg-g-850 border-b border-g-800">
+                  <tr>
+                    {[
+                      { key: 'placa', label: 'Placa', cls: 'th-left w-[8%] !pl-1.5' },
+                      { key: 'id_ord_serv', label: 'Nº OS', cls: 'th-left w-[12%]' },
+                      { key: 'empresa_nome', label: 'Empresa', cls: 'th-left w-[8%]' },
+                      { key: 'fornecedor', label: 'Fornecedor', cls: 'th-left w-[18%]' },
+                      { key: 'nota', label: 'Nota Fiscal', cls: 'th-left w-[8%]' },
+                      { key: 'parcela_atual', label: 'Parcela', cls: 'th-left w-[6%]' },
+                      { key: 'data_vencimento', label: 'Vencimento', cls: 'th-left w-[8%]' },
+                      { key: 'valor_parcela', label: 'Valor', cls: 'th-right w-[9%]' },
+                      { key: 'status_pagamento', label: 'Status', cls: 'th-center w-[8%]' },
+                      { key: 'data_prevista_pagamento', label: 'Previsão Pgto', cls: 'th-left w-[9%]' }
+                    ].map(({ key, label, cls }, i) => (
+                      <th key={key} onClick={() => toggleSort(key)} className={`th ${cls} cursor-pointer select-none hover:text-g-300 transition-colors truncate`}>
+                        {label}<SortIcon col={key} />
+                      </th>
+                    ))}
+                    <th className="th th-right w-[10%] !pr-1.5">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(p => {
+                    const previsao = p.prorrogada
+                      ? (p.data_prevista_pagamento || p.data_vencimento)
+                      : p.data_prevista_pagamento
+                    const prevAtrasada = previsao
+                      && p.status_pagamento !== 'Pago'
+                      && new Date(previsao) < hoje
+                    const rowBg = p._status === 'vencida' ? 'bg-red-50/20'
+                      : p._status === 'vence_hoje' ? 'bg-orange-50/20'
+                        : p._status === 'prorrogada' ? 'bg-purple-50/10'
+                          : ''
+                    return (
+                      <tr
+                        key={p.id}
+                        onClick={() => setModalDetalhe(p)}
+                        className={`border-b border-g-800 hover:bg-g-850 transition-colors cursor-pointer ${rowBg}`}
+                      >
+                        <td className="td td-left !pl-1.5 font-mono font-bold text-g-200">{p.placa}</td>
+                        <td className="td td-left text-g-600 font-mono text-[11px] truncate">{p.id_ord_serv || '—'}</td>
+                        <td className="td td-left text-xs text-g-500 tabular-nums" title={p.empresa_nome || ''}>{empresaSigla(p.empresa, p.empresa_nome)}</td>
+                        <td className="td td-left text-g-500 truncate" title={p.fornecedor_os && p.fornecedor_os !== p.fornecedor ? `OS: ${p.fornecedor_os}` : ''}>
+                          <span className="flex items-center gap-1 overflow-hidden">
+                            <span className="truncate">{p.fornecedor || '—'}</span>
+                            {p.fornecedor_os && p.fornecedor && p.fornecedor_os !== p.fornecedor && (
+                              <span className="text-[9px] text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded px-1 flex-shrink-0">≠OS</span>
+                            )}
                           </span>
-                        ) : '—'}
-                      </td>
-                      <td className="td td-right !pr-1.5" onClick={e => e.stopPropagation()}>
-                        {p._isSintetica ? (
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="text-[10px] text-g-700 italic px-1">via NF</span>
-                            <button
-                              onClick={() => handleMarcarPagoSintetica(p)}
-                              title="Registrar como pago"
-                              className="px-2 py-1 text-xs text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
-                            >Pago</button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-1">
-                            {p._status !== 'pago' && (
+                        </td>
+                        <td className="td td-left text-g-500 font-mono text-xs">{p.nota || '—'}</td>
+                        <td className="td td-left text-xs text-g-600 tabular-nums">
+                          {p.parcela_atual && p.parcela_total ? `${p.parcela_atual} / ${p.parcela_total}` : '—'}
+                        </td>
+                        <td className="td td-left text-xs text-g-500 tabular-nums">
+                          <span className="flex items-center gap-1">
+                            {p.prorrogada ? dateBR(p.data_vencimento_original) : dateBR(p.data_vencimento)}
+                            {p.prorrogada && <span className="text-purple-500 text-xs" title={`Nova data: ${dateBR(p.data_vencimento)}`}>↻</span>}
+                            {p._status === 'vencida' && <AlertTriangle className="w-3 h-3 text-red-500" />}
+                          </span>
+                        </td>
+                        <td className="td td-right font-mono font-semibold text-g-300 tabular-nums text-sm">
+                          {brl(p.valor_atualizado ?? p.valor_parcela)}
+                        </td>
+                        <td className="td td-center"><FinBadge status={p._status} /></td>
+                        <td className="td td-left text-xs tabular-nums">
+                          {previsao ? (
+                            <span className={`flex items-center gap-1 ${prevAtrasada ? 'text-red-500 font-medium' : 'text-g-500'}`}>
+                              {dateBR(previsao)}
+                              {prevAtrasada && <AlertTriangle className="w-3 h-3" />}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="td td-right !pr-1.5" onClick={e => e.stopPropagation()}>
+                          {p._isSintetica ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <span className="text-[10px] text-g-700 italic px-1">via NF</span>
                               <button
-                                onClick={() => setModalProrrogar(p)}
-                                title="Prorrogar"
-                                className="px-2 py-1 text-xs text-g-400 border border-g-800 rounded-lg hover:bg-g-850 hover:text-g-200 transition-colors flex items-center gap-1"
-                              >
-                                <CalendarClock className="w-3 h-3" /> Prorrogar
-                              </button>
-                            )}
-                            {p._status !== 'pago' && (
-                              <button
-                                onClick={() => handleMarcarPago(p)}
-                                title="Marcar como pago"
+                                onClick={() => handleMarcarPagoSintetica(p)}
+                                title="Registrar como pago"
                                 className="px-2 py-1 text-xs text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
-                              >
-                                Pago
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
+                              >Pago</button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-1">
+                              {p._status !== 'pago' && (
+                                <button
+                                  onClick={() => setModalProrrogar(p)}
+                                  title="Prorrogar"
+                                  className="px-2 py-1 text-xs text-g-400 border border-g-800 rounded-lg hover:bg-g-850 hover:text-g-200 transition-colors flex items-center gap-1"
+                                >
+                                  <CalendarClock className="w-3 h-3" /> Prorrogar
+                                </button>
+                              )}
+                              {p._status !== 'pago' && (
+                                <button
+                                  onClick={() => handleMarcarPago(p)}
+                                  title="Marcar como pago"
+                                  className="px-2 py-1 text-xs text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
+                                >
+                                  Pago
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                {filtered.length > 0 && (() => {
+                  const somaValor = filtered.reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
+                  const somaPago = filtered.filter(p => p._status === 'pago').reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
+                  const qtdCols = 11
+                  return (
+                    <tfoot className="bg-g-850 border-t-2 border-g-700">
+                      <tr>
+                        <td colSpan={qtdCols - 2} className="td td-left">
+                          <span className="text-g-600 text-xs font-semibold uppercase tracking-wider">
+                            {filtered.length} {filtered.length === 1 ? 'parcela' : 'parcelas'}
+                          </span>
+                        </td>
+                        <td className="td font-mono font-bold text-g-200 tabular-nums text-sm" colSpan={2}>
+                          <span className="block">{brl(somaValor)}</span>
+                          {somaPago > 0 && somaPago < somaValor && (
+                            <span className="block text-emerald-600 text-xs font-normal">{brl(somaPago)} pago</span>
+                          )}
+                        </td>
+                        <td className="td" />
+                      </tr>
+                    </tfoot>
                   )
-                })}
-              </tbody>
-              {filtered.length > 0 && (() => {
-                const somaValor = filtered.reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
-                const somaPago  = filtered.filter(p => p._status === 'pago').reduce((s, p) => s + (parseFloat(p.valor_atualizado ?? p.valor_parcela) || 0), 0)
-                const qtdCols = 11
-                return (
-                  <tfoot className="bg-g-850 border-t-2 border-g-700">
-                    <tr>
-                      <td colSpan={qtdCols - 2} className="td td-left">
-                        <span className="text-g-600 text-xs font-semibold uppercase tracking-wider">
-                          {filtered.length} {filtered.length === 1 ? 'parcela' : 'parcelas'}
-                        </span>
-                      </td>
-                      <td className="td font-mono font-bold text-g-200 tabular-nums text-sm" colSpan={2}>
-                        <span className="block">{brl(somaValor)}</span>
-                        {somaPago > 0 && somaPago < somaValor && (
-                          <span className="block text-emerald-600 text-xs font-normal">{brl(somaPago)} pago</span>
-                        )}
-                      </td>
-                      <td className="td" />
-                    </tr>
-                  </tfoot>
-                )
-              })()}
-            </table>
-          </div>
-        )}
-      </div>
+                })()}
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Modal alerta contas do dia */}
@@ -2397,255 +2530,440 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
           onSaved={() => { setModalDetalhe(null); load() }}
         />
       )}
+
+      {/* Elemento oculto para geração do PDF */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+        <div ref={reportRef} className="p-6 bg-white text-black w-[190mm]">
+          {/* Header do PDF */}
+          <div className="flex items-center justify-between mb-8 border-b-2 border-g-100 pb-4">
+            <div className="flex items-center gap-4">
+              <img src="/logo.png" alt="TKJ" className="h-16 w-auto object-contain" />
+              <div>
+                <h1 className="text-2xl font-bold text-g-100 uppercase tracking-tight">Relatório Financeiro</h1>
+                <p className="text-sm text-g-600 font-medium">Manutenção · Exercício {year}</p>
+                {(filterDataDe || filterDataAte) && (
+                  <p className="text-xs text-g-600 font-medium mt-0.5">
+                    {filterDataDe && filterDataAte
+                      ? `Período: ${filterDataDe.split('-').reverse().join('/')} a ${filterDataAte.split('-').reverse().join('/')}`
+                      : filterDataDe
+                        ? `A partir de ${filterDataDe.split('-').reverse().join('/')}`
+                        : `Até ${filterDataAte.split('-').reverse().join('/')}`}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] text-g-600 font-black uppercase tracking-widest mb-1">Data e Hora de Geração</p>
+              <p className="text-sm font-bold text-g-100 font-mono">
+                {new Date().toLocaleDateString('pt-BR')} {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </div>
+
+          {/* Resumo Financeiro (KPIs) */}
+          <div className="grid grid-cols-4 gap-4 mb-8 items-start">
+            <div className="col-span-2 border border-g-800 rounded-xl p-4 bg-amber-50/10 min-h-[100px]">
+              <p className="text-g-600 text-[10px] uppercase font-black tracking-wider mb-1">Total Pendente Geral</p>
+              <p className="text-2xl font-mono font-bold text-g-100">{brl(totalPendente)}</p>
+            </div>
+            <div className="col-span-2 border border-g-800 rounded-xl p-4 bg-emerald-50/5 min-h-[100px]">
+              <p className="text-g-600 text-[10px] uppercase font-black tracking-wider mb-2">Pendente por Empresa</p>
+              <div className="space-y-2">
+                {pendingByCompany.length > 0 ? pendingByCompany.map(([name, val]) => (
+                  <div key={name} className="flex justify-between items-start gap-2 text-[11px]">
+                    <span className="text-emerald-900 font-black uppercase leading-tight flex-1">{name}</span>
+                    <span className="font-mono font-black text-emerald-900 whitespace-nowrap leading-tight">{brl(val)}</span>
+                  </div>
+                )) : (
+                  <p className="text-xs text-g-600 italic">Nenhuma pendência</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Listagem por Meses */}
+          {nfGroupsByMonth.map(mGroup => (
+              <div key={mGroup.month} className="mb-6 break-inside-avoid">
+                <div className="flex items-center gap-4 mb-3">
+                  <span className="text-g-100 text-lg uppercase font-black tracking-widest">
+                    {mGroup.monthName}
+                  </span>
+                  <div className="h-px flex-1 bg-g-100/20" />
+                  <div className="bg-g-950 px-4 py-1.5 rounded-lg border border-g-800">
+                    <span className="text-g-200 text-xs font-mono font-bold">Subtotal: {brl(mGroup.subtotal)}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-5">
+                  {mGroup.invoices.map(g => (
+                    <div key={g.nfKey} className="relative pt-2">
+                      {/* Empresa Label (Estilo solicitado: texto acima da borda) */}
+                      <div className="absolute -top-1 left-2 bg-white px-2 z-10">
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{g.empresa}</span>
+                      </div>
+
+                      <div className="border border-g-800 rounded-xl overflow-hidden bg-white shadow-md">
+                        {/* NF Header */}
+                        <div className="bg-g-850/40 px-4 py-2 border-b border-g-800">
+                          <div className="grid grid-cols-[85px_95px_1fr_85px_95px_80px] gap-2 items-center">
+                            <div className="min-h-[40px] flex flex-col justify-center">
+                              <span className="text-[10px] text-g-600 uppercase font-black block mb-0.5">Vencimento</span>
+                              <span className="text-sm font-mono font-bold text-g-100">{g.nextVencimento ? dateBR(g.nextVencimento) : '—'}</span>
+                            </div>
+                            <div className="min-h-[40px] flex flex-col justify-center">
+                              <span className="text-[10px] text-g-600 uppercase font-black block mb-1">Placas</span>
+                              <div className="flex flex-wrap gap-1">
+                                {g.placasList.map(p => (
+                                  <span key={p} className="text-[11px] font-mono font-black text-g-100 bg-g-100/5 px-1.5 py-0.5 inline-flex items-center justify-center rounded border border-g-100/10 leading-none">{p}</span>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="min-h-[40px] flex flex-col justify-center overflow-hidden">
+                              <span className="text-[10px] text-g-600 uppercase font-black block mb-0.5">Fornecedor</span>
+                              <p className="text-[11px] font-black text-g-100 uppercase tracking-tight truncate pb-0.5">
+                                {shortenProviderName(g.fornecedor, 14)}
+                              </p>
+                            </div>
+                            <div className="min-h-[40px] flex flex-col justify-center">
+                              <span className="text-[10px] text-g-600 uppercase font-black block mb-0.5">NF / Parcelas</span>
+                              <span className="text-xs font-bold block text-g-100">NF {g.numero_nf || '—'}</span>
+                              <span className="text-[9px] text-g-600 font-mono font-bold">{g.countPago}/{g.countTotal} pagas</span>
+                            </div>
+                            <div className="min-h-[40px] flex flex-col justify-center">
+                              <span className="text-[10px] text-g-600 uppercase font-black block mb-0.5">Total NF</span>
+                              <span className="text-sm font-mono font-black text-g-100">{brl(g.totalGeral)}</span>
+                            </div>
+                            <div className="min-h-[40px] flex items-center justify-end">
+                              <div className={`text-[9px] font-black px-2 py-1 rounded border inline-flex items-center justify-center uppercase tracking-wider leading-none ${g.hasVencida ? 'bg-red-50 text-red-600 border-red-200'
+                                  : g.hasVenceHoje ? 'bg-orange-50 text-orange-600 border-orange-200'
+                                    : g.hasProrrogada ? 'bg-purple-50 text-purple-600 border-purple-200'
+                                      : g.allPago ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                        : 'bg-blue-50 text-blue-600 border-blue-200'
+                                }`}>
+                                {g.hasVencida ? 'Vencida' : g.hasVenceHoje ? 'Vence hoje' : g.hasProrrogada ? 'Prorrogada' : g.allPago ? 'Pago' : 'Pendente'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Parcelas Table */}
+                        {showInstallmentsInReport && (
+                          <table className="w-full text-[11px]">
+                            <thead className="bg-g-950/10">
+                              <tr>
+                                <th className="px-4 py-1.5 text-left text-g-600 font-black uppercase tracking-tighter border-b border-g-800">Veículo</th>
+                                <th className="px-4 py-1.5 text-left text-g-600 font-black uppercase tracking-tighter border-b border-g-800">Sistema</th>
+                                <th className="px-4 py-1.5 text-left text-g-600 font-black uppercase tracking-tighter border-b border-g-800">Parcela</th>
+                                <th className="px-4 py-1.5 text-left text-g-600 font-black uppercase tracking-tighter border-b border-g-800">Vencimento</th>
+                                <th className="px-4 py-1.5 text-right text-g-600 font-black uppercase tracking-tighter border-b border-g-800">Valor</th>
+                                <th className="px-4 py-1.5 text-left text-g-600 font-black uppercase tracking-tighter border-b border-g-800">Forma</th>
+                                <th className="px-4 py-1.5 text-center text-g-600 font-black uppercase tracking-tighter border-b border-g-800">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {g.parcelas.map(p => (
+                                <tr key={p.id} className="border-b border-g-100/5 last:border-0">
+                                  <td className="px-4 py-1.5 font-mono font-black text-g-100">{p.placa}</td>
+                                  <td className="px-4 py-1.5 text-g-600 font-bold uppercase text-[9px]">{p.sistema || '—'}</td>
+                                  <td className="px-4 py-1.5 text-g-200 font-medium">
+                                    {p.parcela_atual && p.parcela_total ? `${p.parcela_atual}/${p.parcela_total}` : '—'}
+                                  </td>
+                                  <td className="px-4 py-1.5 text-g-200 font-medium">
+                                    {p.prorrogada && <span className="block text-[8px] text-purple-600 font-bold leading-none mb-0.5">Venc. Orig: {dateBR(p.data_vencimento_original)}</span>}
+                                    {dateBR(p.data_vencimento)}
+                                  </td>
+                                  <td className="px-4 py-1.5 text-right font-mono font-black text-sm text-g-100">
+                                    {p.prorrogada && <span className="block text-[9px] text-purple-600 font-bold leading-none mb-0.5">Orig: {brl(p.valor_parcela)}</span>}
+                                    {brl(p.valor_atualizado ?? p.valor_parcela)}
+                                  </td>
+                                  <td className="px-4 py-1.5 text-g-200 font-medium">{p.forma_pgto || '—'}</td>
+                                  <td className="px-4 py-1.5">
+                                    <div className="flex justify-center items-center h-full">
+                                      <span className={`w-20 h-5 rounded text-[9px] font-black tracking-tighter flex items-center justify-center border leading-none ${p._status === 'pago' ? 'text-emerald-700 bg-emerald-50 border-emerald-100'
+                                          : p._status === 'vencida' ? 'text-red-700 bg-red-50 border-red-100'
+                                            : p._status === 'prorrogada' ? 'text-purple-700 bg-purple-50 border-purple-100'
+                                              : 'text-blue-700 bg-blue-50 border-blue-100'
+                                        }`}>
+                                        {p._status.toUpperCase()}
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* Footer do Relatório (Final) */}
+            <div className="mt-8 pt-4 border-t-2 border-g-100 flex justify-between items-end">
+              <div className="text-left" />
+              <div className="text-right">
+                <p className="text-xs text-g-600 font-black uppercase tracking-widest mb-1">Total Geral do Exercício</p>
+                <p className="text-3xl font-mono font-black text-emerald-600 tracking-tighter">
+                  {brl(nfGroupsByMonth.reduce((s, m) => s + m.subtotal, 0))}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-g-800 text-center">
+              <p className="text-[9px] text-g-600 font-bold uppercase tracking-[0.3em]">Relatório Consultivo | TKJ Gerenciamento 2026</p>
+            </div>
+        </div>
+      </div>
     </div>
   )
 }
 
-// ════════════════════════════════════════════════════════════════════
-// ABA ANÁLISE — gráficos e KPIs (conteúdo original)
-// ════════════════════════════════════════════════════════════════════
-function AnaliseTab({ year, vehicles }) {
+      // ════════════════════════════════════════════════════════════════════
+      // ABA ANÁLISE — gráficos e KPIs (conteúdo original)
+      // ════════════════════════════════════════════════════════════════════
+      function AnaliseTab({year, vehicles}) {
   const [data,        setData]        = useState(null)
-  const [loading,     setLoading]     = useState(true)
-  const [placa,       setPlaca]       = useState('')
-  const [input,       setInput]       = useState('')
-  const [upcomingOpen, setUpcomingOpen] = useState(true)
+      const [loading,     setLoading]     = useState(true)
+      const [placa,       setPlaca]       = useState('')
+      const [input,       setInput]       = useState('')
+      const [upcomingOpen, setUpcomingOpen] = useState(true)
 
   const placas = useMemo(() =>
     [...new Set(vehicles.map(v => v.placa))].sort(), [vehicles]
-  )
+      )
 
   const load = (yr, p) => {
-    setLoading(true)
+        setLoading(true)
     getMaintenanceAnalysis(yr, p || undefined)
       .then(setData)
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load(year, placa) }, [year, placa])
+  useEffect(() => {load(year, placa)}, [year, placa])
 
   const handleSearch = () => setPlaca(input.trim().toUpperCase())
-  const clearFilter  = () => { setPlaca(''); setInput('') }
-  const s = data?.summary
+  const clearFilter  = () => {setPlaca(''); setInput('') }
+      const s = data?.summary
 
-  return (
-    <div className="flex flex-col gap-8">
-      {/* Filtro de placa */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-600" />
-          <input
-            list="placa-list"
-            placeholder="Filtrar por placa…"
-            value={input}
-            onChange={e => setInput(e.target.value.toUpperCase())}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            className="pl-9 pr-10 py-2 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors w-52 font-mono"
-          />
-          <datalist id="placa-list">
-            {placas.map(p => <option key={p} value={p} />)}
-          </datalist>
-          {(input || placa) && (
-            <button onClick={clearFilter} className="absolute right-2.5 top-1/2 -translate-y-1/2">
-              <X className="w-3.5 h-3.5 text-g-600 hover:text-g-400" />
-            </button>
+      return (
+      <div className="flex flex-col gap-8">
+        {/* Filtro de placa */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-600" />
+            <input
+              list="placa-list"
+              placeholder="Filtrar por placa…"
+              value={input}
+              onChange={e => setInput(e.target.value.toUpperCase())}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              className="pl-9 pr-10 py-2 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors w-52 font-mono"
+            />
+            <datalist id="placa-list">
+              {placas.map(p => <option key={p} value={p} />)}
+            </datalist>
+            {(input || placa) && (
+              <button onClick={clearFilter} className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                <X className="w-3.5 h-3.5 text-g-600 hover:text-g-400" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={handleSearch}
+            className="px-4 py-2 bg-g-850 hover:bg-g-800 border border-g-800 rounded-lg text-g-400 text-sm transition-colors"
+          >
+            Filtrar
+          </button>
+          {placa && (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-g-850 border border-g-100/20 rounded-full text-g-100 text-xs font-mono">
+              <Wrench className="w-3 h-3" />
+              {placa}
+              <button onClick={clearFilter}><X className="w-3 h-3 ml-0.5" /></button>
+            </span>
           )}
-        </div>
-        <button
-          onClick={handleSearch}
-          className="px-4 py-2 bg-g-850 hover:bg-g-800 border border-g-800 rounded-lg text-g-400 text-sm transition-colors"
-        >
-          Filtrar
-        </button>
-        {placa && (
-          <span className="flex items-center gap-1.5 px-3 py-1.5 bg-g-850 border border-g-100/20 rounded-full text-g-100 text-xs font-mono">
-            <Wrench className="w-3 h-3" />
-            {placa}
-            <button onClick={clearFilter}><X className="w-3 h-3 ml-0.5" /></button>
+          <span className="ml-auto text-g-700 text-xs">
+            {placa ? `Análise individual · ${placa}` : `Frota completa · ${year}`}
           </span>
-        )}
-        <span className="ml-auto text-g-700 text-xs">
-          {placa ? `Análise individual · ${placa}` : `Frota completa · ${year}`}
-        </span>
-      </div>
-
-      {loading && (
-        <div className="flex items-center justify-center h-64 gap-3 animate-fade-in">
-          <Loader2 className="w-6 h-6 animate-spin text-g-600" />
-          <p className="text-g-600 text-sm">Processando análise de manutenção…</p>
         </div>
-      )}
 
-      {!loading && data && (
-        <>
-          {/* Custo Mensal — primeiro destaque */}
-          {data.monthly?.length > 0 && (
-            <Section title="Custo Mensal" icon={DollarSign}>
-              <ChartCard title="Custo Mensal de Manutenção" subtitle="Valor total das OS finalizadas por mês">
-                <MonthlyBarChart data={data.monthly} />
-              </ChartCard>
+        {loading && (
+          <div className="flex items-center justify-center h-64 gap-3 animate-fade-in">
+            <Loader2 className="w-6 h-6 animate-spin text-g-600" />
+            <p className="text-g-600 text-sm">Processando análise de manutenção…</p>
+          </div>
+        )}
+
+        {!loading && data && (
+          <>
+            {/* Custo Mensal — primeiro destaque */}
+            {data.monthly?.length > 0 && (
+              <Section title="Custo Mensal" icon={DollarSign}>
+                <ChartCard title="Custo Mensal de Manutenção" subtitle="Valor total das OS finalizadas por mês">
+                  <MonthlyBarChart data={data.monthly} />
+                </ChartCard>
+              </Section>
+            )}
+
+            <Section title="Resumo de Manutenção" icon={Wrench}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <KPICard icon={Hash} label="Ordens de Serviço" rawValue={s.total_os} formatter={num} sub="OS únicas no período" delay={0} />
+                <KPICard icon={DollarSign} label="Custo Total" rawValue={s.total_cost} formatter={brlShort} sub="Soma todas as OS" delay={55} />
+                <KPICard icon={Activity} label="Custo Médio / OS" rawValue={s.avg_per_os} formatter={brlShort} sub="Média por ordem" delay={110} />
+                <KPICard icon={Award} label="Principal Fornecedor"
+                  value={s.top_fornecedor?.length > 14 ? s.top_fornecedor.slice(0, 13) + '…' : s.top_fornecedor}
+                  sub={data.by_fornecedor?.[0] ? brl(data.by_fornecedor[0].total) + ' no período' : '—'}
+                  accent delay={165}
+                />
+              </div>
             </Section>
-          )}
 
-          <Section title="Resumo de Manutenção" icon={Wrench}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <KPICard icon={Hash}       label="Ordens de Serviço" rawValue={s.total_os}    formatter={num}      sub="OS únicas no período" delay={0} />
-              <KPICard icon={DollarSign} label="Custo Total"        rawValue={s.total_cost}  formatter={brlShort} sub="Soma todas as OS"       delay={55} />
-              <KPICard icon={Activity}   label="Custo Médio / OS"   rawValue={s.avg_per_os}  formatter={brlShort} sub="Média por ordem"         delay={110} />
-              <KPICard icon={Award}      label="Principal Fornecedor"
-                value={s.top_fornecedor?.length > 14 ? s.top_fornecedor.slice(0,13)+'…' : s.top_fornecedor}
-                sub={data.by_fornecedor?.[0] ? brl(data.by_fornecedor[0].total)+' no período' : '—'}
-                accent delay={165}
-              />
-            </div>
-          </Section>
-
-          <Section title="Por Fornecedor e Sistema" icon={Award}>
-            <div className="grid grid-cols-2 gap-4">
-              <ChartCard title="Top Fornecedores" subtitle="Custo total por oficina / prestador">
-                <FornecedorChart data={data.by_fornecedor} />
-              </ChartCard>
-              <ChartCard title="Mapa de Sistemas" subtitle="Distribuição de custo por sistema mecânico (Treemap)">
-                <SistemaTreemap data={data.by_sistema} />
-              </ChartCard>
-            </div>
-          </Section>
-
-          <Section title="Tipo de Manutenção e Implemento" icon={Activity}>
-            <div className="grid grid-cols-3 gap-4">
-              <ChartCard title="Preventiva vs Corretiva" subtitle="Distribuição de custo por tipo">
-                <TipoPie data={data.by_tipo} />
-              </ChartCard>
-              <div className="col-span-2">
-                <ChartCard title="Custo por Implemento" subtitle="Radial — proporção relativa ao maior custo">
-                  <ImplementoRadial data={data.by_implemento} />
+            <Section title="Por Fornecedor e Sistema" icon={Award}>
+              <div className="grid grid-cols-2 gap-4">
+                <ChartCard title="Top Fornecedores" subtitle="Custo total por oficina / prestador">
+                  <FornecedorChart data={data.by_fornecedor} />
+                </ChartCard>
+                <ChartCard title="Mapa de Sistemas" subtitle="Distribuição de custo por sistema mecânico (Treemap)">
+                  <SistemaTreemap data={data.by_sistema} />
                 </ChartCard>
               </div>
-            </div>
-          </Section>
-
-          {data.by_servico?.length > 0 && (
-            <Section title="Serviços Mais Executados" icon={Wrench}>
-              <ChartCard title="Top Serviços por Custo" subtitle="Tipos de serviço e valor total acumulado">
-                <ServicosChart data={data.by_servico} />
-              </ChartCard>
             </Section>
-          )}
 
-          <Section title="Tendência e Projeção" icon={TrendingUp}>
-            <ChartCard title="Histórico Mensal + Projeção Linear"
-              subtitle="Barras = realizado · Linha tracejada = projeção com intervalo de confiança (±1σ)">
-              <TrendProjectionChart monthly={data.monthly} projection={data.projection} />
-            </ChartCard>
-            {data.projection?.length > 0 && (
-              <div className="grid grid-cols-4 gap-3 mt-3">
-                {data.projection.map((p, i) => (
-                  <div key={i} className="card p-3 stagger-child" style={{'--i': i + 1}}>
-                    <p className="text-g-600 text-xs uppercase tracking-wider mb-1">Projeção M+{i+1}</p>
-                    <p className="text-g-100 font-bold font-mono tabular-nums text-lg">{brlShort(p.projected)}</p>
-                    <p className="text-g-700 text-xs mt-0.5">{brlShort(p.low)} – {brlShort(p.high)}</p>
-                  </div>
-                ))}
+            <Section title="Tipo de Manutenção e Implemento" icon={Activity}>
+              <div className="grid grid-cols-3 gap-4">
+                <ChartCard title="Preventiva vs Corretiva" subtitle="Distribuição de custo por tipo">
+                  <TipoPie data={data.by_tipo} />
+                </ChartCard>
+                <div className="col-span-2">
+                  <ChartCard title="Custo por Implemento" subtitle="Radial — proporção relativa ao maior custo">
+                    <ImplementoRadial data={data.by_implemento} />
+                  </ChartCard>
+                </div>
               </div>
+            </Section>
+
+            {data.by_servico?.length > 0 && (
+              <Section title="Serviços Mais Executados" icon={Wrench}>
+                <ChartCard title="Top Serviços por Custo" subtitle="Tipos de serviço e valor total acumulado">
+                  <ServicosChart data={data.by_servico} />
+                </ChartCard>
+              </Section>
             )}
-          </Section>
 
-          {data.upcoming?.length > 0 && (
-            <Section title="Manutenções Programadas" icon={Calendar}>
-              <div className="card overflow-hidden">
-                <button
-                  className="w-full flex items-center justify-between px-4 py-3 border-b border-g-800 hover:bg-g-850 transition-colors"
-                  onClick={() => setUpcomingOpen(v => !v)}
-                >
-                  <span className="text-g-500 text-xs font-semibold uppercase tracking-wider">
-                    {data.upcoming.length} pendências identificadas
-                  </span>
-                  {upcomingOpen ? <ChevronUp className="w-4 h-4 text-g-600" /> : <ChevronDown className="w-4 h-4 text-g-600" />}
-                </button>
-                {upcomingOpen && (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[640px]">
-                      <thead className="bg-g-850">
-                        <tr>
-                          <th className="th th-left text-xs">Placa</th>
-                          <th className="th th-left text-xs">Modelo</th>
-                          <th className="th th-left text-xs">Serviço</th>
-                          <th className="th th-left text-xs">Sistema</th>
-                          <th className="th text-xs">KM Atual</th>
-                          <th className="th text-xs">Próx. KM</th>
-                          <th className="th text-xs">Próx. Data</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.upcoming.map((u, i) => {
-                          const kmAlert   = u.prox_km && u.km_atual && u.prox_km - u.km_atual < 5000
-                          const dateAlert = u.prox_data && new Date(u.prox_data) <= new Date(Date.now() + 30*86400000)
-                          return (
-                            <tr key={i} className={`border-b border-g-800 hover:bg-g-850 transition-colors ${kmAlert || dateAlert ? 'bg-amber-50/50' : ''}`}>
-                              <td className="td td-left text-xs font-mono font-bold text-g-200">{u.placa}</td>
-                              <td className="td td-left text-xs text-g-500">{u.modelo?.length>18?u.modelo.slice(0,17)+'…':u.modelo}</td>
-                              <td className="td td-left text-xs text-g-400">{u.servico?.length>22?u.servico.slice(0,21)+'…':u.servico}</td>
-                              <td className="td td-left text-xs text-g-500">{u.sistema}</td>
-                              <td className="td text-xs tabular-nums text-g-500">{u.km_atual?num(u.km_atual)+' km':'—'}</td>
-                              <td className={`td text-xs tabular-nums font-semibold ${kmAlert?'text-amber-600':'text-g-400'}`}>{u.prox_km?num(u.prox_km)+' km':'—'}</td>
-                              <td className={`td text-xs tabular-nums ${dateAlert?'text-amber-600 font-semibold':'text-g-400'}`}>
-                                {dateBR(u.prox_data)}
-                                {(kmAlert||dateAlert)&&<AlertTriangle className="inline w-3 h-3 ml-1 text-amber-500"/>}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+            <Section title="Tendência e Projeção" icon={TrendingUp}>
+              <ChartCard title="Histórico Mensal + Projeção Linear"
+                subtitle="Barras = realizado · Linha tracejada = projeção com intervalo de confiança (±1σ)">
+                <TrendProjectionChart monthly={data.monthly} projection={data.projection} />
+              </ChartCard>
+              {data.projection?.length > 0 && (
+                <div className="grid grid-cols-4 gap-3 mt-3">
+                  {data.projection.map((p, i) => (
+                    <div key={i} className="card p-3 stagger-child" style={{ '--i': i + 1 }}>
+                      <p className="text-g-600 text-xs uppercase tracking-wider mb-1">Projeção M+{i + 1}</p>
+                      <p className="text-g-100 font-bold font-mono tabular-nums text-lg">{brlShort(p.projected)}</p>
+                      <p className="text-g-700 text-xs mt-0.5">{brlShort(p.low)} – {brlShort(p.high)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Section>
-          )}
-        </>
-      )}
-    </div>
-  )
+
+            {data.upcoming?.length > 0 && (
+              <Section title="Manutenções Programadas" icon={Calendar}>
+                <div className="card overflow-hidden">
+                  <button
+                    className="w-full flex items-center justify-between px-4 py-3 border-b border-g-800 hover:bg-g-850 transition-colors"
+                    onClick={() => setUpcomingOpen(v => !v)}
+                  >
+                    <span className="text-g-500 text-xs font-semibold uppercase tracking-wider">
+                      {data.upcoming.length} pendências identificadas
+                    </span>
+                    {upcomingOpen ? <ChevronUp className="w-4 h-4 text-g-600" /> : <ChevronDown className="w-4 h-4 text-g-600" />}
+                  </button>
+                  {upcomingOpen && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full min-w-[640px]">
+                        <thead className="bg-g-850">
+                          <tr>
+                            <th className="th th-left text-xs">Placa</th>
+                            <th className="th th-left text-xs">Modelo</th>
+                            <th className="th th-left text-xs">Serviço</th>
+                            <th className="th th-left text-xs">Sistema</th>
+                            <th className="th text-xs">KM Atual</th>
+                            <th className="th text-xs">Próx. KM</th>
+                            <th className="th text-xs">Próx. Data</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.upcoming.map((u, i) => {
+                            const kmAlert = u.prox_km && u.km_atual && u.prox_km - u.km_atual < 5000
+                            const dateAlert = u.prox_data && new Date(u.prox_data) <= new Date(Date.now() + 30 * 86400000)
+                            return (
+                              <tr key={i} className={`border-b border-g-800 hover:bg-g-850 transition-colors ${kmAlert || dateAlert ? 'bg-amber-50/50' : ''}`}>
+                                <td className="td td-left text-xs font-mono font-bold text-g-200">{u.placa}</td>
+                                <td className="td td-left text-xs text-g-500">{u.modelo?.length > 18 ? u.modelo.slice(0, 17) + '…' : u.modelo}</td>
+                                <td className="td td-left text-xs text-g-400">{u.servico?.length > 22 ? u.servico.slice(0, 21) + '…' : u.servico}</td>
+                                <td className="td td-left text-xs text-g-500">{u.sistema}</td>
+                                <td className="td text-xs tabular-nums text-g-500">{u.km_atual ? num(u.km_atual) + ' km' : '—'}</td>
+                                <td className={`td text-xs tabular-nums font-semibold ${kmAlert ? 'text-amber-600' : 'text-g-400'}`}>{u.prox_km ? num(u.prox_km) + ' km' : '—'}</td>
+                                <td className={`td text-xs tabular-nums ${dateAlert ? 'text-amber-600 font-semibold' : 'text-g-400'}`}>
+                                  {dateBR(u.prox_data)}
+                                  {(kmAlert || dateAlert) && <AlertTriangle className="inline w-3 h-3 ml-1 text-amber-500" />}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
+          </>
+        )}
+      </div>
+      )
 }
 
-// ════════════════════════════════════════════════════════════════════
-// PÁGINA PRINCIPAL
-// ════════════════════════════════════════════════════════════════════
-export default function MaintenancePage({ 
-  year, 
-  vehicles = [], 
-  finAlertDismissed, 
-  setFinAlertDismissed 
-}) {
+      // ════════════════════════════════════════════════════════════════════
+      // PÁGINA PRINCIPAL
+      // ════════════════════════════════════════════════════════════════════
+      export default function MaintenancePage({
+        year,
+        vehicles = [],
+        finAlertDismissed,
+        setFinAlertDismissed
+      }) {
   const [tab, setTab] = useState('gestao')
 
-  return (
-    <div className="flex flex-col gap-6">
-      {/* Tabs principais */}
-      <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1 w-fit">
-        {[
-          { key: 'gestao',      label: 'Gestão de OS',    icon: Wrench },
-          { key: 'financeiro',  label: 'Financeiro',      icon: DollarSign },
-          { key: 'analise',     label: 'Análise',         icon: BarChart2 },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              tab === key
-                ? 'bg-white shadow-sm text-g-200 border border-g-800'
-                : 'text-g-600 hover:text-g-400'
-            }`}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
-          </button>
-        ))}
-      </div>
+      return (
+      <div className="flex flex-col gap-6">
+        {/* Tabs principais */}
+        <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1 w-fit">
+          {[
+            { key: 'gestao', label: 'Gestão de OS', icon: Wrench },
+            { key: 'financeiro', label: 'Financeiro', icon: DollarSign },
+            { key: 'analise', label: 'Análise', icon: BarChart2 },
+          ].map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === key
+                  ? 'bg-white shadow-sm text-g-200 border border-g-800'
+                  : 'text-g-600 hover:text-g-400'
+                }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
 
-      {tab === 'gestao'     && <GestaoTab year={year} />}
-      {tab === 'financeiro' && <FinanceiroTab year={year} alertDismissed={finAlertDismissed} onAlertDismiss={() => setFinAlertDismissed(true)} />}
-      {tab === 'analise'    && <AnaliseTab year={year} vehicles={vehicles} />}
-    </div>
-  )
+        {tab === 'gestao' && <GestaoTab year={year} />}
+        {tab === 'financeiro' && <FinanceiroTab year={year} alertDismissed={finAlertDismissed} onAlertDismiss={() => setFinAlertDismissed(true)} />}
+        {tab === 'analise' && <AnaliseTab year={year} vehicles={vehicles} />}
+      </div>
+      )
 }

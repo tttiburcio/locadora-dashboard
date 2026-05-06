@@ -46,3 +46,28 @@ export function dateBR(v) {
   if (!y || !m || !d) return v
   return `${d}/${m}/${y}`
 }
+
+export function titleCase(str) {
+  if (!str) return str
+  const connectors = ['de', 'da', 'do', 'das', 'dos', 'e', 'para', 'com', 'em', 'um', 'uma']
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map((word, index) => {
+      if (index > 0 && connectors.includes(word)) return word
+      return word.charAt(0).toUpperCase() + word.slice(1)
+    })
+    .join(' ')
+}
+
+export function shortenProviderName(name, maxLen = 20) {
+  if (!name || name.length <= maxLen) return name
+  const parts = name.split(' ').filter(p => p.length > 0)
+  if (parts.length <= 1) return name
+  const first = parts[0]
+  const rest = parts.slice(1).map(p => {
+    if (['de', 'da', 'do', 'das', 'dos', 'e'].includes(p.toLowerCase())) return ''
+    return p.charAt(0).toUpperCase() + '.'
+  }).filter(p => p !== '').join(' ')
+  return `${first} ${rest}`
+}

@@ -120,7 +120,7 @@ export default function App() {
 
       <main className="flex-1 overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-g-900/95 backdrop-blur-sm border-b border-g-800 px-4 sm:px-6 py-3.5 flex items-center justify-between">
+        <div className="sticky top-0 z-10 bg-g-900/95 backdrop-blur-sm border-b border-g-800 px-4 sm:px-6 py-3.5 flex items-center justify-between no-print">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsMobileMenuOpen(true)}

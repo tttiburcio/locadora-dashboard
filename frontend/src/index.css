@@ -219,3 +219,80 @@
 .skeleton {
   border-radius: 4px;
 }
+
+/* ── Print Styles ─────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body {
+    background-color: white !important;
+    color: black !important;
+    font-size: 10pt;
+  }
+
+  /* Force light theme colors for printing */
+  :root {
+    --g-950: 255 255 255;
+    --g-900: 255 255 255;
+    --g-850: 243 244 246;
+    --g-800: 229 231 235;
+    --g-100: 0 87 67;
+    --g-200: 0 0 0;
+  }
+
+  .no-print,
+  .no-print *,
+  aside,
+  nav,
+  header,
+  button,
+  .filters,
+  .tabs,
+  .action-buttons {
+    display: none !important;
+  }
+
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+
+  .card {
+    border: 1px solid #eee !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    margin-bottom: 10px !important;
+  }
+
+  /* Tables */
+  .th {
+    background-color: #f9fafb !important;
+    color: #374151 !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+
+  .td {
+    border-bottom: 1px solid #f3f4f6 !important;
+  }
+
+  /* Expand hidden content if needed or ensure all content is visible */
+  .overflow-y-auto, .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  /* Specific fixes for financial report */
+  .grid {
+    display: grid !important;
+  }
+
+  /* Ensure colors are printed */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
