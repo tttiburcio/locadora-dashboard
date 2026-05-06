@@ -559,9 +559,22 @@ export default function FinalizarOsModal({ os, onClose, onSaved, editMode = fals
                     </div>
                     <div className="flex flex-col gap-2">
                       {itensEdit.map((it, i) => (
-                        <div key={i} className="grid grid-cols-[120px_140px_1fr_80px_28px] gap-2 items-center bg-g-900 border border-g-800 rounded-lg px-3 py-2">
+                        <div key={i} className="grid grid-cols-[110px_130px_1fr_70px_28px] gap-2 items-center bg-g-900 border border-g-800 rounded-lg px-3 py-2">
+                          <select value={it.categoria} onChange={e => setItemField(i, 'categoria', e.target.value)}
+                            className="bg-g-900 border border-g-800 rounded text-g-300 text-xs px-2 h-[30px] focus:outline-none focus:border-g-100 transition-colors">
+                            <option value="">Categoria…</option>
+                            {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
+                          </select>
+                          <select value={it.sistema} onChange={e => setItemField(i, 'sistema', e.target.value)}
+                            className="bg-g-900 border border-g-800 rounded text-g-300 text-xs px-2 h-[30px] focus:outline-none focus:border-g-100 transition-colors">
+                            <option value="">Sistema…</option>
+                            {SISTEMAS.map(s => <option key={s}>{s}</option>)}
+                          </select>
+                          <input type="text" value={it.servico} onChange={e => setItemField(i, 'servico', e.target.value)}
+                            placeholder="Serviço / descrição…"
+                            className="bg-g-900 border border-g-800 rounded text-g-300 text-xs px-2 h-[30px] focus:outline-none focus:border-g-100 transition-colors w-full" />
                           <input type="number" min="1" value={it.qtd_itens} onChange={e => setItemField(i, 'qtd_itens', e.target.value)}
-                            className="bg-g-900 border border-g-800 rounded text-g-300 text-xs px-2 py-1 h-[30px] focus:outline-none text-center" />
+                            className="bg-g-900 border border-g-800 rounded text-g-300 text-xs px-2 h-[30px] focus:outline-none text-center" />
                           <button type="button" onClick={() => removeItem(i)}
                             className="text-g-700 hover:text-red-500 transition-colors flex items-center justify-center">
                             <Trash2 className="w-3.5 h-3.5" />
