@@ -23,6 +23,8 @@ export const getVehicles           = (year, region)        => api.get('/vehicles
 export const getVehicle            = (placa, year)         => api.get(`/vehicle/${encodeURIComponent(placa)}`, { params: { year } }).then(r => r.data)
 export const getRegions            = (year)                => api.get('/regions',  { params: { year } }).then(r => r.data)
 export const getMaintenanceAnalysis = (year, placa)        => api.get('/maintenance_analysis', { params: { year, ...(placa ? { placa } : {}) } }).then(r => r.data)
+export const getImplementoAnalysis  = (year)               => api.get('/maintenance_analysis/implemento', { params: { year } }).then(r => r.data)
+export const getIntervalosAnalysis  = (sistema)            => api.get('/maintenance_analysis/intervalos', { params: { sistema } }).then(r => r.data)
 
 // ── Banco SQLite — CRUD legado (manutenções) ─────────────────────────
 export const dbListFrota           = ()                    => api.get('/db/frota').then(r => r.data)
@@ -62,3 +64,11 @@ export const dbCriarParcelaNf      = (nf_id, payload)      => api.post(`/db/nfs/
 // ── Merge assistido ──────────────────────────────────────────────────
 export const dbMergeSugestoes      = ()                    => api.get('/db/os/merge-sugestoes').then(r => r.data)
 export const dbConfirmarMerge      = (payload)             => api.post('/db/os/merge', payload).then(r => r.data)
+
+// ── Sincronização Excel ↔ SQLite ─────────────────────────────────────
+export const runSync               = ()                    => api.post('/sync').then(r => r.data)
+
+// ── Pneu rodízio ─────────────────────────────────────────────────────
+export const listPneuRodizios      = (placa)               => api.get(`/manut/pneu-rodizios/${encodeURIComponent(placa)}`).then(r => r.data)
+export const createPneuRodizio     = (payload)             => api.post('/manut/pneu-rodizios', payload).then(r => r.data)
+export const deletePneuRodizio     = (id)                  => api.delete(`/manut/pneu-rodizios/${id}`)

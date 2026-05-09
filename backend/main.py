@@ -6,6 +6,8 @@ import numpy as np
 from pathlib import Path
 import io
 import logging
+import requests as _requests
+import threading
 
 # ── Banco de dados ────────────────────────────────────────────────
 from database import get_db, init_db, engine
@@ -20,12 +22,367 @@ logger = logging.getLogger("locadora")
 
 app = FastAPI(title="TKJ Locadora API", version="2.1.0")
 
+MAPWS_BASE = "http://localhost:8001"
+
+
+def _mapws_km_direct(placa: str, date_str: str) -> float | None:
+    """Busca odômetro no MAPWS para a placa na data (YYYY-MM-DD). Retorna km_fim ou None."""
+    try:
+        resp = _requests.get(
+            f"{MAPWS_BASE}/api/details/{placa}",
+            params={"start_date": date_str, "end_date": date_str},
+            timeout=4,
+        )
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        records = data if isinstance(data, list) else (data.get("data") or data.get("records") or [])
+        if not records:
+            return None
+        rec = records[-1] if isinstance(records, list) else records
+        val = rec.get("km_fim") or rec.get("km_acumulado") or rec.get("odometro")
+        return float(val) if val is not None else None
+    except Exception:
+        return None
+
+
+def _enrich_km_from_mapws():
+    """Preenche ordens_servico.km nulo consultando o MAPWS pelo odômetro na data do serviço."""
+    import sqlite3
+    from database import DB_PATH
+
+    try:
+        conn = sqlite3.connect(str(DB_PATH))
+        rows = conn.execute("""
+            SELECT id, placa, COALESCE(data_execucao, data_entrada) AS data_exec
+            FROM ordens_servico
+            WHERE km IS NULL
+              AND COALESCE(data_execucao, data_entrada) IS NOT NULL
+              AND deletado_em IS NULL
+        """).fetchall()
+
+        updated = 0
+        for os_id, placa, data_exec in rows:
+            date_str   = str(data_exec)[:10]
+            placa_norm = str(placa).replace("-", "").strip().upper()
+            km_val     = _mapws_km_direct(placa_norm, date_str)
+            if km_val is not None:
+                conn.execute("UPDATE ordens_servico SET km = ? WHERE id = ?", (km_val, os_id))
+                updated += 1
+
+        conn.commit()
+        conn.close()
+        logger.info("KM enrichment concluído: %d/%d OS atualizadas via MAPWS", updated, len(rows))
+    except Exception as e:
+        logger.error("Erro em _enrich_km_from_mapws: %s", e)
+
+
+def _sv_str(v) -> str | None:
+    """Converte valor pandas para str, retorna None se nulo/vazio."""
+    if v is None:
+        return None
+    if isinstance(v, float) and (pd.isna(v)):
+        return None
+    s = str(v).strip()
+    return s if s and s.lower() not in ("nan", "none", "nat") else None
+
+
+def _sv_float(v) -> float | None:
+    try:
+        f = float(v)
+        return None if pd.isna(f) else f
+    except Exception:
+        return None
+
+
+def _sv_int(v) -> int | None:
+    f = _sv_float(v)
+    return int(f) if f is not None else None
+
+
+def _sv_date(v):
+    if v is None:
+        return None
+    try:
+        ts = pd.Timestamp(v)
+        return None if pd.isna(ts) else ts.date()
+    except Exception:
+        return None
+
+
+def sync_excel_to_db() -> int:
+    """Importa do Excel MANUTENCOES → ordens_servico/os_itens os IDOrdServ ausentes no banco.
+
+    Idempotente: pula OS cujo numero_os já existe em ordens_servico.
+    Retorna o número de OS importadas.
+    """
+    from database import SessionLocal
+    raw = load_raw()
+    manut = raw.get("manutencoes", pd.DataFrame())
+    frota_df = raw.get("frota", pd.DataFrame())
+
+    if manut.empty or "IDOrdServ" not in manut.columns:
+        return 0
+
+    db = SessionLocal()
+    try:
+        existing_os: set[str] = set(
+            x[0] for x in db.query(models.OrdemServico.numero_os)
+            .filter(models.OrdemServico.numero_os.isnot(None)).all()
+        )
+
+        col_serv  = _col_like(manut, "servi") or "Serviço"
+        col_pos   = _col_like(manut, "posi",    "pneu")
+        col_espec = _col_like(manut, "especif", "pneu")
+        col_data  = _col_like(manut, "data", "exec") or "DataExecução"
+
+        imported = 0
+        for raw_id, grp in manut.dropna(subset=["IDOrdServ"]).groupby("IDOrdServ"):
+            id_ord = _sv_str(raw_id)
+            if not id_ord or id_ord in existing_os:
+                continue
+
+            first = grp.iloc[0]
+
+            id_veiculo = _sv_int(first.get("IDVeiculo"))
+            if id_veiculo is None:
+                continue
+
+            # Placa via frota lookup
+            placa = None
+            if not frota_df.empty and "IDVeiculo" in frota_df.columns and "Placa" in frota_df.columns:
+                fr = frota_df[frota_df["IDVeiculo"] == id_veiculo]
+                if not fr.empty:
+                    placa = _sv_str(fr.iloc[0].get("Placa"))
+
+            os_obj = models.OrdemServico(
+                numero_os      = id_ord,
+                status_os      = "finalizada",
+                id_veiculo     = id_veiculo,
+                placa          = placa or _sv_str(first.get("Placa")),
+                data_execucao  = _sv_date(first.get(col_data)),
+                km             = _sv_int(first.get("KM")),
+                total_os       = _sv_float(first.get("TotalOS")),
+                categoria      = _sv_str(first.get("Categoria")),
+                fornecedor     = _sv_str(first.get("Fornecedor")),
+                tipo_manutencao= _sv_str(first.get("TipoManutencao")),
+                migrado_de_ids = '["excel_sync"]',
+            )
+            db.add(os_obj)
+            db.flush()
+
+            # Itens: um por combinação única (sistema, serviço, posição)
+            seen_items: set = set()
+            for _, row in grp.iterrows():
+                sistema = _sv_str(row.get("Sistema"))
+                servico = _sv_str(row.get(col_serv)) if col_serv else None
+                posicao = _sv_str(row.get(col_pos))  if col_pos  else None
+                espec   = _sv_str(row.get(col_espec)) if col_espec else None
+                cat     = _sv_str(row.get("Categoria"))
+
+                key = (sistema, servico, posicao, espec)
+                if key in seen_items:
+                    continue
+                seen_items.add(key)
+
+                db.add(models.OsItem(
+                    os_id        = os_obj.id,
+                    categoria    = cat,
+                    sistema      = sistema,
+                    servico      = servico,
+                    posicao_pneu = posicao,
+                    qtd_pneu     = _sv_int(row.get("QtdPneu")),
+                    espec_pneu   = espec,
+                    marca_pneu    = _sv_str(row.get("MarcaPneu")),
+                    modelo_pneu   = _sv_str(row.get("ModeloPneu")),
+                    condicao_pneu = _sv_str(row.get("CondicaoPneu")),
+                    manejo_pneu   = _sv_str(row.get("ManejoPneu")),
+                ))
+
+            db.commit()
+            existing_os.add(id_ord)
+            imported += 1
+
+        return imported
+    except Exception as e:
+        db.rollback()
+        logger.error("sync_excel_to_db error: %s", e)
+        return 0
+    finally:
+        db.close()
+
+
+def sync_db_to_excel() -> int:
+    """Acrescenta na planilha MANUTENCOES as OS finalizadas do banco ausentes no Excel.
+
+    Usa o mesmo formato de linha que _sync_os_to_excel (uma linha por NF/parcela).
+    OS sem NFs registradas escrevem uma linha de resumo sem dados financeiros.
+    Retorna o número de linhas acrescentadas.
+    """
+    if not EXCEL_PATH.exists():
+        return 0
+
+    raw = load_raw()
+    manut_excel = raw.get("manutencoes", pd.DataFrame())
+    excel_ids: set[str] = set()
+    if not manut_excel.empty and "IDOrdServ" in manut_excel.columns:
+        excel_ids = set(manut_excel["IDOrdServ"].dropna().astype(str).unique())
+
+    db = SessionLocal()
+    try:
+        os_list = (
+            db.query(models.OrdemServico)
+            .filter(
+                models.OrdemServico.status_os == "finalizada",
+                models.OrdemServico.deletado_em.is_(None),
+                models.OrdemServico.numero_os.isnot(None),
+            )
+            .all()
+        )
+        new_os = [o for o in os_list if o.numero_os not in excel_ids]
+        if not new_os:
+            return 0
+
+        # Lê arquivo uma vez; detecta sheet name
+        try:
+            with pd.ExcelFile(EXCEL_PATH) as xl:
+                sheet_name = next((s for s in xl.sheet_names if "manutencao" in s.lower().replace("ç","c").replace("ã","a")), None)
+                if not sheet_name:
+                    sheet_name = SHEETS["manutencoes"]
+                if sheet_name not in xl.sheet_names:
+                    return 0
+                df = xl.parse(sheet_name)
+        except PermissionError:
+            logger.warning("sync_db_to_excel: Excel aberto por outro processo — ignorado")
+            return 0
+        except Exception as e:
+            logger.error("sync_db_to_excel leitura: %s", e)
+            return 0
+
+        next_id = 1
+        if not df.empty and "IDManutencao" in df.columns:
+            valid_ids = pd.to_numeric(df["IDManutencao"], errors="coerce").dropna()
+            if not valid_ids.empty:
+                next_id = int(valid_ids.max()) + 1
+
+        all_new_rows: list[dict] = []
+        for os_obj in new_os:
+            first_item = os_obj.itens[0] if os_obj.itens else None
+            nfs_ativas  = [nf for nf in os_obj.notas_fiscais if nf.deletado_em is None]
+
+            if nfs_ativas:
+                for nf in nfs_ativas:
+                    for p in [p for p in nf.parcelas if p.deletado_em is None]:
+                        all_new_rows.append({
+                            "IDManutencao":       next_id,
+                            "IDOrdServ":          os_obj.numero_os,
+                            "TotalOS":            float(os_obj.total_os) if os_obj.total_os else np.nan,
+                            "Empresa":            os_obj.empresa,
+                            "Placa":              os_obj.placa,
+                            "IDVeiculo":          os_obj.id_veiculo,
+                            "Modelo":             os_obj.modelo,
+                            "Implemento":         os_obj.implemento,
+                            "Fornecedor":         nf.fornecedor or os_obj.fornecedor,
+                            "Nota":               nf.numero_nf,
+                            "Data Venc.":         pd.to_datetime(p.data_vencimento).strftime("%Y-%m-%d") if p.data_vencimento else np.nan,
+                            "ParcelaAtual":       p.parcela_atual,
+                            "ParcelaTotal":       p.parcela_total,
+                            "ValorParcela":       float(p.valor_parcela) if p.valor_parcela else np.nan,
+                            "FormaPgto":          p.forma_pgto,
+                            "Categoria":          nf.tipo_nf or os_obj.categoria,
+                            "Status":             p.status_pagamento,
+                            "TipoManutencao":     os_obj.tipo_manutencao,
+                            "Sistema":            first_item.sistema if first_item else np.nan,
+                            "Serviço":            first_item.servico if first_item else np.nan,
+                            "KM":                 float(os_obj.km) if os_obj.km else np.nan,
+                            "DataExecução":       pd.to_datetime(os_obj.data_execucao or os_obj.data_entrada).strftime("%Y-%m-%d") if (os_obj.data_execucao or os_obj.data_entrada) else np.nan,
+                            "PosiçãoPneu":        first_item.posicao_pneu if first_item else np.nan,
+                            "QtdPneu":            first_item.qtd_pneu if first_item else np.nan,
+                            "EspecificaçãoPneu":  first_item.espec_pneu if first_item else np.nan,
+                            "MarcaPneu":          first_item.marca_pneu    if first_item else np.nan,
+                            "ModeloPneu":         first_item.modelo_pneu   if first_item else np.nan,
+                            "CondicaoPneu":       first_item.condicao_pneu if first_item else np.nan,
+                            "ManejoPneu":         first_item.manejo_pneu   if first_item else np.nan,
+                        })
+                        next_id += 1
+            else:
+                # OS sem NFs: grava linha de resumo
+                all_new_rows.append({
+                    "IDManutencao":   next_id,
+                    "IDOrdServ":      os_obj.numero_os,
+                    "TotalOS":        float(os_obj.total_os) if os_obj.total_os else np.nan,
+                    "Placa":          os_obj.placa,
+                    "IDVeiculo":      os_obj.id_veiculo,
+                    "Modelo":         os_obj.modelo,
+                    "Implemento":     os_obj.implemento,
+                    "Fornecedor":     os_obj.fornecedor,
+                    "Categoria":      os_obj.categoria,
+                    "TipoManutencao": os_obj.tipo_manutencao,
+                    "Sistema":        first_item.sistema if first_item else np.nan,
+                    "Serviço":        first_item.servico if first_item else np.nan,
+                    "KM":             float(os_obj.km) if os_obj.km else np.nan,
+                    "DataExecução":   pd.to_datetime(os_obj.data_execucao or os_obj.data_entrada).strftime("%Y-%m-%d") if (os_obj.data_execucao or os_obj.data_entrada) else np.nan,
+                    "PosiçãoPneu":    first_item.posicao_pneu if first_item else np.nan,
+                    "QtdPneu":        first_item.qtd_pneu if first_item else np.nan,
+                    "EspecificaçãoPneu": first_item.espec_pneu if first_item else np.nan,
+                    "MarcaPneu":      first_item.marca_pneu    if first_item else np.nan,
+                    "ModeloPneu":     first_item.modelo_pneu   if first_item else np.nan,
+                    "CondicaoPneu":   first_item.condicao_pneu if first_item else np.nan,
+                    "ManejoPneu":     first_item.manejo_pneu   if first_item else np.nan,
+                })
+                next_id += 1
+
+        if not all_new_rows:
+            return 0
+
+        df_new = pd.DataFrame(all_new_rows)
+        # Normaliza case de colunas para corresponder às existentes
+        col_map = {c.lower(): c for c in df.columns}
+        df_new.rename(columns={c: col_map.get(c.lower(), c) for c in df_new.columns}, inplace=True)
+        for col in df.columns:
+            if col not in df_new.columns:
+                df_new[col] = np.nan
+        df_new = df_new.reindex(columns=df.columns)
+
+        df_final = pd.concat([df, df_new], ignore_index=True)
+        try:
+            with pd.ExcelWriter(EXCEL_PATH, mode="a", engine="openpyxl", if_sheet_exists="replace") as writer:
+                df_final.to_excel(writer, sheet_name=sheet_name, index=False)
+            _cache.clear()
+            logger.info("sync_db_to_excel: %d linhas adicionadas ao Excel", len(all_new_rows))
+        except PermissionError:
+            logger.warning("sync_db_to_excel: Excel aberto — não foi possível salvar")
+            return 0
+        except Exception as e:
+            logger.error("sync_db_to_excel escrita: %s", e)
+            return 0
+
+        return len(all_new_rows)
+    except Exception as e:
+        logger.error("sync_db_to_excel error: %s", e)
+        return 0
+    finally:
+        db.close()
+
+
+def _sync_manutencoes_background():
+    """Executa sincronização bidirecional em background no startup."""
+    try:
+        n1 = sync_excel_to_db()
+        n2 = sync_db_to_excel()
+        if n1 or n2:
+            logger.info("Sync concluído: %d Excel→DB | %d DB→Excel", n1, n2)
+    except Exception as e:
+        logger.error("_sync_manutencoes_background error: %s", e)
+
 
 @app.on_event("startup")
 def startup():
     init_db()
     _migrate_parcelas_prorrogacao()
     _migrate_1to1_safe()
+    threading.Thread(target=_sync_manutencoes_background, daemon=True).start()
+    threading.Thread(target=_enrich_km_from_mapws, daemon=True).start()
 
 
 def _migrate_parcelas_prorrogacao():
@@ -567,6 +924,15 @@ MESES_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
             "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
 
 
+def _col_like(df: pd.DataFrame, *fragments) -> str | None:
+    """Retorna a primeira coluna cujo nome (lower) contém todos os fragmentos."""
+    for c in df.columns:
+        cl = c.lower()
+        if all(f.lower() in cl for f in fragments):
+            return c
+    return None
+
+
 def _dedup_manut(manut_raw: pd.DataFrame) -> pd.DataFrame:
     if not manut_raw.empty and "IDOrdServ" in manut_raw.columns:
         com_os = manut_raw.dropna(subset=["IDOrdServ"]).drop_duplicates(subset=["IDOrdServ"])
@@ -575,19 +941,71 @@ def _dedup_manut(manut_raw: pd.DataFrame) -> pd.DataFrame:
     return manut_raw.copy()
 
 
+def _load_db_financials(year: int) -> dict:
+    """Lê fat_unitario, seguro_mensal, impostos e rastreamento direto do banco.
+    Retorna DataFrames com os mesmos nomes de coluna que o Excel (IDVeiculo, Medicao…).
+    O banco é mais completo e atualizado que o Excel para essas tabelas."""
+    result = {}
+    try:
+        with engine.connect() as conn:
+            result["fat"] = pd.read_sql(
+                "SELECT id_veiculo AS IDVeiculo, mes AS Mes, contrato AS Contrato, "
+                "medicao AS Medicao, trabalhado AS Trabalhado, parado AS Parado "
+                "FROM fat_unitario WHERE strftime('%Y', mes) = :y",
+                conn, params={"y": str(year)},
+            )
+            result["fat"]["Mes"] = pd.to_datetime(result["fat"]["Mes"])
+
+            result["seg"] = pd.read_sql(
+                "SELECT id_veiculo AS IDVeiculo, vencimento AS Vencimento, valor AS Valor "
+                "FROM seguro_mensal WHERE strftime('%Y', vencimento) = :y",
+                conn, params={"y": str(year)},
+            )
+            result["seg"]["Vencimento"] = pd.to_datetime(result["seg"]["Vencimento"])
+
+            result["imp"] = pd.read_sql(
+                "SELECT id_veiculo AS IDVeiculo, ano_imposto AS AnoImposto, "
+                "valor_total_final AS ValorTotalFinal FROM impostos WHERE ano_imposto = :y",
+                conn, params={"y": year},
+            )
+
+            result["rast"] = pd.read_sql(
+                "SELECT id_veiculo AS IDVeiculo, vencimento AS Vencimento, valor AS Valor "
+                "FROM rastreamento WHERE strftime('%Y', vencimento) = :y",
+                conn, params={"y": str(year)},
+            )
+            result["rast"]["Vencimento"] = pd.to_datetime(result["rast"]["Vencimento"])
+    except Exception as e:
+        logger.error("Erro ao carregar financeiros do banco: %s", e)
+    return result
+
+
 def compute(year: int):
     data = load_raw()
 
     frota  = data["frota"].copy()
-    fat    = _filter_year(_parse(data["fat_unitario"].copy(),  "Mes"),          "Mes",          year)
+
+    # Financeiros lidos do banco (autoritativo) em vez do Excel
+    _db = _load_db_financials(year)
+    fat    = _db.get("fat",  pd.DataFrame())
+    seg    = _db.get("seg",  pd.DataFrame())
+    imp    = _db.get("imp",  pd.DataFrame())
+    rast   = _db.get("rast", pd.DataFrame())
+
+    # Fallback para Excel se banco vazio (compatibilidade)
+    if fat.empty:
+        fat  = _filter_year(_parse(data["fat_unitario"].copy(),  "Mes"),         "Mes",       year)
+    if seg.empty:
+        seg  = _filter_year(_parse(data["seguro_mensal"].copy(), "Vencimento"),  "Vencimento", year)
+    if imp.empty:
+        imp  = data["impostos"].copy()
+        if not imp.empty and "AnoImposto" in imp.columns:
+            imp = imp[imp["AnoImposto"] == year].copy()
+    if rast.empty:
+        rast = _filter_year(_parse(data["rastreamento"].copy(),  "Vencimento"),  "Vencimento", year)
+
     reimb  = _filter_year(_parse(data["reembolsos"].copy(),   "Emissão"),       "Emissão",      year)
     fat_sh = _filter_year(_parse(data["faturamento"].copy(),  "Emissão"),       "Emissão",      year)
-    seg    = _filter_year(_parse(data["seguro_mensal"].copy(), "Vencimento"),    "Vencimento",   year)
-    rast   = _filter_year(_parse(data["rastreamento"].copy(),  "Vencimento"),    "Vencimento",   year)
-
-    imp = data["impostos"].copy()
-    if not imp.empty and "AnoImposto" in imp.columns:
-        imp = imp[imp["AnoImposto"] == year].copy()
 
     manut_raw = _filter_year(_parse(data["manutencoes"].copy(), "DataExecução"), "DataExecução", year)
 
@@ -610,10 +1028,29 @@ def compute(year: int):
                 frota = pd.concat([frota, sql_frota], ignore_index=True).drop_duplicates(subset=["Placa"], keep="last")
             
             # 2. Carregar OS Finalizadas do SQL para o ano selecionado
+            # TotalOS: para OS com parcelas usa a soma das parcelas com vencimento no ano;
+            # para OS sem parcelas (legado/Excel) usa total_os ou soma das NFs.
             sql_os = pd.read_sql("""
                 SELECT os.id as id_sql, os.id_veiculo as IDVeiculo, os.placa as Placa,
                        COALESCE(os.data_execucao, os.data_entrada) as DataExecução,
-                       COALESCE(os.total_os, (SELECT SUM(valor_total_nf) FROM notas_fiscais WHERE os_id = os.id AND deletado_em IS NULL), 0) as TotalOS,
+                       CASE
+                         WHEN EXISTS (
+                           SELECT 1 FROM notas_fiscais nf
+                           JOIN manutencao_parcelas p ON p.nf_id = nf.id
+                           WHERE nf.os_id = os.id AND nf.deletado_em IS NULL AND p.deletado_em IS NULL
+                         )
+                         THEN COALESCE(
+                           (SELECT SUM(p.valor_parcela)
+                            FROM manutencao_parcelas p
+                            JOIN notas_fiscais nf ON nf.id = p.nf_id
+                            WHERE nf.os_id = os.id
+                              AND p.deletado_em IS NULL
+                              AND nf.deletado_em IS NULL
+                              AND strftime('%Y', p.data_vencimento) = :year),
+                           0
+                         )
+                         ELSE COALESCE(os.total_os, (SELECT SUM(valor_total_nf) FROM notas_fiscais WHERE os_id = os.id AND deletado_em IS NULL), 0)
+                       END as TotalOS,
                        os.fornecedor as Fornecedor, os.modelo as Modelo, os.numero_os as IDOrdServ,
                        os.tipo_manutencao as TipoManutencao, os.km as KM, os.prox_km as ProxKM, os.prox_data as ProxData,
                        (SELECT sistema FROM os_itens WHERE os_id = os.id LIMIT 1) as Sistema,
@@ -621,16 +1058,25 @@ def compute(year: int):
                        (SELECT COUNT(*) FROM notas_fiscais WHERE os_id = os.id AND deletado_em IS NULL) as qtd_notas
                 FROM ordens_servico os
                 WHERE os.deletado_em IS NULL
-                  AND strftime('%Y', COALESCE(os.data_execucao, os.data_entrada)) = :year
+                  AND (
+                    EXISTS (
+                      SELECT 1 FROM notas_fiscais nf
+                      JOIN manutencao_parcelas p ON p.nf_id = nf.id
+                      WHERE nf.os_id = os.id AND nf.deletado_em IS NULL AND p.deletado_em IS NULL
+                        AND strftime('%Y', p.data_vencimento) = :year
+                    )
+                    OR strftime('%Y', COALESCE(os.data_execucao, os.data_entrada)) = :year
+                  )
             """, conn, params={"year": str(year)})
             
             if not sql_os.empty:
                 sql_os["DataExecução"] = pd.to_datetime(sql_os["DataExecução"])
-                # Evitar duplicados se por acaso houver IDOrdServ igual (migração)
+                # SQL prevalece sobre Excel: remove do Excel as OS que existem no SQL
+                # (o SQL calcula TotalOS por parcelas do ano, mais preciso que o Excel)
                 if not manut_raw.empty and "IDOrdServ" in manut_raw.columns:
-                    os_existentes = set(manut_raw["IDOrdServ"].dropna().unique())
-                    sql_os = sql_os[~sql_os["IDOrdServ"].isin(os_existentes)]
-                
+                    sql_ids = set(sql_os["IDOrdServ"].dropna().unique())
+                    manut_raw = manut_raw[~manut_raw["IDOrdServ"].isin(sql_ids)]
+
                 manut_raw = pd.concat([manut_raw, sql_os], ignore_index=True)
     except Exception as e:
         logger.error("Erro ao integrar SQL no Dashboard: %s", e)
@@ -1230,6 +1676,817 @@ def get_maintenance_analysis(year: int = Query(..., ge=2000, le=2100), placa: st
     return result
 
 
+@app.get("/api/maintenance_analysis/implemento")
+def get_implemento_analysis(year: int = Query(..., ge=2000, le=2100)):
+    """
+    Análise de manutenção por implemento veicular.
+    Retorna por tipo de implemento:
+      - Quantas OS, custo total, quais sistemas, intervalo de KM entre manutenções.
+    """
+    try:
+        with engine.connect() as conn:
+            rows = pd.read_sql("""
+                SELECT
+                    os.id              AS os_id,
+                    os.placa           AS placa,
+                    COALESCE(f.implemento, os.implemento, '') AS implemento,
+                    os.km              AS km,
+                    oi.sistema         AS sistema,
+                    oi.categoria       AS categoria,
+                    COALESCE(os.total_os,
+                        (SELECT SUM(valor_total_nf) FROM notas_fiscais
+                         WHERE os_id = os.id AND deletado_em IS NULL), 0
+                    )                  AS total_os,
+                    COALESCE(os.data_execucao, os.data_entrada) AS data_exec
+                FROM ordens_servico os
+                LEFT JOIN os_itens oi    ON oi.os_id = os.id
+                LEFT JOIN frota f        ON f.placa  = os.placa
+                WHERE os.deletado_em IS NULL
+                  AND os.status_os = 'finalizada'
+                  AND strftime('%Y', COALESCE(os.data_execucao, os.data_entrada)) = :year
+            """, conn, params={"year": str(year)})
+    except Exception as e:
+        logger.error("Erro em /api/maintenance_analysis/implemento: %s", e)
+        return []
+
+    if rows.empty:
+        return []
+
+    rows["implemento"] = rows["implemento"].fillna("").str.strip()
+    rows["sistema"]    = rows["sistema"].fillna("").str.strip()
+    rows["km"]         = pd.to_numeric(rows["km"], errors="coerce")
+
+    # Custo por OS (deduplica parcelas múltiplas de uma mesma OS)
+    os_cost = rows.drop_duplicates(subset="os_id")[["os_id", "placa", "implemento", "km", "total_os"]]
+
+    result = []
+    for impl, grp_impl in rows.groupby("implemento"):
+        if not impl:
+            continue
+
+        os_ids   = grp_impl["os_id"].unique()
+        os_grp   = os_cost[os_cost["os_id"].isin(os_ids)]
+        total    = float(os_grp["total_os"].sum())
+        n_os     = int(len(os_ids))
+        placas   = sorted(os_grp["placa"].dropna().unique().tolist())
+
+        # Sistemas — agrupado por (sistema, categoria)
+        por_sistema = []
+        for (sis, cat), g2 in grp_impl.groupby(["sistema", "categoria"]):
+            if not sis:
+                continue
+            os_sis = os_cost[os_cost["os_id"].isin(g2["os_id"].unique())]
+            por_sistema.append({
+                "sistema":   sis,
+                "categoria": cat or "",
+                "count":     int(g2["os_id"].nunique()),
+                "custo":     float(os_sis["total_os"].sum()),
+            })
+        por_sistema.sort(key=lambda x: x["custo"], reverse=True)
+
+        # Intervalos de KM por sistema — por placa, depois média geral
+        intervalos = []
+        for sis, g_sis in grp_impl.groupby("sistema"):
+            if not sis:
+                continue
+            diffs_all = []
+            por_placa_km = {}
+            for pl, g_pl in g_sis.groupby("placa"):
+                kms = sorted(g_pl.merge(os_cost[["os_id", "km"]], on="os_id", how="left")["km_y"]
+                             .dropna().unique().tolist())
+                if len(kms) >= 2:
+                    d = [kms[i+1] - kms[i] for i in range(len(kms)-1) if kms[i+1] > kms[i]]
+                    if d:
+                        diffs_all.extend(d)
+                        por_placa_km[pl] = round(sum(d) / len(d))
+            if diffs_all:
+                intervalos.append({
+                    "sistema":        sis,
+                    "intervalo_medio": round(sum(diffs_all) / len(diffs_all)),
+                    "intervalo_min":   round(min(diffs_all)),
+                    "intervalo_max":   round(max(diffs_all)),
+                    "amostras":        len(diffs_all),
+                    "por_placa":       por_placa_km,
+                })
+        intervalos.sort(key=lambda x: x["amostras"], reverse=True)
+
+        result.append({
+            "implemento":  impl,
+            "total_os":    n_os,
+            "total_custo": total,
+            "placas":      placas,
+            "n_placas":    len(placas),
+            "por_sistema": por_sistema,
+            "intervalos_km": intervalos,
+        })
+
+    result.sort(key=lambda x: x["total_custo"], reverse=True)
+    return result
+
+
+@app.get("/api/maintenance_analysis/intervalos")
+def get_intervalos_analysis(sistema: str = Query(...)):
+    """
+    Análise de intervalos entre eventos de um mesmo sistema por veículo.
+    Usa TODO o histórico (Excel + SQL, todos os anos) para intervalos reais.
+    Para Pneu: agrupa por especificação e inclui KM atual do veículo via MAPWS.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from datetime import date, timedelta
+
+    is_revisao = sistema.strip().lower() in ("revisão", "revisao")
+    sis_lower  = sistema.strip().lower()
+    is_pneu    = sis_lower == "pneu"
+
+    # _col_like is now module-level
+
+    # ── 1. Dados do Excel (histórico legado, todos os anos) ──────────
+    rows_excel = pd.DataFrame()
+    try:
+        raw      = load_raw()
+        frota_df = raw["frota"].copy()
+        # Para pneu: NÃO usar _dedup_manut — precisamos de TODAS as linhas por OS
+        # (cada linha = um item distinto, ex: DIANTEIRO e TRASEIRO separados)
+        if is_pneu:
+            manut_raw = _parse(raw["manutencoes"].copy(), "DataExecução")
+        else:
+            manut_raw = _dedup_manut(_parse(raw["manutencoes"].copy(), "DataExecução"))
+
+        if not manut_raw.empty and "Sistema" in manut_raw.columns:
+            col_serv  = _col_like(manut_raw, "servi") or "Serviço"
+            col_data  = _col_like(manut_raw, "data", "exec") or "DataExecução"
+            col_pos   = _col_like(manut_raw, "posi", "pneu")
+            col_espec = _col_like(manut_raw, "especif", "pneu")
+
+            if is_revisao:
+                sc = manut_raw.get(col_serv, pd.Series("", index=manut_raw.index)).fillna("").str.lower()
+                mask = (manut_raw["Sistema"].fillna("").str.lower().isin(["revisão", "motor"])) & \
+                       (sc.str.contains("óleo|oleo|revis", na=False))
+            else:
+                mask = manut_raw["Sistema"].fillna("").str.lower() == sis_lower
+
+            filtered = manut_raw[mask].copy()
+
+            # Para pneu: apenas categoria Compra ou ManejoPneu = Recapadora
+            if is_pneu and not filtered.empty:
+                cat_col   = filtered.get("Categoria",  pd.Series("", index=filtered.index)).fillna("").str.lower()
+                manejo_col_name = _col_like(filtered, "manejo", "pneu")
+                manejo_col = filtered.get(manejo_col_name, pd.Series("", index=filtered.index)).fillna("").str.lower() \
+                             if manejo_col_name else pd.Series("", index=filtered.index)
+                keep = (cat_col == "compra") | (manejo_col == "recapadora")
+                filtered = filtered[keep].copy()
+                # Dedup por (IDOrdServ, posição): Excel tem 1 linha por parcela, queremos 1 por compra
+                if not filtered.empty:
+                    dedup_cols = ["IDOrdServ", col_pos] if col_pos and col_pos in filtered.columns else ["IDOrdServ"]
+                    filtered = filtered.drop_duplicates(subset=dedup_cols)
+
+            # Enriquecer com Implemento e Modelo da frota
+            if not filtered.empty and "IDVeiculo" in filtered.columns and not frota_df.empty:
+                frota_slim = frota_df[["IDVeiculo", "Placa", "Modelo", "Implemento"]].drop_duplicates("IDVeiculo") \
+                    if all(c in frota_df.columns for c in ["IDVeiculo", "Placa", "Modelo", "Implemento"]) else None
+                if frota_slim is not None:
+                    filtered = filtered.merge(frota_slim, on="IDVeiculo", how="left", suffixes=("", "_frota"))
+                    for c in ["Placa", "Modelo", "Implemento"]:
+                        fc = c + "_frota"
+                        if fc in filtered.columns:
+                            filtered[c] = filtered[c].combine_first(filtered[fc])
+                            filtered.drop(columns=[fc], inplace=True)
+
+            needed = ["Placa", "Modelo", "Implemento", col_data, "KM", "IDOrdServ", "Sistema", "Categoria"]
+            if col_serv and col_serv != "IDOrdServ" and col_serv not in needed:
+                needed.append(col_serv)
+            pneu_extra = [col_pos, "QtdPneu", col_espec, "MarcaPneu", "ModeloPneu", "CondicaoPneu", "ManejoPneu"]
+            if is_pneu:
+                needed += [c for c in pneu_extra if c and c not in needed]
+            for c in needed:
+                if c not in filtered.columns:
+                    filtered[c] = None
+
+            rename_map = {
+                col_data:    "data_exec", "KM":        "km",
+                "IDOrdServ": "numero_os", "Sistema":   "sistema_val",
+                "Placa":     "placa",     "Modelo":    "modelo",
+                "Implemento":"implemento","Categoria": "categoria",
+            }
+            if col_serv and col_serv != "IDOrdServ":
+                rename_map[col_serv] = "servico"
+
+            rows_excel = filtered[needed].rename(columns=rename_map)
+            if is_pneu:
+                rows_excel = rows_excel.rename(columns={
+                    col_pos:          "posicao_pneu",
+                    "QtdPneu":        "qtd_pneu",
+                    col_espec:        "espec_pneu",
+                    "MarcaPneu":      "marca_pneu",
+                    "ModeloPneu":     "modelo_pneu",
+                    "CondicaoPneu":   "condicao_pneu",
+                    "ManejoPneu":     "manejo_pneu",
+                })
+            rows_excel["fonte"] = "excel"
+            for col in ["servico", "categoria", "posicao_pneu", "qtd_pneu", "espec_pneu", "marca_pneu", "modelo_pneu", "condicao_pneu", "manejo_pneu", "descricao", "qtd_itens"]:
+                if col not in rows_excel.columns:
+                    rows_excel[col] = None
+    except Exception as e:
+        logger.error("Erro ao carregar Excel em /api/intervalos: %s", e)
+
+    # ── 2. Dados do SQL (todos os anos, com os_itens expandidos) ────
+    rows_sql = pd.DataFrame()
+    try:
+        if is_revisao:
+            sis_sql_filter = "LOWER(oi.sistema) IN ('motor', 'revisão') AND (LOWER(oi.servico) LIKE '%óleo%' OR LOWER(oi.servico) LIKE '%oleo%' OR LOWER(oi.servico) LIKE '%revis%')"
+        else:
+            sis_sql_filter = f"LOWER(oi.sistema) = '{sis_lower.replace(chr(39), '')}'"
+
+        pneu_filter = ""
+        if is_pneu:
+            pneu_filter = """
+              AND (
+                LOWER(COALESCE(oi.categoria,'')) = 'compra'
+                OR LOWER(COALESCE(oi.manejo_pneu,'')) = 'recapadora'
+              )
+            """
+
+        with engine.connect() as conn:
+            rows_sql = pd.read_sql(f"""
+                SELECT
+                    os.placa                                    AS placa,
+                    os.modelo                                   AS modelo,
+                    COALESCE(f.implemento, os.implemento, '')   AS implemento,
+                    COALESCE(os.data_execucao, os.data_entrada) AS data_exec,
+                    os.km                                       AS km,
+                    os.numero_os                                AS numero_os,
+                    oi.sistema                                  AS sistema_val,
+                    oi.servico                                  AS servico,
+                    oi.descricao                                AS descricao,
+                    oi.qtd_itens                                AS qtd_itens,
+                    oi.posicao_pneu                             AS posicao_pneu,
+                    oi.qtd_pneu                                 AS qtd_pneu,
+                    oi.espec_pneu                               AS espec_pneu,
+                    oi.marca_pneu                               AS marca_pneu,
+                    oi.modelo_pneu                              AS modelo_pneu,
+                    oi.condicao_pneu                            AS condicao_pneu,
+                    oi.manejo_pneu                              AS manejo_pneu,
+                    oi.categoria                                AS categoria
+                FROM ordens_servico os
+                JOIN os_itens oi  ON oi.os_id = os.id
+                LEFT JOIN frota f ON f.placa   = os.placa
+                WHERE os.deletado_em IS NULL
+                  AND os.status_os   = 'finalizada'
+                  AND {sis_sql_filter}
+                  {pneu_filter}
+            """, conn)
+            rows_sql["fonte"] = "sql"
+    except Exception as e:
+        logger.error("Erro ao carregar SQL em /api/intervalos: %s", e)
+
+    # ── 3. Combinar ──────────────────────────────────────────────────
+    if rows_sql.empty and rows_excel.empty:
+        return {"sistema": sistema, "fleet": {}, "por_placa": []}
+
+    if is_pneu:
+        # SQL é autoritativo quando tem posicao_pneu preenchida (granularidade por item).
+        # Excel cobre OSes sem dados SQL úteis (posição nula ou ausentes no novo modelo).
+        # Regra:
+        #   - OS com pelo menos 1 linha SQL com posicao_pneu não-nula → usar só SQL
+        #   - OS sem linha SQL com posição → usar Excel (posição vem da planilha)
+        frames_pneu = []
+
+        if not rows_sql.empty:
+            # Para pneu: remover linhas SQL sem posição (sem posição = sem dados úteis)
+            rows_sql_pneu = rows_sql[rows_sql["posicao_pneu"].notna() & (rows_sql["posicao_pneu"].astype(str).str.strip() != "")].copy()
+            # OS que têm pelo menos 1 item SQL com posição — essas prevalecem sobre Excel
+            sql_nos = set(rows_sql_pneu["numero_os"].dropna().unique())
+            if not rows_sql_pneu.empty:
+                frames_pneu.append(rows_sql_pneu)
+        else:
+            sql_nos = set()
+
+        if not rows_excel.empty:
+            # Usar Excel apenas para OSes sem cobertura SQL com posição
+            excel_only = rows_excel[~rows_excel["numero_os"].isin(sql_nos)].copy()
+            if not excel_only.empty:
+                frames_pneu.append(excel_only)
+
+        combined = pd.concat(frames_pneu, ignore_index=True) if frames_pneu else pd.DataFrame()
+    else:
+        frames  = [f for f in [rows_excel, rows_sql] if not f.empty]
+        combined = pd.concat(frames, ignore_index=True)
+        if "numero_os" in combined.columns:
+            sql_os = set(combined[combined["fonte"] == "sql"]["numero_os"].dropna().unique())
+            combined = combined[(combined["fonte"] == "sql") | (~combined["numero_os"].isin(sql_os))]
+
+    combined["km"]        = pd.to_numeric(combined["km"], errors="coerce")
+    combined["data_exec"] = pd.to_datetime(combined["data_exec"], errors="coerce")
+
+    # ── 3.1. Enriquecer data_exec e modelo ausentes a partir do SQL ──────
+    # OS registradas apenas no novo sistema (SQL) mas sem posicao_pneu caem no
+    # caminho Excel e ficam sem data/modelo. Busca ordens_servico para preencher.
+    if not combined.empty:
+        null_mask = combined["data_exec"].isna() | combined["modelo"].fillna("").str.strip().eq("")
+        if null_mask.any():
+            nos_list = combined.loc[null_mask, "numero_os"].dropna().unique().tolist()
+            if nos_list:
+                nos_str = ", ".join(f"'{n.replace(chr(39), '')}'" for n in nos_list)
+                try:
+                    with engine.connect() as _c:
+                        enrich_df = pd.read_sql(
+                            f"SELECT numero_os, COALESCE(data_execucao, data_entrada) AS data_exec_sql, "
+                            f"modelo AS modelo_sql FROM ordens_servico "
+                            f"WHERE deletado_em IS NULL AND numero_os IN ({nos_str})",
+                            _c,
+                        )
+                    if not enrich_df.empty:
+                        enrich_df["data_exec_sql"] = pd.to_datetime(enrich_df["data_exec_sql"], errors="coerce")
+                        combined = combined.merge(enrich_df, on="numero_os", how="left")
+                        m_date   = combined["data_exec"].isna() & combined["data_exec_sql"].notna()
+                        combined.loc[m_date, "data_exec"] = combined.loc[m_date, "data_exec_sql"]
+                        m_mod    = combined["modelo"].fillna("").str.strip().eq("") & combined["modelo_sql"].notna() & (combined["modelo_sql"].fillna("") != "")
+                        combined.loc[m_mod, "modelo"] = combined.loc[m_mod, "modelo_sql"]
+                        combined.drop(columns=["data_exec_sql", "modelo_sql"], inplace=True)
+                except Exception as _e:
+                    logger.warning("Erro ao enriquecer data/modelo em intervalos: %s", _e)
+
+    # ── 3.5. Carregar rodízios (Pneu) — indexados por os_ref para montagem de fases ──
+    rods_by_os: dict = {}
+    if is_pneu and not combined.empty:
+        try:
+            placas_list = list(combined["placa"].dropna().unique())
+            placas_str  = ", ".join(f"'{p}'" for p in placas_list)
+            with engine.connect() as conn:
+                rod_df = pd.read_sql(
+                    "SELECT id, placa, data, km, posicao_anterior, posicao_nova, "
+                    "espec_pneu, marca_pneu, qtd, os_ref FROM pneu_rodizios "
+                    f"WHERE placa IN ({placas_str})",
+                    conn,
+                )
+            if not rod_df.empty:
+                rod_df["data"] = pd.to_datetime(rod_df["data"], errors="coerce")
+                rod_df["km"]   = pd.to_numeric(rod_df["km"], errors="coerce")
+                for _, r in rod_df.iterrows():
+                    key = str(r.get("os_ref") or "").strip()
+                    if not key:
+                        continue
+                    rods_by_os.setdefault(key, []).append({
+                        "id":               int(r["id"]) if pd.notna(r.get("id")) else None,
+                        "km":               float(r["km"]) if pd.notna(r.get("km")) else None,
+                        "data":             r["data"] if pd.notna(r.get("data")) else None,
+                        "posicao_anterior": str(r["posicao_anterior"]) if pd.notna(r.get("posicao_anterior")) else None,
+                        "posicao_nova":     str(r["posicao_nova"]) if pd.notna(r.get("posicao_nova")) else None,
+                    })
+                for key in rods_by_os:
+                    rods_by_os[key].sort(key=lambda x: x["km"] or 0)
+        except Exception as e:
+            logger.warning("Erro ao carregar rodízios em intervalos: %s", e)
+
+    # ── 4. KM atual via MAPWS (Pneu only — parallel) ─────────────────
+    def _mapws_latest_km(placa: str):
+        """Retorna (km_fim, date_str) do registro mais recente nos últimos 30 dias."""
+        today = date.today()
+        start = today - timedelta(days=30)
+        try:
+            resp = _requests.get(
+                f"{MAPWS_BASE}/api/details/{placa}",
+                params={"start_date": str(start), "end_date": str(today)},
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                return None, None
+            data = resp.json()
+            records = data if isinstance(data, list) else (data.get("data") or data.get("records") or [])
+            # API retorna registros do mais recente para o mais antigo (índice 0 = hoje)
+            for rec in records:
+                val = rec.get("km_fim") or rec.get("km_acumulado") or rec.get("odometro")
+                dt  = rec.get("data") or rec.get("date")
+                if val is not None:
+                    # Converter DD/MM/YYYY → YYYY-MM-DD para cálculos com pandas
+                    if dt and "/" in str(dt):
+                        parts = str(dt).split("/")
+                        dt = f"{parts[2]}-{parts[1]}-{parts[0]}" if len(parts) == 3 else dt
+                    return float(val), str(dt)[:10] if dt else None
+        except Exception:
+            pass
+        return None, None
+
+    km_atual_map: dict = {}
+    if is_pneu:
+        placas_unicas = [str(p).replace("-","").strip().upper() for p in combined["placa"].dropna().unique()]
+        with ThreadPoolExecutor(max_workers=min(len(placas_unicas), 8)) as ex:
+            futures = {ex.submit(_mapws_latest_km, p): p for p in placas_unicas}
+            for fut in as_completed(futures, timeout=12):
+                placa_k = futures[fut]
+                try:
+                    km_atual_map[placa_k] = fut.result()
+                except Exception:
+                    km_atual_map[placa_k] = (None, None)
+
+    # ── 5. Calcular intervalos por placa (e por medida para Pneu) ────
+    all_km_diffs  = []
+    all_dia_diffs = []
+    por_placa     = []
+
+    def _sv(row, col):
+        v = row.get(col)
+        return None if (v is None or (isinstance(v, float) and pd.isna(v))) else v
+
+    def _build_eventos(sub_grp, prev_eventos=None):
+        """Constrói lista de eventos com delta_km/delta_dias, acumulando em prev_eventos."""
+        evts = list(prev_eventos) if prev_eventos else []
+        km_diffs, dia_diffs = [], []
+        for _, row in sub_grp.iterrows():
+            km_val      = float(row["km"])           if pd.notna(row["km"])        else None
+            data_val    = str(row["data_exec"])[:10] if pd.notna(row["data_exec"]) else None
+            tipo_evento = row.get("tipo_evento") or "compra"
+            delta_km = delta_dias = None
+            if evts:
+                prev = evts[-1]
+                if km_val is not None and prev["km"] is not None:
+                    d = km_val - prev["km"]
+                    if d > 0:
+                        delta_km = round(d)
+                        # Só conta nas estatísticas de frota se for compra de pneu
+                        if tipo_evento == "compra":
+                            km_diffs.append(delta_km)
+                if data_val and prev["data"]:
+                    try:
+                        d2 = (pd.Timestamp(data_val) - pd.Timestamp(prev["data"])).days
+                        if d2 > 0:
+                            delta_dias = d2
+                            if tipo_evento == "compra":
+                                dia_diffs.append(delta_dias)
+                    except Exception:
+                        pass
+            id_rod = row.get("id_rodizio")
+            ev = {
+                "numero_os":       _sv(row, "numero_os"),
+                "data":            data_val,
+                "km":              km_val,
+                "delta_km":        delta_km,
+                "delta_dias":      delta_dias,
+                "categoria":       _sv(row, "categoria"),
+                "servico":         _sv(row, "servico"),
+                "descricao":       _sv(row, "descricao"),
+                "qtd_itens":       int(row["qtd_itens"])  if pd.notna(row.get("qtd_itens")) else None,
+                "posicao_pneu":    _sv(row, "posicao_pneu"),
+                "posicao_anterior":_sv(row, "posicao_anterior"),
+                "qtd_pneu":        int(row["qtd_pneu"])   if pd.notna(row.get("qtd_pneu"))  else None,
+                "espec_pneu":      _sv(row, "espec_pneu"),
+                "marca_pneu":      _sv(row, "marca_pneu"),
+                "manejo_pneu":     _sv(row, "manejo_pneu"),
+                "tipo_evento":     tipo_evento,
+                "id_rodizio":      int(id_rod) if id_rod is not None and not (isinstance(id_rod, float) and pd.isna(id_rod)) else None,
+            }
+            evts.append(ev)
+        return evts, km_diffs, dia_diffs
+
+    for placa_val, grp in combined.groupby("placa"):
+        grp = grp.sort_values(["km", "data_exec"], na_position="last").reset_index(drop=True)
+        modelo_val     = next((str(v) for v in grp["modelo"].dropna()     if str(v).strip()), None)
+        implemento_val = next((str(v) for v in grp["implemento"].dropna() if str(v).strip()), None)
+
+        if is_pneu:
+            grp["_espec"] = grp["espec_pneu"].fillna("—")
+            por_medida:    list = []
+            all_conjs_flat: list = []
+
+            # KM atual — necessário para calcular km_rodado da fase em uso
+            placa_norm = str(placa_val).replace("-", "").strip().upper()
+            km_atual, km_atual_data = km_atual_map.get(placa_norm, (None, None))
+
+            def _pos_parts(p: str) -> list:
+                """Divide 'DIANTEIRO + TRASEIRO' em ['DIANTEIRO', 'TRASEIRO']."""
+                return [x.strip() for x in (p or "").split("+") if x.strip()]
+
+            for espec_val, espec_grp in grp.groupby("_espec", sort=False):
+                espec_grp = espec_grp.sort_values(["km", "data_exec"], na_position="last").reset_index(drop=True)
+                conjs:     list = []
+                km_diffs:  list = []
+                dia_diffs: list = []
+                prev_km_by_pos:   dict = {}  # posicao -> km anterior nessa posição
+                prev_data_by_pos: dict = {}
+
+                for _, row in espec_grp.iterrows():
+                    os_ref      = _sv(row, "numero_os") or ""
+                    km_compra   = float(row["km"])       if pd.notna(row.get("km"))        else None
+                    data_compra = row["data_exec"]       if pd.notna(row.get("data_exec")) else None
+                    pos_inicial = _sv(row, "posicao_pneu") or "—"
+                    pos_parts   = _pos_parts(pos_inicial) or [pos_inicial]
+
+                    # Posições compostas (ex: DIANTEIRO + TRASEIRO) geram conjuntos independentes
+                    qtd_row     = int(row["qtd_pneu"]) if pd.notna(row.get("qtd_pneu")) else None
+                    qtd_per_pos = (qtd_row // len(pos_parts)) if (qtd_row and len(pos_parts) > 1) else qtd_row
+
+                    for pos_single in pos_parts:
+                        delta_km = delta_dias = None
+                        prev_km   = prev_km_by_pos.get(pos_single)
+                        prev_data = prev_data_by_pos.get(pos_single)
+                        if prev_km is not None and km_compra is not None:
+                            d = km_compra - prev_km
+                            if d > 0:
+                                delta_km = round(d)
+                                km_diffs.append(delta_km)
+                        if prev_data is not None and data_compra is not None:
+                            try:
+                                d2 = (data_compra - prev_data).days
+                                if d2 > 0:
+                                    delta_dias = d2
+                                    dia_diffs.append(delta_dias)
+                            except Exception:
+                                pass
+                        prev_km_by_pos[pos_single]   = km_compra
+                        prev_data_by_pos[pos_single] = data_compra
+
+                        # Apenas rodízios cuja posicao_anterior bate com este sub-conjunto
+                        rods  = [r for r in rods_by_os.get(os_ref, []) if r["posicao_anterior"] == pos_single]
+                        fases = []
+                        km_f   = km_compra or 0.0
+                        data_f = data_compra
+                        pos_f  = pos_single
+
+                        for rod in rods:
+                            km_r   = rod["km"] or 0.0
+                            dias_f = None
+                            if rod.get("data") is not None and data_f is not None:
+                                try:
+                                    dias_f = (pd.Timestamp(rod["data"]) - pd.Timestamp(str(data_f)[:10])).days
+                                except Exception:
+                                    pass
+                            fases.append({
+                                "posicao":     pos_f,
+                                "km_inicio":   round(km_f),
+                                "data_inicio": str(data_f)[:10] if data_f is not None else None,
+                                "km_fim":      round(km_r),
+                                "data_fim":    str(rod["data"])[:10] if rod.get("data") is not None else None,
+                                "km_rodado":   max(0, round(km_r - km_f)),
+                                "dias":        dias_f,
+                                "em_uso":      False,
+                                "id_rodizio":  rod.get("id"),
+                            })
+                            km_f   = km_r
+                            data_f = rod["data"] if rod.get("data") is not None else data_f
+                            pos_f  = rod["posicao_nova"] or pos_f
+
+                        # Fase atual (pneu ainda em uso)
+                        km_rodado_cur = round(float(km_atual or 0) - km_f) if km_atual else None
+                        dias_cur = None
+                        if km_atual_data and data_f is not None:
+                            try:
+                                dias_cur = (pd.Timestamp(km_atual_data) - pd.Timestamp(str(data_f)[:10])).days
+                            except Exception:
+                                pass
+                        fases.append({
+                            "posicao":     pos_f,
+                            "km_inicio":   round(km_f),
+                            "data_inicio": str(data_f)[:10] if data_f is not None else None,
+                            "km_fim":      None,
+                            "data_fim":    None,
+                            "km_rodado":   max(0, km_rodado_cur) if km_rodado_cur is not None else None,
+                            "dias":        dias_cur,
+                            "em_uso":      True,
+                            "id_rodizio":  None,
+                        })
+
+                        km_total = sum(f["km_rodado"] for f in fases if f["km_rodado"] is not None)
+                        conjs.append({
+                            "os_ref":          os_ref,
+                            "compra_composta": len(pos_parts) > 1,  # veio de pos. composta, ex: DIANTEIRO+TRASEIRO
+                            "data_compra":   str(data_compra)[:10] if data_compra is not None else None,
+                            "km_compra":     round(km_compra) if km_compra is not None else None,
+                            "marca":    _sv(row, "marca_pneu"),
+                            "modelo":   _sv(row, "modelo_pneu"),
+                            "condicao": _sv(row, "condicao_pneu"),
+                            "recapado": "recap" in str(_sv(row, "manejo_pneu") or "").lower()
+                                        or "recap" in str(_sv(row, "servico") or "").lower(),
+                            "espec":    _sv(row, "espec_pneu"),
+                            "qtd":           qtd_per_pos,
+                            "delta_km":      delta_km,
+                            "delta_dias":    delta_dias,
+                            "km_total":      km_total,
+                            "posicao_atual": pos_f,
+                            "fases":         fases,
+                        })
+
+                all_km_diffs.extend(km_diffs)
+                all_dia_diffs.extend(dia_diffs)
+                all_conjs_flat.extend(conjs)
+                total_pneus = sum(c["qtd"] or 0 for c in conjs)
+                por_medida.append({
+                    "espec":       espec_val,
+                    "n_eventos":   len(conjs),
+                    "total_pneus": total_pneus,
+                    "avg_km":      round(sum(km_diffs) / len(km_diffs)) if km_diffs else None,
+                    "min_km":      round(min(km_diffs)) if km_diffs else None,
+                    "max_km":      round(max(km_diffs)) if km_diffs else None,
+                    "conjuntos":   conjs,
+                })
+
+            # ── Detectar descarte GLOBAL (cross-espec) ────────────────────────────
+            # Qualquer novo pneu na mesma posição (independente de medida) descarta
+            # o conjunto anterior. A lógica por-espec dentro do loop não captura isso.
+            pos_arrivals_g: dict = {}
+            for conj in all_conjs_flat:
+                last_f = conj["fases"][-1]
+                for pp in (_pos_parts(last_f["posicao"]) or [last_f["posicao"]]):
+                    pos_arrivals_g.setdefault(pp, []).append(
+                        (last_f["km_inicio"] or 0, last_f["data_inicio"], conj)
+                    )
+            for pos in pos_arrivals_g:
+                pos_arrivals_g[pos].sort(key=lambda x: x[0])
+
+            for conj in all_conjs_flat:
+                if conj.get("descartado"):
+                    continue
+                last_f = conj["fases"][-1]
+                if not last_f["em_uso"]:
+                    continue
+                km_entry = last_f["km_inicio"] or 0
+                next_arr = None
+                for pp in (_pos_parts(last_f["posicao"]) or [last_f["posicao"]]):
+                    cand = next(
+                        (a for a in pos_arrivals_g.get(pp, [])
+                         if a[0] > km_entry and a[2] is not conj),
+                        None,
+                    )
+                    if cand and (next_arr is None or cand[0] < next_arr[0]):
+                        next_arr = cand
+                if next_arr:
+                    nk, nd, _ = next_arr
+                    last_f["km_fim"]     = nk
+                    last_f["data_fim"]   = nd
+                    last_f["km_rodado"]  = max(0, round(nk - km_entry))
+                    last_f["em_uso"]     = False
+                    last_f["descartado"] = True
+                    conj["km_total"]     = sum(
+                        f["km_rodado"] for f in conj["fases"] if f["km_rodado"] is not None
+                    )
+                    conj["descartado"] = True
+
+            # ── Recomputar ∆ KM / ∆ Dias globalmente por posição (cross-espec) ──
+            # Ordena todos os conjuntos por km_compra e recalcula o delta contra o
+            # conjunto ANTERIOR na mesma posição, independentemente da medida.
+            pos_prev_km:   dict = {}
+            pos_prev_data: dict = {}
+            for conj in sorted(all_conjs_flat, key=lambda c: (c.get("km_compra") or 0)):
+                pos = conj["fases"][0]["posicao"]
+                prev_km   = pos_prev_km.get(pos)
+                prev_data = pos_prev_data.get(pos)
+                delta_km = delta_dias = None
+                km_c   = conj.get("km_compra")
+                data_c = conj.get("data_compra")
+                if prev_km is not None and km_c is not None:
+                    d = km_c - prev_km
+                    if d > 0:
+                        delta_km = round(d)
+                if prev_data and data_c:
+                    try:
+                        d2 = (pd.Timestamp(data_c) - pd.Timestamp(prev_data)).days
+                        if d2 > 0:
+                            delta_dias = d2
+                    except Exception:
+                        pass
+                conj["delta_km"]   = delta_km
+                conj["delta_dias"] = delta_dias
+                pos_prev_km[pos]   = km_c
+                pos_prev_data[pos] = data_c
+
+            por_medida.sort(key=lambda x: x["n_eventos"], reverse=True)
+
+            # Per-posição: fase atual de cada conjunto, agrupado por posição
+            # Posições compostas (ex: "DIANTEIRO + TRASEIRO") geram entradas em cada posição individual
+            pos_map: dict = {}
+            for conj in all_conjs_flat:
+                if conj.get("descartado"):
+                    continue
+                last_f = conj["fases"][-1]
+                for pp in _pos_parts(last_f["posicao"]) or [last_f["posicao"]]:
+                    cur = pos_map.get(pp)
+                    # Prioriza o conjunto instalado mais recentemente nessa posição
+                    if cur is None or (conj.get("km_compra") or 0) > (cur["conj"].get("km_compra") or 0):
+                        pos_map[pp] = {"conj": conj, "fase": last_f}
+
+            km_por_posicao = [
+                {
+                    "posicao":      pos,
+                    "km_troca":     item["fase"]["km_inicio"],
+                    "data_troca":   item["fase"]["data_inicio"],
+                    "marca":        item["conj"]["marca"],
+                    "espec":        item["conj"]["espec"],
+                    "qtd":          item["conj"]["qtd"],
+                    "numero_os":    item["conj"]["os_ref"],
+                    "km_rodado":    item["conj"]["km_total"],
+                    "dias_rodando": sum(f["dias"] or 0 for f in item["conj"]["fases"]),
+                }
+                for pos, item in sorted(pos_map.items())
+            ]
+
+            kms_all = [c["km_compra"] for c in all_conjs_flat if c["km_compra"] is not None]
+            por_placa.append({
+                "placa":          placa_val,
+                "modelo":         modelo_val,
+                "implemento":     implemento_val,
+                "n_eventos":      len(all_conjs_flat),
+                "km_min":         round(min(kms_all)) if kms_all else None,
+                "km_max":         round(max(kms_all)) if kms_all else None,
+                "km_atual":       round(km_atual) if km_atual else None,
+                "km_atual_data":  km_atual_data,
+                "km_por_posicao": km_por_posicao,
+                "por_medida":     por_medida,
+            })
+        else:
+            evts, km_d, dia_d = _build_eventos(grp)
+            all_km_diffs.extend(km_d)
+            all_dia_diffs.extend(dia_d)
+            kms = [e["km"] for e in evts if e["km"] is not None]
+            por_placa.append({
+                "placa":      placa_val,
+                "modelo":     modelo_val,
+                "implemento": implemento_val,
+                "n_eventos":  len(evts),
+                "km_min":     round(min(kms)) if kms else None,
+                "km_max":     round(max(kms)) if kms else None,
+                "eventos":    evts,
+            })
+
+    por_placa.sort(key=lambda x: x["n_eventos"], reverse=True)
+
+    def _stats(lst):
+        if not lst:
+            return {"min": None, "avg": None, "max": None, "n": 0}
+        return {"min": round(min(lst)), "avg": round(sum(lst)/len(lst)), "max": round(max(lst)), "n": len(lst)}
+
+    return {
+        "sistema": sistema,
+        "fleet": {
+            "km":             _stats(all_km_diffs),
+            "dias":           _stats(all_dia_diffs),
+            "total_eventos":  sum(p["n_eventos"] for p in por_placa),
+            "total_veiculos": len(por_placa),
+        },
+        "por_placa": por_placa,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  PNEU RODÍZIO — movimentações internas de posição
+# ═══════════════════════════════════════════════════════════════════
+
+@app.get("/api/manut/pneu-rodizios/{placa}", response_model=list[schemas.PneuRodizioResponse])
+def list_rodizios(placa: str, db: Session = Depends(get_db)):
+    return db.query(models.PneuRodizio).filter(
+        models.PneuRodizio.placa == placa.upper().replace("-", "")
+    ).order_by(models.PneuRodizio.data).all()
+
+
+@app.post("/api/manut/pneu-rodizios", response_model=schemas.PneuRodizioResponse, status_code=201)
+def create_rodizio(payload: schemas.PneuRodizioCreate, db: Session = Depends(get_db)):
+    obj = models.PneuRodizio(
+        placa            = payload.placa.upper().replace("-", ""),
+        data             = payload.data,
+        km               = payload.km,
+        posicao_anterior = payload.posicao_anterior,
+        posicao_nova     = payload.posicao_nova,
+        espec_pneu       = payload.espec_pneu,
+        marca_pneu       = payload.marca_pneu,
+        qtd              = payload.qtd,
+        os_ref           = payload.os_ref,
+        observacao       = payload.observacao,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+@app.delete("/api/manut/pneu-rodizios/{rodizio_id}", status_code=204)
+def delete_rodizio(rodizio_id: int, db: Session = Depends(get_db)):
+    obj = db.query(models.PneuRodizio).get(rodizio_id)
+    if not obj:
+        raise HTTPException(404, "Rodízio não encontrado")
+    db.delete(obj)
+    db.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  SINCRONIZAÇÃO Excel ↔ SQLite
+# ═══════════════════════════════════════════════════════════════════
+
+@app.post("/api/sync")
+def run_sync():
+    """Executa sincronização bidirecional Excel ↔ SQLite de forma síncrona.
+
+    Retorna contagem de registros importados em cada direção.
+    """
+    try:
+        n_excel_to_db = sync_excel_to_db()
+        n_db_to_excel = sync_db_to_excel()
+        return {
+            "ok":           True,
+            "excel_to_db":  n_excel_to_db,
+            "db_to_excel":  n_db_to_excel,
+        }
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
 # ═══════════════════════════════════════════════════════════════════
 #  CRUD — MANUTENÇÕES (banco SQLite)
 # ═══════════════════════════════════════════════════════════════════
@@ -1515,6 +2772,13 @@ def get_os(os_id: int, db: Session = Depends(get_db)):
     if not obj or obj.deletado_em is not None:
         raise HTTPException(404, "OS não encontrada")
     return obj
+
+
+@app.post("/api/db/enrich-km")
+def trigger_enrich_km():
+    """Dispara em background o preenchimento de KM nulo via MAPWS."""
+    threading.Thread(target=_enrich_km_from_mapws, daemon=True).start()
+    return {"status": "iniciado"}
 
 
 @app.post("/api/db/os", response_model=schemas.OsResponse, status_code=201)

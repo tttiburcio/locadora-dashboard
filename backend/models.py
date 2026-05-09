@@ -285,7 +285,9 @@ class OsItem(Base):
     qtd_pneu     = Column(Integer)
     espec_pneu   = Column(String(100))
     marca_pneu   = Column(String(80))
-    manejo_pneu  = Column(String(80))
+    modelo_pneu   = Column(String(100))
+    condicao_pneu = Column(String(20))   # Novo | Usado
+    manejo_pneu   = Column(String(80))
 
     criado_em = Column(DateTime, server_default=func.now())
     manutencao_origem_id = Column(Integer, nullable=True)  # rastreabilidade de migração
@@ -355,3 +357,26 @@ class OsCounter(Base):
 
     ano    = Column(Integer, primary_key=True)
     ultimo = Column(Integer, nullable=False, default=0)
+
+
+# ─────────────────────────────────────────────
+# RODÍZIO / MOVIMENTAÇÃO DE PNEUS
+# ─────────────────────────────────────────────
+class PneuRodizio(Base):
+    """Registra a movimentação de um pneu entre posições do mesmo veículo."""
+    __tablename__ = "pneu_rodizios"
+
+    id               = Column(Integer, primary_key=True, autoincrement=True)
+    placa            = Column(String(20), nullable=False)
+    data             = Column(Date, nullable=False)
+    km               = Column(Integer)
+    posicao_anterior = Column(String(50), nullable=False)
+    posicao_nova     = Column(String(50), nullable=False)
+    espec_pneu       = Column(String(100))
+    marca_pneu       = Column(String(80))
+    qtd              = Column(Integer, default=2)
+    os_ref           = Column(String(50))   # numero_os da compra original
+    observacao       = Column(Text)
+    criado_em        = Column(DateTime, server_default=func.now())
+
+    __table_args__ = (Index("idx_rodizio_placa", "placa"),)

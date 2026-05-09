@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getYears, getKpis, getMonthly, getVehicles, getRegions } from './utils/api'
+import { getYears, getKpis, getMonthly, getVehicles, getRegions, runSync } from './utils/api'
 import Sidebar from './components/Sidebar'
 import OverviewPage from './pages/OverviewPage'
 import VehiclesPage from './pages/VehiclesPage'
@@ -58,6 +58,7 @@ export default function App() {
   }, [])
 
   const handleRefresh = useCallback(async () => {
+    runSync().catch(() => {})
     try {
       setLoading(true)
       const d = await getYears()

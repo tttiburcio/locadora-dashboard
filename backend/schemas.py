@@ -93,6 +93,39 @@ class ParcelaFinanceiroResponse(ParcelaResponse):
 
 
 # ─────────────────────────────────────────────
+# PNEU RODÍZIO
+# ─────────────────────────────────────────────
+class PneuRodizioCreate(BaseModel):
+    placa:            str
+    data:             date
+    km:               Optional[int]   = None
+    posicao_anterior: str
+    posicao_nova:     str
+    espec_pneu:       Optional[str]   = None
+    marca_pneu:       Optional[str]   = None
+    qtd:              Optional[int]   = 2
+    os_ref:           Optional[str]   = None
+    observacao:       Optional[str]   = None
+
+
+class PneuRodizioResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id:               int
+    placa:            str
+    data:             date
+    km:               Optional[int]   = None
+    posicao_anterior: str
+    posicao_nova:     str
+    espec_pneu:       Optional[str]   = None
+    marca_pneu:       Optional[str]   = None
+    qtd:              Optional[int]   = None
+    os_ref:           Optional[str]   = None
+    observacao:       Optional[str]   = None
+    criado_em:        Optional[datetime] = None
+
+
+# ─────────────────────────────────────────────
 # MANUTENÇÃO — criação (abertura)
 # ─────────────────────────────────────────────
 class ManutencaoAbrir(BaseModel):

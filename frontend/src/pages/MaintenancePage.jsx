@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef, Fragment } from 'react'
 import { createPortal } from 'react-dom'
 import html2pdf from 'html2pdf.js'
-import { getMaintenanceAnalysis, dbListManutencoes, dbAtualizarManutencao, dbDeletarManutencao, dbAtualizarParcela, dbListParcelas, dbListOs, dbAtualizarOs, dbDeletarOs, dbCriarParcelaNf } from '../utils/api'
+import { getMaintenanceAnalysis, getImplementoAnalysis, getIntervalosAnalysis, dbListManutencoes, dbAtualizarManutencao, dbDeletarManutencao, dbAtualizarParcela, dbListParcelas, dbListOs, dbAtualizarOs, dbDeletarOs, dbCriarParcelaNf, createPneuRodizio, deletePneuRodizio } from '../utils/api'
 import { brl, brlShort, num, dateBR, titleCase, shortenProviderName } from '../utils/format'
 import KPICard from '../components/KPICard'
 import AbrirManutencaoModal from '../components/AbrirManutencaoModal'
@@ -19,7 +19,7 @@ import {
   Calendar, AlertTriangle, ChevronDown, ChevronUp,
   Activity, Loader2, TrendingUp, Plus, CheckCircle,
   Truck, Clock, AlertCircle, Trash2, BarChart2, Pencil, Bell,
-  CreditCard, CalendarClock, Ban, RotateCcw, Printer, FileText,
+  CreditCard, CalendarClock, Ban, RotateCcw, Printer, FileText, ArrowRight,
 } from 'lucide-react'
 
 // ── Empresas ─────────────────────────────────────────────────────────
@@ -386,6 +386,11 @@ function GestaoTab({ year }) {
   const [filterFin, setFilterFin] = useState('')
   const [sortAberta, setSortAberta] = useState({ col: 'data_entrada', dir: 'desc' })
   const [sortFin, setSortFin] = useState({ col: 'data_execucao', dir: 'desc' })
+  const [filterTipo, setFilterTipo] = useState('todos')
+  const [dossieOpen, setDossieOpen] = useState(false)
+  const [dossiePlaca, setDossiePlaca] = useState('')
+  const [isDossieGenerating, setIsDossieGenerating] = useState(false)
+  const dossieRef = useRef(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -456,8 +461,10 @@ function GestaoTab({ year }) {
 
     return {
       ...o,
-      _sistema: o.itens?.[0]?.sistema || '',
-      _servico: o.itens?.[0]?.servico || '',
+      _sistema: [...new Set((o.itens || []).map(i => i.sistema).filter(Boolean))].join(' · ') || '',
+      _servico: [...new Set((o.itens || []).map(i => i.servico).filter(Boolean))].join(' · ') || '',
+      _categorias: [...new Set((o.itens || []).map(i => (i.categoria || '').toLowerCase()).filter(Boolean))],
+      _sistemas: [...new Set((o.itens || []).map(i => (i.sistema || '').toLowerCase()).filter(Boolean))],
       _totalNfs: (o.notas_fiscais || []).reduce((s, nf) => s + (nf.valor_total_nf || 0), 0),
       _allParcelas: allParcelas,
       _totalParcelas: totalParcelas,
@@ -465,9 +472,15 @@ function GestaoTab({ year }) {
     }
   })
 
+  const applyTipoFilter = list => list.filter(o => {
+    if (filterTipo === 'todos') return true
+    if (filterTipo === 'implemento') return o._sistemas.some(s => s === 'implemento')
+    return o._categorias.includes(filterTipo)
+  })
+
   const filteredAbertas = useMemo(() =>
-    applyFilterSort(withDisplay(todasAbertas), filterAberta, sortAberta, ['placa', 'fornecedor', 'status_os', 'modelo', '_sistema', '_servico']),
-    [todasAbertas, filterAberta, sortAberta]
+    applyTipoFilter(applyFilterSort(withDisplay(todasAbertas), filterAberta, sortAberta, ['placa', 'fornecedor', 'status_os', 'modelo', '_sistema', '_servico'])),
+    [todasAbertas, filterAberta, sortAberta, filterTipo]
   )
 
   const filteredFin = useMemo(() => {
@@ -478,8 +491,31 @@ function GestaoTab({ year }) {
         return new Date(dateStr).getFullYear() === parseInt(year)
       })
       : finalizadas
-    return applyFilterSort(withDisplay(byYear), filterFin, sortFin, ['placa', 'fornecedor', 'modelo', '_sistema', '_servico', 'numero_os'])
-  }, [finalizadas, filterFin, sortFin, year])
+    return applyTipoFilter(applyFilterSort(withDisplay(byYear), filterFin, sortFin, ['placa', 'fornecedor', 'modelo', '_sistema', '_servico', 'numero_os']))
+  }, [finalizadas, filterFin, sortFin, year, filterTipo])
+
+  const allPlacas = useMemo(() =>
+    [...new Set([...abertas, ...finalizadas].map(o => o.placa).filter(Boolean))].sort(),
+    [abertas, finalizadas]
+  )
+
+  const handleDossie = async () => {
+    if (!dossiePlaca) return
+    setIsDossieGenerating(true)
+    try {
+      await html2pdf().set({
+        margin: [10, 10],
+        filename: `Dossie_${dossiePlaca}_${year || 'Todos'}.pdf`,
+        image: { type: 'png' },
+        html2canvas: { scale: 3, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+      }).from(dossieRef.current).save()
+    } finally {
+      setIsDossieGenerating(false)
+      setDossieOpen(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -544,6 +580,12 @@ function GestaoTab({ year }) {
           ))}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setDossieOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-g-850 border border-g-800 text-g-300 rounded-lg text-sm font-medium hover:bg-g-800 hover:text-g-100 transition-colors"
+          >
+            <FileText className="w-4 h-4" /> Dossiê por Placa
+          </button>
           {subTab === 'em_andamento' && (
             <button
               onClick={() => setModalAbrir(true)}
@@ -554,6 +596,25 @@ function GestaoTab({ year }) {
             </button>
           )}
         </div>
+      </div>
+
+      {/* Filtro por tipo de item */}
+      <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1 self-start">
+        {[
+          { key: 'todos', label: 'Todos' },
+          { key: 'serviço', label: 'Serviço' },
+          { key: 'compra', label: 'Compra' },
+          { key: 'implemento', label: 'Implemento' },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setFilterTipo(t.key)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${filterTipo === t.key
+              ? 'bg-white shadow-sm text-g-200 border border-g-800'
+              : 'text-g-600 hover:text-g-400'
+            }`}
+          >{t.label}</button>
+        ))}
       </div>
 
       {/* Tabela Em Andamento */}
@@ -941,6 +1002,194 @@ function GestaoTab({ year }) {
       {modalDetalhe && (
         <DetalhesOsModal manutencao={modalDetalhe} onClose={() => setModalDetalhe(null)} onDeleted={() => { setModalDetalhe(null); load() }} />
       )}
+
+      {/* Modal Dossiê por Placa */}
+      {dossieOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-g-900 border border-g-800 rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 animate-fade-up">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-g-100 font-bold text-base">Dossiê por Placa</p>
+                <p className="text-g-600 text-xs mt-0.5">Relatório completo de manutenções{year ? ` — ${year}` : ''}</p>
+              </div>
+              <button onClick={() => setDossieOpen(false)} className="p-1.5 text-g-600 hover:text-g-300 rounded-lg hover:bg-g-850">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-3">
+              <select
+                value={dossiePlaca}
+                onChange={e => setDossiePlaca(e.target.value)}
+                className="w-full px-3 py-2.5 bg-g-850 border border-g-800 rounded-lg text-g-200 text-sm focus:outline-none focus:border-g-100"
+              >
+                <option value="">Selecione uma placa…</option>
+                {allPlacas.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <button
+                onClick={handleDossie}
+                disabled={!dossiePlaca || isDossieGenerating}
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-g-100 text-white rounded-lg text-sm font-bold hover:bg-g-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isDossieGenerating ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando…</> : <><Printer className="w-4 h-4" /> Gerar PDF</>}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Template oculto do Dossiê */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        <div ref={dossieRef} style={{ fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#1a1a1a', background: '#fff', padding: '20px', width: '794px' }}>
+          {/* Cabeçalho */}
+          <div style={{ borderBottom: '2px solid #0f4a27', paddingBottom: '12px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#0f4a27', margin: 0 }}>Dossiê de Manutenções</h1>
+                <p style={{ color: '#555', fontSize: '12px', margin: '4px 0 0' }}>Placa: <strong>{dossiePlaca}</strong>{year ? ` · Período: ${year}` : ''}</p>
+              </div>
+              <p style={{ color: '#888', fontSize: '10px', textAlign: 'right', margin: 0 }}>
+                Gerado em {new Date().toLocaleString('pt-BR')}<br />
+                Total de OS: {[...abertas, ...finalizadas].filter(o => o.placa === dossiePlaca).length}
+              </p>
+            </div>
+          </div>
+
+          {/* OS por placa */}
+          {[...abertas, ...finalizadas]
+            .filter(o => o.placa === dossiePlaca)
+            .sort((a, b) => {
+              const da = a.data_execucao || a.data_entrada || ''
+              const db2 = b.data_execucao || b.data_entrada || ''
+              return db2.localeCompare(da)
+            })
+            .map((o, idx) => {
+              const totalNfs = (o.notas_fiscais || []).reduce((s, nf) => s + (nf.valor_total_nf || 0), 0)
+              return (
+                <div key={o.id} style={{ marginBottom: '24px', pageBreakInside: 'avoid', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+                  {/* Header OS */}
+                  <div style={{ background: '#f0fdf4', borderBottom: '1px solid #d1fae5', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ fontWeight: 'bold', fontSize: '13px', color: '#065f46' }}>OS #{o.numero_os || 'S/N'}</span>
+                      <span style={{ color: '#6b7280', fontSize: '11px', marginLeft: '10px' }}>{o.modelo || ''}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', fontSize: '10px', color: '#374151' }}>
+                      <span>Status: <strong>{o.status_os || '—'}</strong></span>
+                      {o.data_entrada && <span>Entrada: <strong>{dateBR(o.data_entrada)}</strong></span>}
+                      {o.data_execucao && <span>Execução: <strong>{dateBR(o.data_execucao)}</strong></span>}
+                      {totalNfs > 0 && <span style={{ color: '#065f46', fontWeight: 'bold' }}>Total: {brl(totalNfs)}</span>}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Informações gerais */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', fontSize: '10px' }}>
+                      {o.fornecedor && <div><span style={{ color: '#6b7280', display: 'block' }}>Fornecedor</span><strong>{o.fornecedor}</strong></div>}
+                      {o.responsavel_tec && <div><span style={{ color: '#6b7280', display: 'block' }}>Mecânico</span><strong>{o.responsavel_tec}</strong></div>}
+                      {o.km && <div><span style={{ color: '#6b7280', display: 'block' }}>KM</span><strong>{num(o.km)}</strong></div>}
+                      {o.prox_km && <div><span style={{ color: '#6b7280', display: 'block' }}>Próx. KM</span><strong>{num(o.prox_km)}</strong></div>}
+                    </div>
+
+                    {/* Itens */}
+                    {(o.itens || []).length > 0 && (
+                      <div>
+                        <p style={{ fontWeight: 'bold', fontSize: '10px', color: '#374151', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Itens / Serviços</p>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                          <thead>
+                            <tr style={{ background: '#f9fafb' }}>
+                              <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>Categoria</th>
+                              <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>Sistema</th>
+                              <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>Serviço</th>
+                              <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>Descrição</th>
+                              <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'center' }}>Qtd</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {o.itens.map((it, i) => (
+                              <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                                <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px' }}>{it.categoria || '—'}</td>
+                                <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px' }}>{it.sistema || '—'}</td>
+                                <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px' }}>{it.servico || '—'}</td>
+                                <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px' }}>{it.descricao || '—'}</td>
+                                <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'center' }}>{it.qtd_itens || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* Notas Fiscais */}
+                    {(o.notas_fiscais || []).length > 0 && (
+                      <div>
+                        <p style={{ fontWeight: 'bold', fontSize: '10px', color: '#374151', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notas Fiscais</p>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                          <thead>
+                            <tr style={{ background: '#f9fafb' }}>
+                              <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>Nº NF</th>
+                              <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>Fornecedor</th>
+                              <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>Emissão</th>
+                              <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'right' }}>Valor</th>
+                              <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>Tipo</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {o.notas_fiscais.map((nf, i) => (
+                              <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                                <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px' }}>{nf.numero_nf || '—'}</td>
+                                <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px' }}>{nf.fornecedor || '—'}</td>
+                                <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px' }}>{dateBR(nf.data_emissao) || '—'}</td>
+                                <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'right', fontWeight: 'bold' }}>{brl(nf.valor_total_nf)}</td>
+                                <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px' }}>{nf.tipo_nf || '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+
+                        {/* Parcelas */}
+                        {o.notas_fiscais.some(nf => (nf.parcelas || []).length > 0) && (
+                          <div style={{ marginTop: '6px' }}>
+                            <p style={{ fontWeight: 'bold', fontSize: '10px', color: '#374151', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Parcelas</p>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+                              <thead>
+                                <tr style={{ background: '#f9fafb' }}>
+                                  <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>NF</th>
+                                  <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>Vencimento</th>
+                                  <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'right' }}>Valor</th>
+                                  <th style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'left' }}>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {o.notas_fiscais.flatMap((nf, ni) =>
+                                  (nf.parcelas || []).map((p, pi) => (
+                                    <tr key={`${ni}-${pi}`} style={{ background: (ni + pi) % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                                      <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px' }}>{nf.numero_nf || '—'}</td>
+                                      <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px' }}>{dateBR(p.data_vencimento) || '—'}</td>
+                                      <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px', textAlign: 'right' }}>{brl(p.valor_parcela)}</td>
+                                      <td style={{ border: '1px solid #e5e7eb', padding: '4px 6px', color: p.status_pagamento === 'Pago' ? '#065f46' : '#b91c1c', fontWeight: 'bold' }}>{p.status_pagamento || '—'}</td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Observações */}
+                    {o.observacoes && (
+                      <div>
+                        <p style={{ fontWeight: 'bold', fontSize: '10px', color: '#374151', marginBottom: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Observações</p>
+                        <p style={{ fontSize: '10px', color: '#4b5563', background: '#f9fafb', padding: '6px 8px', borderRadius: '4px', border: '1px solid #e5e7eb' }}>{o.observacoes}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+        </div>
+      </div>
     </div>
   )
 }
@@ -1576,7 +1825,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
   const [parcelas, setParcelas] = useState([])
   const [osList, setOsList] = useState([])
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState('parcelas')   // 'parcelas' | 'notas'
+  const [viewMode, setViewMode] = useState('notas')   // 'parcelas' | 'notas'
   const [categoria, setCategoria] = useState('pendente')
   const [alertVisible, setAlertVisible] = useState(false)
   const [modalProrrogar, setModalProrrogar] = useState(null)
@@ -1598,17 +1847,17 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
       const [parcelasReal, osListData] = await Promise.all([dbListParcelas(year), dbListOs()])
       const osList = osListData
 
-      // NFs que já têm parcelas explícitas registradas no banco (em qualquer ano)
-      // Para ser 100% preciso, precisaríamos saber se a NF tem parcelas em qualquer ano, 
-      // mas como dbListParcelas(year) é filtrado, vamos considerar apenas as do ano atual para o filtro de sintéticas.
-      const nfIdsComParcelas = new Set(parcelasReal.map(p => p.nf_id).filter(Boolean))
       const anoSelecionado = year ? parseInt(year) : null
 
       const sinteticas = []
       for (const os of osList) {
         // Removido filtro de status_os: se tem NF, deve constar no financeiro
         for (const nf of os.notas_fiscais || []) {
-          if (nfIdsComParcelas.has(nf.id)) continue
+          // Pula NFs que já possuem parcelas registradas em QUALQUER ano.
+          // dbListOs carrega nf.parcelas sem filtro de ano (selectinload sem where),
+          // então nf.parcelas.length > 0 é a verificação correta — evita criar entradas
+          // sintéticas para NFs cujas parcelas caem em outro ano (ex: dez/2025 pago em jan/2026).
+          if ((nf.parcelas || []).length > 0) continue
           if (!nf.valor_total_nf) continue
 
           // Data de referência para filtro de ano: data_emissao da NF ou data_execucao da OS
@@ -1684,12 +1933,12 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
   }, [enriched])
 
   const CATS = [
-    { key: 'todas', label: 'Total' },
-    { key: 'vence_hoje', label: 'Vencendo hoje' },
     { key: 'pendente', label: 'Pendentes' },
+    { key: 'vence_hoje', label: 'Vencendo hoje' },
     { key: 'prorrogada', label: 'Prorrogadas' },
     { key: 'vencida', label: 'Vencidas' },
     { key: 'pago', label: 'Pagas' },
+    { key: 'todas', label: 'Total' },
   ]
 
   // Base: applies empresa + mês + texto — sem categoria. Usado nos KPIs e contagens.
@@ -2006,7 +2255,7 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
           </div>
           <div className="flex items-center gap-2">
             <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1">
-              {[{ k: 'parcelas', label: 'Parcelas' }, { k: 'notas', label: 'Por Nota' }].map(({ k, label }) => (
+              {[{ k: 'notas', label: 'Por Nota' }, { k: 'parcelas', label: 'Parcelas' }].map(({ k, label }) => (
                 <button
                   key={k}
                   onClick={() => setViewMode(k)}
@@ -2018,13 +2267,13 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
               ))}
             </div>
 
-            <div className="relative">
+            <div className="relative bg-g-850 border border-g-800 rounded-xl p-1">
               <button
                 onClick={() => setShowReportDropdown(!showReportDropdown)}
                 disabled={isGeneratingPdf}
-                className={`flex items-center gap-2 px-4 py-1.5 border border-g-800 rounded-xl text-xs font-bold uppercase tracking-widest transition-all no-print ${isGeneratingPdf
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all no-print ${isGeneratingPdf
                     ? 'bg-g-800 text-g-500 cursor-not-allowed'
-                    : 'bg-g-850 text-g-200 hover:text-white hover:bg-g-800 hover:border-g-100/30 shadow-lg'
+                    : 'text-g-200 hover:text-white hover:bg-g-800 shadow-sm'
                   }`}
               >
                 {isGeneratingPdf ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Printer className="w-3.5 h-3.5" />}
@@ -2720,209 +2969,952 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
   )
 }
 
+// ════════════════════════════════════════════════════════════════════
+// ANÁLISE DE INTERVALOS DE SERVIÇO
+// ════════════════════════════════════════════════════════════════════
+const SISTEMAS_INTERVALO = [
+  { key: 'Pneu',    label: 'Pneu',    sub: 'Troca de pneus' },
+  { key: 'Freio',   label: 'Freio',   sub: 'Pastilha · disco · pinça' },
+  { key: 'Revisão', label: 'Revisão', sub: 'Óleo · filtros' },
+]
+
+const POSICOES_PNEU = ['DIANTEIRO', 'TRASEIRO', 'DIANTEIRO + TRASEIRO']
+
+function RodizioModal({ placa, specs, conjuntos = [], onClose, onSaved }) {
+  const first = conjuntos[0]
+  const [form, setForm] = useState({
+    placa,
+    data: '',
+    km: '',
+    posicao_anterior: first?.posicao_atual || 'TRASEIRO',
+    posicao_nova: 'DIANTEIRO',
+    espec_pneu: first?.espec || specs[0] || '',
+    marca_pneu: first?.marca || '',
+    qtd: first?.qtd || 2,
+    os_ref: first?.os_ref || '',
+    observacao: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleConjuntoSelect = os_ref => {
+    const c = conjuntos.find(c => c.os_ref === os_ref)
+    if (c) setForm(f => ({ ...f, os_ref, posicao_anterior: c.posicao_atual || f.posicao_anterior, espec_pneu: c.espec || f.espec_pneu, marca_pneu: c.marca || f.marca_pneu, qtd: c.qtd || f.qtd }))
+    else set('os_ref', os_ref)
+  }
+
+  const handleSubmit = async e => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await createPneuRodizio({
+        ...form,
+        km:  form.km  ? Number(form.km)  : null,
+        qtd: form.qtd ? Number(form.qtd) : 2,
+      })
+      onSaved()
+      onClose()
+    } catch (err) {
+      console.error('Erro ao criar rodízio:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="bg-g-900 px-6 py-4 rounded-t-2xl flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <RotateCcw className="w-4 h-4 text-violet-400" />
+            <span className="text-g-100 font-semibold text-sm">Registrar Rodízio / Movimentação</span>
+          </div>
+          <span className="font-mono font-bold text-violet-400 text-sm">{placa}</span>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-g-600 text-[10px] font-bold uppercase tracking-wider block mb-1">Data *</label>
+              <input type="date" required value={form.data} onChange={e => set('data', e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+            </div>
+            <div>
+              <label className="text-g-600 text-[10px] font-bold uppercase tracking-wider block mb-1">KM no momento</label>
+              <input type="number" value={form.km} onChange={e => set('km', e.target.value)} placeholder="ex: 47489"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <label className="text-g-600 text-[10px] font-bold uppercase tracking-wider block mb-1">Posição anterior *</label>
+              <select value={form.posicao_anterior} onChange={e => set('posicao_anterior', e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300">
+                {POSICOES_PNEU.map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <ArrowRight className="w-5 h-5 text-violet-400 mt-5 shrink-0" />
+            <div className="flex-1">
+              <label className="text-g-600 text-[10px] font-bold uppercase tracking-wider block mb-1">Nova posição *</label>
+              <select value={form.posicao_nova} onChange={e => set('posicao_nova', e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300">
+                {POSICOES_PNEU.map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <label className="text-g-600 text-[10px] font-bold uppercase tracking-wider block mb-1">Especificação</label>
+              {specs.length > 0
+                ? <select value={form.espec_pneu} onChange={e => set('espec_pneu', e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300">
+                    {specs.map(s => <option key={s}>{s}</option>)}
+                    <option value="">Outra</option>
+                  </select>
+                : <input value={form.espec_pneu} onChange={e => set('espec_pneu', e.target.value)} placeholder="ex: 225/75R16C"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+              }
+            </div>
+            <div>
+              <label className="text-g-600 text-[10px] font-bold uppercase tracking-wider block mb-1">Qtd</label>
+              <input type="number" min="1" value={form.qtd} onChange={e => set('qtd', e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-g-600 text-[10px] font-bold uppercase tracking-wider block mb-1">Marca</label>
+              <input value={form.marca_pneu} onChange={e => set('marca_pneu', e.target.value)} placeholder="ex: APOLLO"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+            </div>
+            <div>
+              <label className="text-g-600 text-[10px] font-bold uppercase tracking-wider block mb-1">Conjunto (OS origem) *</label>
+              {conjuntos.length > 0
+                ? <select required value={form.os_ref} onChange={e => handleConjuntoSelect(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300">
+                    <option value="">— Selecionar —</option>
+                    {conjuntos.map(c => (
+                      <option key={c.os_ref} value={c.os_ref}>
+                        {c.os_ref} · {c.posicao_atual} · {c.espec || ''} {c.marca ? `· ${c.marca}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                : <input value={form.os_ref} onChange={e => set('os_ref', e.target.value)} placeholder="ex: OS-2025-0008"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+              }
+            </div>
+          </div>
+          <div>
+            <label className="text-g-600 text-[10px] font-bold uppercase tracking-wider block mb-1">Observação</label>
+            <textarea value={form.observacao} onChange={e => set('observacao', e.target.value)} rows={2}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-300" />
+          </div>
+          <div className="flex justify-end gap-3 pt-1">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-g-500 hover:text-g-300 transition-colors">Cancelar</button>
+            <button type="submit" disabled={saving}
+              className="px-5 py-2 bg-violet-600 text-white text-sm font-semibold rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-2 transition-colors">
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              Registrar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+function IntervalosSection() {
+  const [sistema,       setSistema]      = useState('Pneu')
+  const [data,          setData]         = useState(null)
+  const [loading,       setLoading]      = useState(false)
+  const [expanded,      setExpanded]     = useState(new Set())
+  const [rodizioModal,  setRodizioModal] = useState(null)  // { placa, specs }
+
+  const load = useCallback(() => {
+    setLoading(true)
+    getIntervalosAnalysis(sistema)
+      .then(setData)
+      .finally(() => setLoading(false))
+  }, [sistema])
+
+  useEffect(() => { load() }, [load])
+
+  const toggleExpand = placa =>
+    setExpanded(s => { const n = new Set(s); n.has(placa) ? n.delete(placa) : n.add(placa); return n })
+
+  const fleet = data?.fleet
+  const porPlaca = data?.por_placa || []
+
+  // Agrupamento por medida — agregado de por_medida de cada placa (servidor já calcula intervals por spec)
+  const byMedida = useMemo(() => {
+    if (sistema !== 'Pneu' || !porPlaca.length) return []
+    const map = {}
+    porPlaca.forEach(veh => {
+      const medidas = veh.por_medida || []
+      if (medidas.length) {
+        medidas.forEach(m => {
+          if (!map[m.espec]) map[m.espec] = { spec: m.espec, veiculos: new Set(), n_eventos: 0, total_pneus: 0, km_diffs: [] }
+          map[m.espec].veiculos.add(veh.placa)
+          map[m.espec].n_eventos += m.n_eventos
+          map[m.espec].total_pneus += m.total_pneus || 0
+          ;(m.conjuntos || []).forEach(c => { if (c.delta_km) map[m.espec].km_diffs.push(c.delta_km) })
+        })
+      }
+    })
+    return Object.values(map)
+      .map(r => ({
+        spec:        r.spec,
+        n_veiculos:  r.veiculos.size,
+        n_eventos:   r.n_eventos,
+        total_pneus: r.total_pneus || null,
+        avg_km:      r.km_diffs.length ? Math.round(r.km_diffs.reduce((a,b)=>a+b,0)/r.km_diffs.length) : null,
+        min_km:      r.km_diffs.length ? Math.min(...r.km_diffs) : null,
+        max_km:      r.km_diffs.length ? Math.max(...r.km_diffs) : null,
+      }))
+      .sort((a, b) => b.n_eventos - a.n_eventos)
+  }, [sistema, porPlaca])
+
+  const EventTable = ({ eventos, total, isPneu, avgKm, kms, dias, onDeleteRodizio }) => (
+    <table className="w-full text-xs min-w-[640px]">
+      <thead>
+        <tr className="bg-g-900">
+          <th className="text-left text-g-600 font-semibold py-2 px-4">#</th>
+          <th className="text-left text-g-600 font-semibold py-2 px-3">Data</th>
+          <th className="text-right text-g-600 font-semibold py-2 px-3">KM</th>
+          <th className="text-right text-g-600 font-semibold py-2 px-3">∆ KM</th>
+          <th className="text-right text-g-600 font-semibold py-2 px-3">∆ Dias</th>
+          {isPneu && <th className="text-left text-g-600 font-semibold py-2 px-3">Tipo</th>}
+          {isPneu && <th className="text-left text-g-600 font-semibold py-2 px-3">Posição</th>}
+          {isPneu && <th className="text-left text-g-600 font-semibold py-2 px-3">Marca</th>}
+          {isPneu && <th className="text-center text-g-600 font-semibold py-2 px-3">Qtd</th>}
+          {!isPneu && <th className="text-left text-g-600 font-semibold py-2 px-3">Serviço</th>}
+          <th className="text-left text-g-600 font-semibold py-2 px-3">OS / Ref</th>
+        </tr>
+      </thead>
+      <tbody>
+        {eventos.map((ev, i) => {
+          const isRodizio = ev.tipo_evento === 'rodizio'
+          const isAlert   = !isRodizio && ev.delta_km != null && avgKm && ev.delta_km < avgKm * 0.8
+          const rowBg     = isRodizio ? 'bg-violet-50/70 border-violet-100'
+                          : isAlert   ? 'bg-amber-50/60'
+                          : i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+          return (
+            <tr key={i} className={`border-b ${rowBg}`}>
+              <td className="py-2 px-4 text-g-600 font-mono">
+                {isRodizio
+                  ? <RotateCcw className="w-3 h-3 text-violet-400 inline" />
+                  : `${i + 1}/${total}`}
+              </td>
+              <td className="py-2 px-3 text-g-400 font-mono whitespace-nowrap">{ev.data ? dateBR(ev.data) : '—'}</td>
+              <td className="py-2 px-3 text-right font-mono text-g-300 whitespace-nowrap">{ev.km != null ? num(ev.km) + ' km' : '—'}</td>
+              <td className="py-2 px-3 text-right font-mono whitespace-nowrap">
+                {ev.delta_km != null
+                  ? <span className={`font-bold ${isRodizio ? 'text-violet-500' : isAlert ? 'text-amber-600' : 'text-emerald-600'}`}>+{num(ev.delta_km)}</span>
+                  : <span className="text-g-700">—</span>}
+              </td>
+              <td className="py-2 px-3 text-right font-mono whitespace-nowrap">
+                {ev.delta_dias != null
+                  ? <span className={`font-bold ${isRodizio ? 'text-violet-400' : 'text-blue-600'}`}>+{ev.delta_dias}d</span>
+                  : <span className="text-g-700">—</span>}
+              </td>
+              {isPneu && (
+                <td className="py-2 px-3 text-[11px]">
+                  {isRodizio
+                    ? <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-violet-100 text-violet-700">Rodízio</span>
+                    : <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${ev.categoria === 'Compra' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-g-500'}`}>{ev.categoria || '—'}</span>
+                  }
+                </td>
+              )}
+              {isPneu && (
+                <td className="py-2 px-3 text-[11px] whitespace-nowrap">
+                  {isRodizio && ev.posicao_anterior
+                    ? <span className="flex items-center gap-1 text-violet-600">
+                        <span className="opacity-70">{ev.posicao_anterior}</span>
+                        <ArrowRight className="w-3 h-3" />
+                        <span className="font-semibold">{ev.posicao_pneu}</span>
+                      </span>
+                    : <span className="text-g-400">{ev.posicao_pneu || '—'}</span>
+                  }
+                </td>
+              )}
+              {isPneu && <td className="py-2 px-3 text-g-500 text-[11px]">{ev.marca_pneu || '—'}</td>}
+              {isPneu && <td className="py-2 px-3 text-center text-g-500">{ev.qtd_pneu ?? (ev.qtd_itens ?? '—')}</td>}
+              {!isPneu && <td className="py-2 px-3 text-g-400 max-w-[180px] truncate" title={ev.servico}>{ev.servico || '—'}</td>}
+              <td className="py-2 px-3 font-mono text-g-600 text-[10px]">
+                <div className="flex items-center gap-1">
+                  <span>{ev.numero_os || '—'}</span>
+                  {isRodizio && onDeleteRodizio && (
+                    <button onClick={() => onDeleteRodizio(ev.id_rodizio)} title="Remover rodízio"
+                      className="ml-1 text-violet-300 hover:text-red-500 transition-colors">
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+      {kms?.length > 0 && (
+        <tfoot>
+          <tr className="bg-g-900/50 border-t border-g-800">
+            <td colSpan={3} className="py-2 px-4 text-g-600 text-[10px] font-semibold uppercase tracking-wide">Resumo</td>
+            <td className="py-2 px-3 text-right">
+              <span className="text-[10px] text-g-600 block">min / médio / máx</span>
+              <span className="font-mono text-g-300 text-[11px]">
+                {num(Math.min(...kms))} / <strong className="text-emerald-500">{num(Math.round(kms.reduce((a,b)=>a+b,0)/kms.length))}</strong> / {num(Math.max(...kms))} km
+              </span>
+            </td>
+            <td className="py-2 px-3 text-right">
+              {dias?.length > 0 && (
+                <>
+                  <span className="text-[10px] text-g-600 block">min / médio / máx</span>
+                  <span className="font-mono text-g-300 text-[11px]">
+                    {Math.min(...dias)} / <strong className="text-blue-400">{Math.round(dias.reduce((a,b)=>a+b,0)/dias.length)}</strong> / {Math.max(...dias)} d
+                  </span>
+                </>
+              )}
+            </td>
+            <td colSpan={isPneu ? 5 : 2} />
+          </tr>
+        </tfoot>
+      )}
+    </table>
+  )
+
+  // Tabela de conjuntos de pneus com fases de vida (Pneu only)
+  const ConjuntoTable = ({ conjuntos, avgKm, onDeleteRodizio }) => (
+    <table className="w-full text-xs min-w-[860px]">
+      <thead>
+        <tr className="bg-g-900">
+          <th className="text-left text-g-600 font-semibold py-2 px-4 w-32">OS / Ref</th>
+          <th className="text-left text-g-600 font-semibold py-2 px-3">Data</th>
+          <th className="text-right text-g-600 font-semibold py-2 px-3">KM Entrada</th>
+          <th className="text-right text-g-600 font-semibold py-2 px-3">KM Rodado</th>
+          <th className="text-left text-g-600 font-semibold py-2 px-3">Pos. Inicial</th>
+          <th className="text-left text-g-600 font-semibold py-2 px-3">Pos. Atual</th>
+          <th className="text-left text-g-600 font-semibold py-2 px-3">Marca</th>
+          <th className="text-left text-g-600 font-semibold py-2 px-3">Modelo</th>
+          <th className="text-center text-g-600 font-semibold py-2 px-3">Qtd</th>
+          <th className="text-right text-g-600 font-semibold py-2 px-3">∆ KM c/ ant.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {conjuntos.map((conj, ci) => {
+          const isAlert      = conj.delta_km != null && avgKm && conj.delta_km < avgKm * 0.8
+          const isDescartado = !!conj.descartado
+          const posInicial   = conj.fases[0]?.posicao || '—'
+          const rotated      = posInicial !== conj.posicao_atual
+          const totalDias    = conj.fases.reduce((s, f) => s + (f.dias || 0), 0)
+          return (
+            <Fragment key={ci}>
+              {/* ── Linha principal: resumo do conjunto ── */}
+              <tr className={`border-b border-gray-200 font-medium ${isDescartado ? 'opacity-50' : ''} ${ci % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
+                <td className="py-2.5 px-4">
+                  <span className="font-mono text-g-200 text-[11px] font-bold">{conj.os_ref || '—'}</span>
+                  {conj.compra_composta && (
+                    <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-blue-100 text-blue-600 uppercase tracking-wide">kit</span>
+                  )}
+                </td>
+                <td className="py-2.5 px-3 text-g-400 font-mono whitespace-nowrap">{conj.data_compra ? dateBR(conj.data_compra) : '—'}</td>
+                <td className="py-2.5 px-3 text-right font-mono text-g-500 whitespace-nowrap">{conj.km_compra != null ? num(conj.km_compra) + ' km' : '—'}</td>
+                <td className="py-2.5 px-3 text-right font-mono whitespace-nowrap">
+                  <span className={`font-bold ${isDescartado ? 'text-g-600' : 'text-emerald-600'}`}>{conj.km_total != null ? num(conj.km_total) + ' km' : '—'}</span>
+                  {totalDias > 0 && <span className="text-blue-400 ml-1.5 font-normal text-[10px]">{totalDias}d</span>}
+                </td>
+                <td className="py-2.5 px-3">
+                  <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-g-500 uppercase tracking-wide">{posInicial}</span>
+                </td>
+                <td className="py-2.5 px-3">
+                  {isDescartado ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-600 uppercase tracking-wide">{conj.posicao_atual || '—'}</span>
+                      <span className="text-[9px] font-bold text-red-500 ml-0.5">substituído</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      {rotated && <ArrowRight className="w-3 h-3 text-violet-400 shrink-0" />}
+                      <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide ${rotated ? 'bg-violet-100 text-violet-700' : 'bg-sky-100 text-sky-700'}`}>
+                        {conj.posicao_atual || '—'}
+                      </span>
+                      {conj.fases.length === 1 && <span className="text-[9px] text-sky-400 ml-0.5">em uso</span>}
+                    </div>
+                  )}
+                </td>
+                <td className="py-2.5 px-3 text-[11px]">
+                  <span className="text-g-400 font-medium">{conj.marca || '—'}</span>
+                  {conj.recapado && (
+                    <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-orange-100 text-orange-700 uppercase tracking-wide">recapado</span>
+                  )}
+                  {!conj.recapado && conj.condicao?.toLowerCase() === 'usado' && (
+                    <span className="ml-1.5 text-[9px] font-bold px-1 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wide">usado</span>
+                  )}
+                </td>
+                <td className="py-2.5 px-3 text-g-500 text-[11px]">{conj.modelo || '—'}</td>
+                <td className="py-2.5 px-3 text-center text-g-500">{conj.qtd ?? '—'}</td>
+                <td className="py-2.5 px-3 text-right font-mono whitespace-nowrap">
+                  {conj.delta_km != null
+                    ? <span className={`font-bold ${isAlert ? 'text-amber-600' : 'text-g-500'}`}>+{num(conj.delta_km)} km</span>
+                    : <span className="text-g-700 text-[10px]">1ª compra</span>}
+                </td>
+              </tr>
+              {/* ── Sub-linhas: só renderiza quando há rodízio ── */}
+              {conj.fases.length > 1 && conj.fases.map((fase, fi) => {
+                const isLast    = fi === conj.fases.length - 1
+                const isRodizio = fi > 0
+                const prevPos   = isRodizio ? conj.fases[fi - 1].posicao : null
+                const faseDescartada = !!fase.descartado
+                return (
+                  <tr key={`f${fi}`} className={`border-b border-gray-100 ${isDescartado ? 'opacity-50' : ''} ${isRodizio ? 'bg-violet-50/30' : 'bg-gray-50/20'}`}>
+                    {/* col 1: conector + badge */}
+                    <td className="py-1.5 px-4">
+                      <div className="flex items-center gap-1.5 ml-3">
+                        <span className="font-mono text-g-700 text-[10px] select-none">{isLast ? '└─' : '├─'}</span>
+                        {isRodizio && (
+                          <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-violet-100 text-violet-600 uppercase tracking-wide">Rodízio</span>
+                        )}
+                      </div>
+                    </td>
+                    {/* col 2: data */}
+                    <td className="py-1.5 px-3 font-mono text-g-600 text-[10px]">{fase.data_inicio ? dateBR(fase.data_inicio) : '—'}</td>
+                    {/* col 3: range de KM */}
+                    <td className="py-1.5 px-3 text-right font-mono text-[10px] text-g-600 whitespace-nowrap">
+                      {num(fase.km_inicio)}{fase.km_fim != null
+                        ? <> → {num(fase.km_fim)}</>
+                        : <> → <span className="text-sky-500 italic">atual</span></>} km
+                    </td>
+                    {/* col 4: km rodado + dias */}
+                    <td className="py-1.5 px-3 text-right font-mono text-[10px] whitespace-nowrap">
+                      {fase.km_rodado != null
+                        ? <span className={isRodizio ? 'text-violet-600' : 'text-g-500'}>+{num(fase.km_rodado)} km</span>
+                        : '—'}
+                      {fase.dias != null && <span className="text-g-600 ml-1.5">{fase.dias}d</span>}
+                    </td>
+                    {/* col 5: de onde veio (só fases de rodízio) */}
+                    <td className="py-1.5 px-3">
+                      {isRodizio && prevPos && (
+                        <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-g-500 uppercase tracking-wide">{prevPos}</span>
+                      )}
+                    </td>
+                    {/* col 6: para onde foi (só fases de rodízio) */}
+                    <td className="py-1.5 px-3">
+                      {isRodizio && (
+                        <div className="flex items-center gap-1">
+                          <ArrowRight className="w-3 h-3 text-violet-400 shrink-0" />
+                          {faseDescartada ? (
+                            <>
+                              <span className="text-[11px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-100 text-red-600">{fase.posicao}</span>
+                              <span className="text-[9px] font-bold text-red-500 ml-0.5">substituído</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className={`text-[11px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${fase.em_uso ? 'bg-sky-100 text-sky-700' : 'bg-violet-100 text-violet-700'}`}>
+                                {fase.posicao}
+                              </span>
+                              {fase.em_uso && <span className="text-[9px] text-sky-400 ml-0.5">em uso</span>}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    {/* col 7, 8, 9: vazios */}
+                    <td /><td /><td />
+                    {/* col 9: excluir rodízio */}
+                    <td className="py-1.5 px-3 text-right">
+                      {!fase.em_uso && !faseDescartada && fase.id_rodizio != null && onDeleteRodizio && (
+                        <button onClick={() => onDeleteRodizio(fase.id_rodizio)} title="Remover rodízio"
+                          className="text-g-700 hover:text-red-500 transition-colors">
+                          <X className="w-3 h-3 inline" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </Fragment>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+
+  const StatKpi = ({ label, value, unit, accent }) => (
+    <div className={`rounded-xl p-4 flex flex-col gap-1 ${accent ? 'bg-g-850 border border-g-100/20' : 'bg-white border border-gray-100'}`}>
+      <span className={`text-[10px] font-bold uppercase tracking-widest ${accent ? 'text-g-500' : 'text-g-600'}`}>{label}</span>
+      <span className={`font-mono font-bold text-xl tabular-nums ${accent ? 'text-white' : 'text-g-100'}`}>
+        {value != null ? num(value) : '—'}
+        {value != null && <span className={`text-sm font-normal ml-1 ${accent ? 'text-g-400' : 'text-g-500'}`}>{unit}</span>}
+      </span>
+    </div>
+  )
+
+  return (
+    <>
+    <Section title="Intervalos de Serviço por Veículo" icon={Activity}>
+      {/* Controles */}
+      <div className="flex items-center gap-3 flex-wrap mb-1">
+        {/* Sistema selector */}
+        <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1">
+          {SISTEMAS_INTERVALO.map(s => (
+            <button
+              key={s.key}
+              onClick={() => setSistema(s.key)}
+              title={s.sub}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${sistema === s.key
+                ? 'bg-white shadow-sm text-g-200 border border-g-800'
+                : 'text-g-600 hover:text-g-400'
+              }`}
+            >{s.label}</button>
+          ))}
+        </div>
+
+        {loading && <Loader2 className="w-4 h-4 animate-spin text-g-600 ml-auto" />}
+        {!loading && fleet && (
+          <span className="ml-auto text-g-700 text-xs">{fleet.total_veiculos} veículo{fleet.total_veiculos !== 1 ? 's' : ''} · {fleet.total_eventos} evento{fleet.total_eventos !== 1 ? 's' : ''}</span>
+        )}
+      </div>
+
+      {/* KPIs da frota */}
+      {!loading && fleet?.km?.n > 0 && (
+        <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 mt-1">
+          <StatKpi label="KM mínimo"  value={fleet.km.min}  unit="km" />
+          <StatKpi label="KM médio"   value={fleet.km.avg}  unit="km" accent />
+          <StatKpi label="KM máximo"  value={fleet.km.max}  unit="km" />
+          <StatKpi label="Dias mín."  value={fleet.dias.min}  unit="d" />
+          <StatKpi label="Dias médio" value={fleet.dias.avg}  unit="d" accent />
+          <StatKpi label="Dias máx."  value={fleet.dias.max}  unit="d" />
+        </div>
+      )}
+
+      {/* Por Medida — apenas Pneu */}
+      {!loading && sistema === 'Pneu' && byMedida.length > 0 && (
+        <div className="mt-3 border border-g-800 rounded-xl overflow-hidden">
+          <div className="bg-g-900 px-4 py-2 flex items-center gap-2">
+            <span className="text-g-400 text-[11px] font-bold uppercase tracking-widest">Por Medida</span>
+            <span className="text-g-700 text-[10px] ml-auto">{byMedida.length} especificação{byMedida.length !== 1 ? 'ões' : ''}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs min-w-[520px]">
+              <thead>
+                <tr className="bg-g-950/40">
+                  <th className="text-left text-g-600 font-semibold py-2 px-4">Especificação</th>
+                  <th className="text-center text-g-600 font-semibold py-2 px-3">Veículos</th>
+                  <th className="text-center text-g-600 font-semibold py-2 px-3">Eventos</th>
+                  <th className="text-center text-g-600 font-semibold py-2 px-3">Pneus adquiridos</th>
+                  <th className="text-right text-g-600 font-semibold py-2 px-4">ΔKM mín.</th>
+                  <th className="text-right text-g-600 font-semibold py-2 px-4">ΔKM médio</th>
+                  <th className="text-right text-g-600 font-semibold py-2 px-4">ΔKM máx.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {byMedida.map((row, i) => (
+                  <tr key={row.spec} className={`border-t border-g-900 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                    <td className="py-2 px-4 font-mono font-semibold text-g-200">{row.spec}</td>
+                    <td className="py-2 px-3 text-center text-g-500">{row.n_veiculos}</td>
+                    <td className="py-2 px-3 text-center text-g-500">{row.n_eventos}</td>
+                    <td className="py-2 px-3 text-center text-g-400 font-mono">{row.total_pneus || '—'}</td>
+                    <td className="py-2 px-4 text-right font-mono text-g-500">{row.min_km != null ? num(row.min_km) + ' km' : '—'}</td>
+                    <td className="py-2 px-4 text-right font-mono font-bold text-emerald-600">{row.avg_km != null ? num(row.avg_km) + ' km' : '—'}</td>
+                    <td className="py-2 px-4 text-right font-mono text-g-500">{row.max_km != null ? num(row.max_km) + ' km' : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Por veículo */}
+      {!loading && porPlaca.length === 0 && (
+        <p className="text-g-700 text-sm text-center py-8">Nenhum evento de <strong>{sistema}</strong> encontrado no histórico.</p>
+      )}
+
+      {!loading && porPlaca.length > 0 && (
+        <div className="flex flex-col gap-2 mt-1">
+          {porPlaca.map(veh => {
+            const isOpen   = expanded.has(veh.placa)
+            const allConjs = (veh.por_medida || []).flatMap(m => m.conjuntos || [])
+            const isPneuSistema = sistema === 'Pneu'
+            const allKms   = isPneuSistema
+              ? allConjs.map(c => c.delta_km).filter(Boolean)
+              : (veh.eventos || []).map(e => e.delta_km).filter(Boolean)
+            const avgKm    = allKms.length  ? Math.round(allKms.reduce((a,b)=>a+b,0)/allKms.length)  : null
+            const allDias  = isPneuSistema
+              ? allConjs.map(c => c.delta_dias).filter(Boolean)
+              : (veh.eventos || []).map(e => e.delta_dias).filter(Boolean)
+            const avgDias  = allDias.length ? Math.round(allDias.reduce((a,b)=>a+b,0)/allDias.length) : null
+            const hasPorMedida = sistema === 'Pneu' && veh.por_medida?.length > 0
+            const specs    = sistema === 'Pneu'
+              ? [...new Set((veh.por_medida || []).map(m => m.espec).filter(e => e && e !== '—'))]
+              : []
+
+            // Coloured alert on km_rodado_atual
+            const kmRodado = veh.km_rodado_atual
+            const avgFleet = fleet?.km?.avg
+            const rodadoColor = kmRodado == null ? null
+              : avgFleet && kmRodado > avgFleet * 0.85 ? 'text-amber-500'
+              : 'text-sky-500'
+
+            return (
+              <div key={veh.placa} className="border border-g-800 rounded-xl overflow-hidden bg-white">
+                {/* Header */}
+                <button
+                  onClick={() => toggleExpand(veh.placa)}
+                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-g-950/5 transition-colors text-left"
+                >
+                  <span className="font-mono font-extrabold text-g-100 text-base w-24 shrink-0">{veh.placa}</span>
+                  <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-g-500 text-[11px] font-semibold uppercase tracking-wider">{veh.modelo || '—'}</span>
+                    {veh.implemento && <span className="text-g-700 text-[10px]">· {veh.implemento}</span>}
+                    {specs.map(s => (
+                      <span key={s} className="bg-g-900 border border-g-800 text-g-400 font-mono text-[10px] px-1.5 py-0.5 rounded">{s}</span>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="text-right">
+                      <span className="text-g-600 text-[10px] block uppercase tracking-wide">Eventos</span>
+                      <span className="font-mono font-bold text-g-200 text-sm">{veh.n_eventos}</span>
+                    </div>
+                    {avgKm && (
+                      <div className="text-right">
+                        <span className="text-g-600 text-[10px] block uppercase tracking-wide">Média ΔKM</span>
+                        <span className="font-mono font-bold text-emerald-600 text-sm">{num(avgKm)} km</span>
+                      </div>
+                    )}
+                    {avgDias && (
+                      <div className="text-right">
+                        <span className="text-g-600 text-[10px] block uppercase tracking-wide">Média dias</span>
+                        <span className="font-mono font-bold text-blue-600 text-sm">{avgDias}d</span>
+                      </div>
+                    )}
+                    {veh.km_por_posicao?.length > 0 && (
+                      <div className="flex items-center gap-2 border-l border-g-800 pl-4 shrink-0">
+                        {veh.km_por_posicao.map(p => {
+                          const pColor = avgFleet && p.km_rodado > avgFleet * 0.85 ? 'text-amber-500' : 'text-sky-500'
+                          return (
+                            <div key={p.posicao} className="text-right">
+                              <span className="text-g-600 text-[10px] block uppercase tracking-wide">{p.posicao}</span>
+                              <span className={`font-mono font-bold text-sm ${pColor}`}>{num(p.km_rodado)} km</span>
+                              {p.dias_rodando != null && <span className="text-g-600 text-[10px] block">{p.dias_rodando}d</span>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {isOpen
+                      ? <ChevronUp className="w-4 h-4 text-g-500 ml-2" />
+                      : <ChevronDown className="w-4 h-4 text-g-500 ml-2" />}
+                  </div>
+                </button>
+
+                {/* Conteúdo expandido */}
+                {isOpen && (
+                  <div className="border-t border-g-800">
+                    {/* Barra de ações (Pneu) */}
+                    {sistema === 'Pneu' && (
+                      <div className="px-5 py-2 bg-g-950/20 border-b border-g-900 flex items-center justify-end">
+                        <button
+                          onClick={() => setRodizioModal({ placa: veh.placa, specs, conjuntos: allConjs })}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600/10 border border-violet-500/30 text-violet-700 rounded-lg text-[11px] font-semibold hover:bg-violet-600/20 transition-colors"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          Registrar Rodízio
+                        </button>
+                      </div>
+                    )}
+                    {/* KM atual info bar (Pneu) */}
+                    {veh.km_atual && (
+                      <div className="px-5 py-2.5 bg-sky-50/60 border-b border-sky-100 text-xs">
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <span className="text-sky-700 font-semibold">KM atual do veículo:</span>
+                          <span className="font-mono font-bold text-sky-800">{num(veh.km_atual)} km</span>
+                          {veh.km_atual_data && <span className="text-sky-500">em {dateBR(veh.km_atual_data)}</span>}
+                        </div>
+                        {veh.km_por_posicao?.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-3">
+                            {veh.km_por_posicao.map(p => {
+                              const pct  = avgFleet ? Math.round(p.km_rodado / avgFleet * 100) : null
+                              const pCol = avgFleet && p.km_rodado > avgFleet * 0.85 ? 'border-amber-300 bg-amber-50/80 text-amber-700'
+                                         : 'border-sky-200 bg-white text-sky-700'
+                              return (
+                                <div key={p.posicao} className={`flex items-center gap-2 border rounded-lg px-3 py-1.5 ${pCol}`}>
+                                  <span className="font-semibold text-[11px] uppercase tracking-wide opacity-70">{p.posicao}</span>
+                                  <span className="font-mono font-bold">{num(p.km_rodado)} km</span>
+                                  {p.dias_rodando != null && <span className="opacity-60">{p.dias_rodando}d</span>}
+                                  {pct != null && <span className="opacity-60 text-[10px]">({pct}% da média)</span>}
+                                  {(p.marca || p.espec) && (
+                                    <span className="opacity-50 text-[10px] border-l pl-2">
+                                      {p.marca}{p.marca && p.espec ? ' · ' : ''}{p.espec}
+                                    </span>
+                                  )}
+                                  {p.numero_os && <span className="opacity-40 text-[10px] font-mono">{p.numero_os}</span>}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Por especificação (Pneu) */}
+                    {hasPorMedida
+                      ? veh.por_medida.map(med => (
+                          <div key={med.espec} className="border-b border-g-900 last:border-b-0">
+                            <div className="bg-g-950/30 px-5 py-1.5 flex items-center gap-3">
+                              <span className="font-mono font-bold text-g-300 text-xs">{med.espec}</span>
+                              <span className="text-g-600 text-[10px]">{med.n_eventos} conjunto{med.n_eventos !== 1 ? 's' : ''}</span>
+                              {med.total_pneus > 0 && <span className="text-g-600 text-[10px]">· {med.total_pneus} pneus</span>}
+                              {med.avg_km && <span className="text-emerald-600 font-mono text-[10px] ml-auto">ΔKM médio c/ ant.: <strong>{num(med.avg_km)}</strong> km</span>}
+                            </div>
+                            <div className="overflow-x-auto">
+                              <ConjuntoTable conjuntos={med.conjuntos || []} avgKm={fleet?.km?.avg}
+                                onDeleteRodizio={async id => { await deletePneuRodizio(id); load() }} />
+                            </div>
+                          </div>
+                        ))
+                      : (
+                        <div className="overflow-x-auto">
+                          <EventTable eventos={veh.eventos || []} total={veh.n_eventos} isPneu={false} avgKm={fleet?.km?.avg} kms={allKms} dias={allDias} />
+                        </div>
+                      )
+                    }
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </Section>
+    {rodizioModal && (
+      <RodizioModal
+        placa={rodizioModal.placa}
+        specs={rodizioModal.specs || []}
+        conjuntos={rodizioModal.conjuntos || []}
+        onClose={() => setRodizioModal(null)}
+        onSaved={() => load()}
+      />
+    )}
+  </>
+  )
+}
+
       // ════════════════════════════════════════════════════════════════════
       // ABA ANÁLISE — gráficos e KPIs (conteúdo original)
       // ════════════════════════════════════════════════════════════════════
-      function AnaliseTab({year, vehicles}) {
-  const [data,        setData]        = useState(null)
-      const [loading,     setLoading]     = useState(true)
-      const [placa,       setPlaca]       = useState('')
-      const [input,       setInput]       = useState('')
-      const [upcomingOpen, setUpcomingOpen] = useState(true)
+      function AnaliseTab({year}) {
+  const [implData,    setImplData]    = useState([])
+  const [implLoading, setImplLoading] = useState(true)
+  const [implSel,     setImplSel]     = useState(null)
+  const [implPlaca,   setImplPlaca]   = useState('')
 
-  const placas = useMemo(() =>
-    [...new Set(vehicles.map(v => v.placa))].sort(), [vehicles]
-      )
-
-  const load = (yr, p) => {
-        setLoading(true)
-    getMaintenanceAnalysis(yr, p || undefined)
-      .then(setData)
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {load(year, placa)}, [year, placa])
-
-  const handleSearch = () => setPlaca(input.trim().toUpperCase())
-  const clearFilter  = () => {setPlaca(''); setInput('') }
-      const s = data?.summary
+  useEffect(() => {
+    setImplLoading(true)
+    getImplementoAnalysis(year)
+      .then(d => { setImplData(d); setImplSel(null); setImplPlaca('') })
+      .finally(() => setImplLoading(false))
+  }, [year])
 
       return (
       <div className="flex flex-col gap-8">
-        {/* Filtro de placa */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-g-600" />
-            <input
-              list="placa-list"
-              placeholder="Filtrar por placa…"
-              value={input}
-              onChange={e => setInput(e.target.value.toUpperCase())}
-              onKeyDown={e => e.key === 'Enter' && handleSearch()}
-              className="pl-9 pr-10 py-2 bg-g-900 border border-g-800 rounded-lg text-g-400 text-sm placeholder-g-700 focus:outline-none focus:border-g-100 transition-colors w-52 font-mono"
-            />
-            <datalist id="placa-list">
-              {placas.map(p => <option key={p} value={p} />)}
-            </datalist>
-            {(input || placa) && (
-              <button onClick={clearFilter} className="absolute right-2.5 top-1/2 -translate-y-1/2">
-                <X className="w-3.5 h-3.5 text-g-600 hover:text-g-400" />
-              </button>
-            )}
-          </div>
-          <button
-            onClick={handleSearch}
-            className="px-4 py-2 bg-g-850 hover:bg-g-800 border border-g-800 rounded-lg text-g-400 text-sm transition-colors"
-          >
-            Filtrar
-          </button>
-          {placa && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-g-850 border border-g-100/20 rounded-full text-g-100 text-xs font-mono">
-              <Wrench className="w-3 h-3" />
-              {placa}
-              <button onClick={clearFilter}><X className="w-3 h-3 ml-0.5" /></button>
-            </span>
-          )}
-          <span className="ml-auto text-g-700 text-xs">
-            {placa ? `Análise individual · ${placa}` : `Frota completa · ${year}`}
-          </span>
-        </div>
 
-        {loading && (
-          <div className="flex items-center justify-center h-64 gap-3 animate-fade-in">
-            <Loader2 className="w-6 h-6 animate-spin text-g-600" />
-            <p className="text-g-600 text-sm">Processando análise de manutenção…</p>
-          </div>
-        )}
+            <IntervalosSection />
 
-        {!loading && data && (
-          <>
-            {/* Custo Mensal — primeiro destaque */}
-            {data.monthly?.length > 0 && (
-              <Section title="Custo Mensal" icon={DollarSign}>
-                <ChartCard title="Custo Mensal de Manutenção" subtitle="Valor total das OS finalizadas por mês">
-                  <MonthlyBarChart data={data.monthly} />
-                </ChartCard>
-              </Section>
-            )}
-
-            <Section title="Resumo de Manutenção" icon={Wrench}>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <KPICard icon={Hash} label="Ordens de Serviço" rawValue={s.total_os} formatter={num} sub="OS únicas no período" delay={0} />
-                <KPICard icon={DollarSign} label="Custo Total" rawValue={s.total_cost} formatter={brlShort} sub="Soma todas as OS" delay={55} />
-                <KPICard icon={Activity} label="Custo Médio / OS" rawValue={s.avg_per_os} formatter={brlShort} sub="Média por ordem" delay={110} />
-                <KPICard icon={Award} label="Principal Fornecedor"
-                  value={s.top_fornecedor?.length > 14 ? s.top_fornecedor.slice(0, 13) + '…' : s.top_fornecedor}
-                  sub={data.by_fornecedor?.[0] ? brl(data.by_fornecedor[0].total) + ' no período' : '—'}
-                  accent delay={165}
-                />
-              </div>
-            </Section>
-
-            <Section title="Por Fornecedor e Sistema" icon={Award}>
-              <div className="grid grid-cols-2 gap-4">
-                <ChartCard title="Top Fornecedores" subtitle="Custo total por oficina / prestador">
-                  <FornecedorChart data={data.by_fornecedor} />
-                </ChartCard>
-                <ChartCard title="Mapa de Sistemas" subtitle="Distribuição de custo por sistema mecânico (Treemap)">
-                  <SistemaTreemap data={data.by_sistema} />
-                </ChartCard>
-              </div>
-            </Section>
-
-            <Section title="Tipo de Manutenção e Implemento" icon={Activity}>
-              <div className="grid grid-cols-3 gap-4">
-                <ChartCard title="Preventiva vs Corretiva" subtitle="Distribuição de custo por tipo">
-                  <TipoPie data={data.by_tipo} />
-                </ChartCard>
-                <div className="col-span-2">
-                  <ChartCard title="Custo por Implemento" subtitle="Radial — proporção relativa ao maior custo">
-                    <ImplementoRadial data={data.by_implemento} />
-                  </ChartCard>
+            {/* ── ANÁLISE POR IMPLEMENTO VEICULAR ─────────────────────── */}
+            <Section title="Análise por Implemento Veicular" icon={Truck}>
+              {implLoading ? (
+                <div className="flex items-center justify-center h-32 gap-2 text-g-600 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Carregando análise de implementos…
                 </div>
-              </div>
-            </Section>
+              ) : implData.length === 0 ? (
+                <div className="flex items-center justify-center h-24 text-g-700 text-sm">Nenhum implemento registrado no período.</div>
+              ) : (
+                <div className="flex flex-col gap-5">
 
-            {data.by_servico?.length > 0 && (
-              <Section title="Serviços Mais Executados" icon={Wrench}>
-                <ChartCard title="Top Serviços por Custo" subtitle="Tipos de serviço e valor total acumulado">
-                  <ServicosChart data={data.by_servico} />
-                </ChartCard>
-              </Section>
-            )}
+                  {/* Cards resumo por implemento */}
+                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {implData.map(imp => {
+                      const topSis = imp.por_sistema[0]
+                      const isSelected = implSel?.implemento === imp.implemento
+                      return (
+                        <button
+                          key={imp.implemento}
+                          onClick={() => { setImplSel(isSelected ? null : imp); setImplPlaca('') }}
+                          className={`text-left p-4 rounded-xl border transition-all ${isSelected
+                            ? 'bg-g-850 border-g-100/40 shadow-lg ring-1 ring-g-100/20'
+                            : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-md'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <span className={`text-[11px] font-bold uppercase tracking-wider ${isSelected ? 'text-g-100' : 'text-g-200'}`}>{imp.implemento}</span>
+                            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isSelected ? 'bg-g-800 text-g-400' : 'bg-g-900 text-g-500'}`}>{imp.n_placas}v</span>
+                          </div>
+                          <p className={`font-bold font-mono text-base ${isSelected ? 'text-white' : 'text-g-100'}`}>{brl(imp.total_custo)}</p>
+                          <p className={`text-xs mt-0.5 ${isSelected ? 'text-g-400' : 'text-g-600'}`}>{imp.total_os} OS{topSis ? ` · ${topSis.sistema}` : ''}</p>
+                        </button>
+                      )
+                    })}
+                  </div>
 
-            <Section title="Tendência e Projeção" icon={TrendingUp}>
-              <ChartCard title="Histórico Mensal + Projeção Linear"
-                subtitle="Barras = realizado · Linha tracejada = projeção com intervalo de confiança (±1σ)">
-                <TrendProjectionChart monthly={data.monthly} projection={data.projection} />
-              </ChartCard>
-              {data.projection?.length > 0 && (
-                <div className="grid grid-cols-4 gap-3 mt-3">
-                  {data.projection.map((p, i) => (
-                    <div key={i} className="card p-3 stagger-child" style={{ '--i': i + 1 }}>
-                      <p className="text-g-600 text-xs uppercase tracking-wider mb-1">Projeção M+{i + 1}</p>
-                      <p className="text-g-100 font-bold font-mono tabular-nums text-lg">{brlShort(p.projected)}</p>
-                      <p className="text-g-700 text-xs mt-0.5">{brlShort(p.low)} – {brlShort(p.high)}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Section>
+                  {/* Drilldown do implemento selecionado */}
+                  {implSel && (
+                    <div className="card border border-g-800 rounded-xl overflow-hidden animate-fade-in">
+                      {/* Header drilldown */}
+                      <div className="flex items-center justify-between px-5 py-3.5 bg-g-850 border-b border-g-800">
+                        <div>
+                          <span className="text-g-100 font-bold text-sm">{implSel.implemento}</span>
+                          <span className="text-g-600 text-xs ml-3">{implSel.total_os} OS · {implSel.n_placas} veículo{implSel.n_placas !== 1 ? 's' : ''} · {brl(implSel.total_custo)}</span>
+                        </div>
+                        <button onClick={() => { setImplSel(null); setImplPlaca('') }} className="p-1.5 text-g-600 hover:text-g-300 rounded-lg hover:bg-g-800">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
 
-            {data.upcoming?.length > 0 && (
-              <Section title="Manutenções Programadas" icon={Calendar}>
-                <div className="card overflow-hidden">
-                  <button
-                    className="w-full flex items-center justify-between px-4 py-3 border-b border-g-800 hover:bg-g-850 transition-colors"
-                    onClick={() => setUpcomingOpen(v => !v)}
-                  >
-                    <span className="text-g-500 text-xs font-semibold uppercase tracking-wider">
-                      {data.upcoming.length} pendências identificadas
-                    </span>
-                    {upcomingOpen ? <ChevronUp className="w-4 h-4 text-g-600" /> : <ChevronDown className="w-4 h-4 text-g-600" />}
-                  </button>
-                  {upcomingOpen && (
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-[640px]">
-                        <thead className="bg-g-850">
-                          <tr>
-                            <th className="th th-left text-xs">Placa</th>
-                            <th className="th th-left text-xs">Modelo</th>
-                            <th className="th th-left text-xs">Serviço</th>
-                            <th className="th th-left text-xs">Sistema</th>
-                            <th className="th text-xs">KM Atual</th>
-                            <th className="th text-xs">Próx. KM</th>
-                            <th className="th text-xs">Próx. Data</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.upcoming.map((u, i) => {
-                            const kmAlert = u.prox_km && u.km_atual && u.prox_km - u.km_atual < 5000
-                            const dateAlert = u.prox_data && new Date(u.prox_data) <= new Date(Date.now() + 30 * 86400000)
-                            return (
-                              <tr key={i} className={`border-b border-g-800 hover:bg-g-850 transition-colors ${kmAlert || dateAlert ? 'bg-amber-50/50' : ''}`}>
-                                <td className="td td-left text-xs font-mono font-bold text-g-200">{u.placa}</td>
-                                <td className="td td-left text-xs text-g-500">{u.modelo?.length > 18 ? u.modelo.slice(0, 17) + '…' : u.modelo}</td>
-                                <td className="td td-left text-xs text-g-400">{u.servico?.length > 22 ? u.servico.slice(0, 21) + '…' : u.servico}</td>
-                                <td className="td td-left text-xs text-g-500">{u.sistema}</td>
-                                <td className="td text-xs tabular-nums text-g-500">{u.km_atual ? num(u.km_atual) + ' km' : '—'}</td>
-                                <td className={`td text-xs tabular-nums font-semibold ${kmAlert ? 'text-amber-600' : 'text-g-400'}`}>{u.prox_km ? num(u.prox_km) + ' km' : '—'}</td>
-                                <td className={`td text-xs tabular-nums ${dateAlert ? 'text-amber-600 font-semibold' : 'text-g-400'}`}>
-                                  {dateBR(u.prox_data)}
-                                  {(kmAlert || dateAlert) && <AlertTriangle className="inline w-3 h-3 ml-1 text-amber-500" />}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
+                      <div className="p-5 flex flex-col gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                          {/* Sistemas por custo */}
+                          <div>
+                            <p className="text-g-600 text-[10px] font-bold uppercase tracking-widest mb-3">Sistemas — Custo e Frequência</p>
+                            <div className="flex flex-col gap-1.5">
+                              {implSel.por_sistema.slice(0, 10).map((s, i) => {
+                                const maxCusto = implSel.por_sistema[0]?.custo || 1
+                                const pct = Math.round((s.custo / maxCusto) * 100)
+                                return (
+                                  <div key={i} className="flex items-center gap-3">
+                                    <div className="w-28 text-g-300 text-xs font-semibold truncate shrink-0">{s.sistema}</div>
+                                    <div className="flex-1 h-5 bg-g-900 rounded overflow-hidden relative">
+                                      <div
+                                        className="h-full rounded transition-all"
+                                        style={{ width: `${pct}%`, background: i === 0 ? '#22c55e' : i === 1 ? '#34d399' : '#6b7280' }}
+                                      />
+                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-g-300">{brlShort(s.custo)}</span>
+                                    </div>
+                                    <span className="text-g-600 text-[10px] w-12 text-right shrink-0">{s.count} OS</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Intervalos de KM */}
+                          <div>
+                            <p className="text-g-600 text-[10px] font-bold uppercase tracking-widest mb-3">Intervalo Médio entre Manutenções (KM)</p>
+                            {implSel.intervalos_km.length === 0 ? (
+                              <p className="text-g-700 text-xs italic">KM não registrado para calcular intervalos.</p>
+                            ) : (
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="border-b border-g-800">
+                                      <th className="text-left text-g-600 font-semibold py-1.5 pr-3">Sistema</th>
+                                      <th className="text-right text-g-600 font-semibold py-1.5 px-2">Médio</th>
+                                      <th className="text-right text-g-600 font-semibold py-1.5 px-2">Mín</th>
+                                      <th className="text-right text-g-600 font-semibold py-1.5 px-2">Máx</th>
+                                      <th className="text-right text-g-600 font-semibold py-1.5 pl-2">Amostras</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {implSel.intervalos_km.map((iv, i) => (
+                                      <tr key={i} className="border-b border-g-900 hover:bg-g-850">
+                                        <td className="py-1.5 pr-3 text-g-200 font-semibold">{iv.sistema}</td>
+                                        <td className="py-1.5 px-2 text-right font-mono text-emerald-400 font-bold">{num(iv.intervalo_medio)} km</td>
+                                        <td className="py-1.5 px-2 text-right font-mono text-g-500">{num(iv.intervalo_min)}</td>
+                                        <td className="py-1.5 px-2 text-right font-mono text-g-500">{num(iv.intervalo_max)}</td>
+                                        <td className="py-1.5 pl-2 text-right text-g-600">{iv.amostras}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Drilldown por placa */}
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <p className="text-g-600 text-[10px] font-bold uppercase tracking-widest">Análise por Placa</p>
+                            <div className="flex gap-1 flex-wrap">
+                              <button
+                                onClick={() => setImplPlaca('')}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all ${!implPlaca ? 'bg-g-100 text-white' : 'bg-g-900 border border-g-800 text-g-500 hover:text-g-300'}`}
+                              >Geral</button>
+                              {implSel.placas.map(p => (
+                                <button
+                                  key={p}
+                                  onClick={() => setImplPlaca(p)}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${implPlaca === p ? 'bg-g-100 text-white' : 'bg-g-900 border border-g-800 text-g-500 hover:text-g-300'}`}
+                                >{p}</button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Tabela: sistemas × placa ou geral */}
+                          {!implPlaca ? (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs">
+                                <thead>
+                                  <tr className="border-b border-g-800">
+                                    <th className="text-left text-g-600 font-semibold py-1.5 pr-4">Sistema</th>
+                                    <th className="text-right text-g-600 font-semibold py-1.5 px-2">OS</th>
+                                    <th className="text-right text-g-600 font-semibold py-1.5 px-2">Custo Total</th>
+                                    <th className="text-right text-g-600 font-semibold py-1.5 px-2">Custo Médio/OS</th>
+                                    <th className="text-right text-g-600 font-semibold py-1.5 pl-2">Interv. KM médio</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {implSel.por_sistema.map((s, i) => {
+                                    const iv = implSel.intervalos_km.find(x => x.sistema === s.sistema)
+                                    return (
+                                      <tr key={i} className="border-b border-g-900 hover:bg-g-850">
+                                        <td className="py-1.5 pr-4 text-g-200 font-semibold">{s.sistema}</td>
+                                        <td className="py-1.5 px-2 text-right text-g-400 font-mono">{s.count}</td>
+                                        <td className="py-1.5 px-2 text-right font-mono text-g-200 font-bold">{brl(s.custo)}</td>
+                                        <td className="py-1.5 px-2 text-right font-mono text-g-400">{s.count > 0 ? brlShort(s.custo / s.count) : '—'}</td>
+                                        <td className="py-1.5 pl-2 text-right font-mono text-emerald-400">{iv ? `${num(iv.intervalo_medio)} km` : '—'}</td>
+                                      </tr>
+                                    )
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              <p className="text-g-500 text-xs">Intervalos de KM por sistema — Placa <span className="font-mono font-bold text-g-200">{implPlaca}</span></p>
+                              {implSel.intervalos_km.filter(iv => iv.por_placa?.[implPlaca]).length === 0 ? (
+                                <p className="text-g-700 text-xs italic">Sem dados de KM suficientes para esta placa.</p>
+                              ) : (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead>
+                                      <tr className="border-b border-g-800">
+                                        <th className="text-left text-g-600 font-semibold py-1.5 pr-4">Sistema</th>
+                                        <th className="text-right text-g-600 font-semibold py-1.5 pl-2">Intervalo médio (km)</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {implSel.intervalos_km
+                                        .filter(iv => iv.por_placa?.[implPlaca])
+                                        .map((iv, i) => (
+                                          <tr key={i} className="border-b border-g-900 hover:bg-g-850">
+                                            <td className="py-1.5 pr-4 text-g-200 font-semibold">{iv.sistema}</td>
+                                            <td className="py-1.5 pl-2 text-right font-mono text-emerald-400 font-bold">{num(iv.por_placa[implPlaca])} km</td>
+                                          </tr>
+                                        ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
-              </Section>
-            )}
-          </>
-        )}
+              )}
+            </Section>
       </div>
       )
 }
@@ -2940,30 +3932,31 @@ function FinanceiroTab({ year, alertDismissed, onAlertDismiss }) {
 
       return (
       <div className="flex flex-col gap-6">
-        {/* Tabs principais */}
-        <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1 w-fit">
-          {[
-            { key: 'gestao', label: 'Gestão de OS', icon: Wrench },
-            { key: 'financeiro', label: 'Financeiro', icon: DollarSign },
-            { key: 'analise', label: 'Análise', icon: BarChart2 },
-          ].map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === key
-                  ? 'bg-white shadow-sm text-g-200 border border-g-800'
-                  : 'text-g-600 hover:text-g-400'
-                }`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {label}
-            </button>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex gap-1 bg-g-850 border border-g-800 rounded-xl p-1">
+            {[
+              { key: 'gestao', label: 'Gestão de OS', icon: Wrench },
+              { key: 'financeiro', label: 'Financeiro', icon: DollarSign },
+              { key: 'analise', label: 'Análise', icon: BarChart2 },
+            ].map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === key
+                    ? 'bg-white shadow-sm text-g-200 border border-g-800'
+                    : 'text-g-600 hover:text-g-400'
+                  }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {tab === 'gestao' && <GestaoTab year={year} />}
         {tab === 'financeiro' && <FinanceiroTab year={year} alertDismissed={finAlertDismissed} onAlertDismiss={() => setFinAlertDismissed(true)} />}
-        {tab === 'analise' && <AnaliseTab year={year} vehicles={vehicles} />}
+        {tab === 'analise' && <AnaliseTab year={year} />}
       </div>
       )
 }
