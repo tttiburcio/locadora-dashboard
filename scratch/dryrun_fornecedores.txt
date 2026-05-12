@@ -1,0 +1,253 @@
+  AVISO: erro ao ler manutencoes: no such column: total
+================================================================================
+FASE 3A.1 — RELATÓRIO DE FORNECEDORES (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+NENHUM UPDATE FOI EXECUTADO.
+================================================================================
+
+Total de fornecedores únicos (normalizados, 4 tabelas): 110
+
+------------------------------------------------------------
+--- FORNECEDORES SIMPLES (forma canônica única) ---
+  fornecedor                                           total_ocorrencias
+  ----------------------------------------------------------------------
+  ANTONIO ALVES TK DIESEL                                             70
+  TIETE VEÍCULOS                                                      60
+  DELLA VIA                                                           53
+  BONI PNEUS                                                          40
+  OSMAR LUIS FRANCA                                                   20
+  MONKEY MUNCK                                                        19
+  BLACK BIRD RESGATES 24 HORAS                                        14
+  LUBRIFISC                                                           13
+  REI DO ÓLEO ITAQUA                                                  13
+  MIGLIATI LUMINI                                                     13
+  MECÂNICA DUARTE                                                     12
+  YSTRELLA                                                            12
+  CASALE OFICINA                                                      11
+  GP PNEUS                                                            11
+  RD DIRECOES HIDRAULICAS                                             11
+  SUZANO REPARACAO MECANICA                                            9
+  SOTREQ                                                               8
+  MORECAP                                                              6
+  BRASMIG TRATORES                                                     6
+  DR DAS MANGUEIRAS                                                    6
+  FREIOS JJ                                                            6
+  CPX DISTRIBUIDORA S.A.                                               6
+  THIAGO ELETRICISTA                                                   6
+  MSP DIST E IMP MORECAP                                               6
+  PJ DIESEL                                                            6
+  MOLAS SANTA VITORIA                                                  6
+  TUDO LAR ONLINE MELI                                                 5
+  GLDS ECOMMERCE (ML)                                                  4
+  NAVI TRUCK                                                           4
+  TRUCKAR AUTOMOLAS                                                    4
+  TURBO MAIS                                                           4
+  TKJ GERENCIAMENTO                                                    3
+  MM LUIBRIFICANTES                                                    3
+  SPAR PECAS AUT (ML)                                                  3
+  PARANÁ ELÉTRICA                                                      3
+  INTERLUB                                                             3
+  BORA PEÇAS                                                           3
+  ARAGÃO                                                               3
+  RADIADORES MASTER                                                    3
+  PRUDENCROMO                                                          3
+  MARTINS LUBRIFICANTES                                                3
+  COOPERCITRUS                                                         3
+  ZN PLACAS                                                            3
+  AUTOGLASS                                                            3
+  DEXTER IMPORT AUTO PART (ML)                                         3
+  RENATO TEIXEIRA                                                      3
+  VICTOR EDUARDO BORRACHARIA                                           3
+  FORTUNATO RECAPADORA                                                 3
+  555                                                                  3
+  LUBRACO                                                              3
+  MG VIDROS                                                            2
+  WENDEL CHAVES SOLDA                                                  2
+  CARLINHOZ SOLDAS                                                     2
+  JTO TRANSPORTES                                                      2
+  AZZIOLY CAMINHOES E PECAS                                            2
+  MERCEDAO AUTO PECAS                                                  2
+  CARLAO AUTO ELETRICO                                                 2
+  SANTOS OLIVEIRA ALINHAMENTOS PRUDENTE                                2
+
+------------------------------------------------------------
+--- POSSÍVEIS ALIASES (grafias diferentes, mesmo fornecedor) — 19 grupos ---
+
+  Grupo canônico sugerido: "ALDO OLIVEIRA NASCIMENTO"
+    → canônico: "ALDO OLIVEIRA NASCIMENTO" (7 ocorrências) (acentuação)
+      alias: "ALDO OLIVEIRA NASCIMENTO / TUDO LAR ONLINE MELI / AZZIOLY CAMINHOES E PECAS / DIBRACAM" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "AUTO ELETRICA ANA JACINTA"
+    → canônico: "AUTO ELETRICA ANA JACINTA" (15 ocorrências) (acentuação)
+      alias: "AUTO ELETRICA MAC SOM" (2 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "AUTOMEC"
+    → canônico: "AUTOMEC" (7 ocorrências) (acentuação)
+      alias: "AUTOMEC / JTO TRANSPORTES" (1 ocorrências) (prefixo)
+      alias: "AUTOMEC / YSTRELLA" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "BATERIAS MOGI"
+    → canônico: "BATERIAS MOGI" (3 ocorrências) (acentuação)
+      alias: "BATERIAS SAO CARLOS" (3 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "BORRACHARIA SÃO CARLOS"
+    → canônico: "BORRACHARIA SÃO CARLOS" (7 ocorrências) (acentuação)
+      alias: "BORRACHARIA E C. DE PN. DO SILVAO" (3 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "CAIADO PNEUS"
+    → canônico: "CAIADO PNEUS" (57 ocorrências) (acentuação)
+      alias: "CAIADO PNEUS / FORTUNATO RECAPADORA" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "DIBRACAM"
+    → canônico: "DIBRACAM" (81 ocorrências) (acentuação)
+      alias: "DIBRACAM / ANTONIO ALVES TK DIESEL" (1 ocorrências) (prefixo)
+      alias: "DIBRACAM / CARLINHOZ SOLDAS" (1 ocorrências) (prefixo)
+      alias: "DIBRACAM / MECÂNICA DUARTE" (1 ocorrências) (prefixo)
+      alias: "DIBRACAM / OSMAR LUIS FRANCA / MERCEDAO AUTO PECAS" (1 ocorrências) (prefixo)
+      alias: "DIBRACAM / RENOVE COMERCIO DE PECAS LTDA" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "FLORENZA TRUCK"
+    → canônico: "FLORENZA TRUCK" (157 ocorrências) (acentuação)
+      alias: "FLORENZA TRUCK / TIETE VEÍCULOS" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "GEOMAQ"
+    → canônico: "GEOMAQ" (5 ocorrências) (acentuação)
+      alias: "GEOMAQ / BRASMIG TRATORES" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "INOVA TRANSPORTES LTDA"
+    → canônico: "INOVA TRANSPORTES LTDA" (2 ocorrências) (acentuação)
+      alias: "INOVA TRUCK CENTER LTDA" (2 ocorrências) (prefixo)
+      alias: "INOVA TRANSPORTES LTDA / INOVA TRUCK CENTER LTDA" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "LUBRAÇO"
+    → canônico: "LUBRAÇO" (8 ocorrências) (acentuação)
+      alias: "LUBRAÇO / SOTREQ" (1 ocorrências) (prefixo)
+      alias: "LUBRAÇO / WENDEL CHAVES SOLDA" (1 ocorrências) (prefixo)
+             forma original: "LUBRAÇO / WENDEL CHAVES  SOLDA"
+
+  Grupo canônico sugerido: "MSAM PEÇAS"
+    → canônico: "MSAM PEÇAS" (67 ocorrências) (acentuação)
+      alias: "MSAM PEÇAS / ANTONIO ALVES TK DIESEL" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / ANTONIO ALVES TK DIESEL / MONKEY MUNCK" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / DIBRACAM" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / RS DIESEL" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / RS DIESEL / PJ DIESEL" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / RS DIESEL / PJ DIESEL / TURBO MAIS" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / TIETE VEÍCULOS" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "NEGAO DAS BATERIAS"
+    → canônico: "NEGAO DAS BATERIAS" (5 ocorrências) (acentuação)
+      alias: "NEGAO DAS BATERIAS / AUTO ELETRICA MAC SOM" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "NOVA LÍNEA"
+    → canônico: "NOVA LÍNEA" (5 ocorrências) (acentuação)
+      alias: "NOVA LÍNEA / YSTRELLA" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "QUATROCENTAO ACESSORIOS"
+    → canônico: "QUATROCENTAO ACESSORIOS" (8 ocorrências) (acentuação)
+      alias: "QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA" (3 ocorrências) (prefixo)
+      alias: "QUATROCENTAO ACESSORIOS / MG VIDROS" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "RENOV. DE PNEUS PRESIDENTE GRU."
+    → canônico: "RENOV. DE PNEUS PRESIDENTE GRU." (5 ocorrências) (acentuação)
+      alias: "RENOV. DE PNEUS PRESIDENTE GRU. / RENOV. PNEUS PRESIDENTE GRU." (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "RENOVE COMÉRCIO DE PEÇAS"
+    → canônico: "RENOVE COMÉRCIO DE PEÇAS" (8 ocorrências) (acentuação)
+      alias: "RENOVE COMERCIO DE PECAS LTDA" (2 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "RICARDO YOSHIYUKI FUJITA"
+    → canônico: "RICARDO YOSHIYUKI FUJITA" (12 ocorrências) (acentuação)
+      alias: "RICARDO YOSHIYUKI FUJITA / ANTONIO ALVES TK DIESEL" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "RS DIESEL"
+    → canônico: "RS DIESEL" (28 ocorrências) (acentuação)
+      alias: "RS DIESEL / TIETE VEÍCULOS" (2 ocorrências) (prefixo)
+
+------------------------------------------------------------
+--- MULTI-FORNECEDOR (contém '/') — 31 OS ---
+
+  OS-2025-0133     |   R$ 11,260.97 | "ALDO OLIVEIRA NASCIMENTO / TUDO LAR ONLINE MELI / AZZIOLY CAMINHOES E PECAS / DIBRACAM"
+    → Candidatos a separar: ['ALDO OLIVEIRA NASCIMENTO', 'TUDO LAR ONLINE MELI', 'AZZIOLY CAMINHOES E PECAS', 'DIBRACAM']
+  OS-2025-0132     |    R$ 9,066.89 | "AUTOMEC / JTO TRANSPORTES"
+    → Candidatos a separar: ['AUTOMEC', 'JTO TRANSPORTES']
+  OS-2025-0034     |    R$ 7,094.72 | "AUTOMEC / YSTRELLA"
+    → Candidatos a separar: ['AUTOMEC', 'YSTRELLA']
+  OS-2025-0033     |    R$ 6,495.12 | "CAIADO PNEUS / FORTUNATO RECAPADORA"
+    → Candidatos a separar: ['CAIADO PNEUS', 'FORTUNATO RECAPADORA']
+  OS-2026-0164     |    R$ 5,896.78 | "DIBRACAM / ANTONIO ALVES TK DIESEL"
+    → Candidatos a separar: ['DIBRACAM', 'ANTONIO ALVES TK DIESEL']
+  OS-2025-0127     |      R$ 914.02 | "DIBRACAM / CARLINHOZ SOLDAS"
+    → Candidatos a separar: ['DIBRACAM', 'CARLINHOZ SOLDAS']
+  OS-2026-0145     |    R$ 4,345.95 | "DIBRACAM / MECÂNICA DUARTE"
+    → Candidatos a separar: ['DIBRACAM', 'MECÂNICA DUARTE']
+  OS-2026-0165     |    R$ 5,325.01 | "DIBRACAM / OSMAR LUIS FRANCA / MERCEDAO AUTO PECAS"
+    → Candidatos a separar: ['DIBRACAM', 'OSMAR LUIS FRANCA', 'MERCEDAO AUTO PECAS']
+  OS-2026-0193     |    R$ 1,628.00 | "DIBRACAM / RENOVE COMERCIO DE PECAS LTDA"
+    → Candidatos a separar: ['DIBRACAM', 'RENOVE COMERCIO DE PECAS LTDA']
+  OS-2025-0043     |    R$ 4,202.25 | "FLORENZA TRUCK / TIETE VEÍCULOS"
+    → Candidatos a separar: ['FLORENZA TRUCK', 'TIETE VEÍCULOS']
+  OS-2025-0081     |    R$ 1,155.49 | "GEOMAQ / BRASMIG TRATORES"
+    → Candidatos a separar: ['GEOMAQ', 'BRASMIG TRATORES']
+  OS-2026-0162     |      R$ 370.00 | "INOVA TRANSPORTES LTDA / INOVA TRUCK CENTER LTDA"
+    → Candidatos a separar: ['INOVA TRANSPORTES LTDA', 'INOVA TRUCK CENTER LTDA']
+  OS-2025-0086     |    R$ 3,129.96 | "LUBRAÇO / SOTREQ"
+    → Candidatos a separar: ['LUBRAÇO', 'SOTREQ']
+  OS-2025-0045     |    R$ 1,458.53 | "LUBRAÇO / WENDEL CHAVES  SOLDA"
+    → Candidatos a separar: ['LUBRAÇO', 'WENDEL CHAVES  SOLDA']
+  OS-2025-0124     |   R$ 10,820.60 | "MSAM PEÇAS / ANTONIO ALVES TK DIESEL"
+    → Candidatos a separar: ['MSAM PEÇAS', 'ANTONIO ALVES TK DIESEL']
+  OS-2025-0080     |    R$ 6,336.74 | "MSAM PEÇAS / ANTONIO ALVES TK DIESEL / MONKEY MUNCK"
+    → Candidatos a separar: ['MSAM PEÇAS', 'ANTONIO ALVES TK DIESEL', 'MONKEY MUNCK']
+  OS-2026-0177     |    R$ 4,811.04 | "MSAM PEÇAS / DIBRACAM"
+    → Candidatos a separar: ['MSAM PEÇAS', 'DIBRACAM']
+  OS-2025-0145     |    R$ 4,974.20 | "MSAM PEÇAS / RS DIESEL"
+    → Candidatos a separar: ['MSAM PEÇAS', 'RS DIESEL']
+  OS-2025-0010     |    R$ 5,943.73 | "MSAM PEÇAS / RS DIESEL / PJ DIESEL"
+    → Candidatos a separar: ['MSAM PEÇAS', 'RS DIESEL', 'PJ DIESEL']
+  OS-2025-0059     |    R$ 6,174.64 | "MSAM PEÇAS / RS DIESEL / PJ DIESEL / TURBO MAIS"
+    → Candidatos a separar: ['MSAM PEÇAS', 'RS DIESEL', 'PJ DIESEL', 'TURBO MAIS']
+  OS-2025-0076     |    R$ 2,615.29 | "MSAM PEÇAS / TIETE VEÍCULOS"
+    → Candidatos a separar: ['MSAM PEÇAS', 'TIETE VEÍCULOS']
+  OS-2025-0140     |      R$ 970.00 | "NEGAO DAS BATERIAS / AUTO ELETRICA MAC SOM"
+    → Candidatos a separar: ['NEGAO DAS BATERIAS', 'AUTO ELETRICA MAC SOM']
+  OS-2025-0066     |    R$ 4,159.98 | "NOVA LÍNEA / YSTRELLA"
+    → Candidatos a separar: ['NOVA LÍNEA', 'YSTRELLA']
+  OS-2025-0032     |      R$ 352.00 | "QUATROCENTAO ACESSORIOS / MG VIDROS"
+    → Candidatos a separar: ['QUATROCENTAO ACESSORIOS', 'MG VIDROS']
+  OS-2025-0029     |      R$ 455.00 | "QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA"
+    → Candidatos a separar: ['QUATROCENTAO ACESSORIOS', 'MOLAS SANTA VITORIA']
+  OS-2025-0030     |      R$ 384.00 | "QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA"
+    → Candidatos a separar: ['QUATROCENTAO ACESSORIOS', 'MOLAS SANTA VITORIA']
+  OS-2025-0031     |      R$ 455.00 | "QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA"
+    → Candidatos a separar: ['QUATROCENTAO ACESSORIOS', 'MOLAS SANTA VITORIA']
+  OS-2026-0188     |    R$ 1,900.00 | "RENOV. DE PNEUS PRESIDENTE GRU. / RENOV. PNEUS PRESIDENTE GRU."
+    → Candidatos a separar: ['RENOV. DE PNEUS PRESIDENTE GRU.', 'RENOV. PNEUS PRESIDENTE GRU.']
+  OS-2025-0057     |   R$ 20,249.98 | "RICARDO YOSHIYUKI FUJITA / ANTONIO ALVES TK DIESEL"
+    → Candidatos a separar: ['RICARDO YOSHIYUKI FUJITA', 'ANTONIO ALVES TK DIESEL']
+  OS-2025-0016     |    R$ 3,178.68 | "RS DIESEL / TIETE VEÍCULOS"
+    → Candidatos a separar: ['RS DIESEL', 'TIETE VEÍCULOS']
+  OS-2025-0020     |    R$ 2,177.47 | "RS DIESEL / TIETE VEÍCULOS"
+    → Candidatos a separar: ['RS DIESEL', 'TIETE VEÍCULOS']
+
+------------------------------------------------------------
+--- FORNECEDORES NULL / VAZIOS POR TABELA ---
+  ordens_servico                : 12 registros sem fornecedor
+  notas_fiscais                 : 0 registros sem fornecedor
+  manutencao_parcelas           : 0 registros sem fornecedor
+  manutencoes                   : 0 registros sem fornecedor
+
+================================================================================
+RESUMO DE RISCO
+================================================================================
+  Fornecedores únicos (normalizados)  : 110
+  Em grupos com possível alias        : 52 fornecedores em 19 grupos
+  OS com multi-fornecedor ("/")       : 31
+  Registros sem fornecedor (4 tabelas): 12
+
+AÇÕES NECESSÁRIAS ANTES DE CRIAR TABELA fornecedores:
+  1. Revisar grupos de alias — confirmar se são o mesmo fornecedor
+  2. Definir nome canônico para cada grupo
+  3. Decidir tratamento das OS com '/' — 1 vínculo vs múltiplos vínculos
+  4. Obter CNPJ dos principais fornecedores para deduplicação definitiva
+  Nenhuma alteração foi feita neste script.

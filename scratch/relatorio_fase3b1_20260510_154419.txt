@@ -1,0 +1,128 @@
+================================================================================
+RELATÓRIO FASE 3B.1 — COBERTURA ANTES/DEPOIS
+Gerado em: 2026-05-10 15:44:19
+================================================================================
+
+── CONTAGENS ORIGINAIS (integridade) ────────────────────────────────────────
+  os_itens                       310  ✓
+  ordens_servico                 212  ✓
+
+── CATÁLOGO DE SERVIÇOS ─────────────────────────────────────────────────────
+  Grupos canônicos: 10 → 18 (+8)
+  Aliases totais:   74 → 239 (+165)
+
+  Grupos e sua cobertura:
+    Troca de Óleo e Filtros                       Motor        Compra        32 itens
+    Fornecimento de Pneus                         Pneu         Compra        31 itens
+    Substituição de Pastilhas de Freio            Freio        Compra        26 itens
+    Kit Revisão                                   Revisao      Compra        25 itens
+    Kit Embreagem                                 Cambio       Compra        22 itens
+    Retífica / Reparo de Motor                    Motor        Servico       20 itens
+    Serviço Elétrico                              Eletrico     Servico       18 itens
+    Montagem e Alinhamento de Pneus               Pneu         Servico       16 itens
+    Reparo Hidráulico                             Hidraulico   Servico       15 itens
+    Reparo de Câmbio                              Cambio       Servico       12 itens
+    Reparo de Direção                             Direcao      Servico        7 itens
+    Substituição de Lonas de Freio                Freio        Compra         7 itens
+    Suspensão                                     Suspensao    Servico        6 itens
+    Funilaria / Pintura                           Diversos     Servico        5 itens
+    Fornecimento de Bateria                       Eletrico     Compra         4 itens
+    Guincho / Socorro                             Guincho      Servico        4 itens
+    Balanceamento de Pneus                        Pneu         Servico        3 itens
+    Diagnóstico / Scanner                         Motor        Servico        3 itens
+
+── COBERTURA servico_catalogo_id ────────────────────────────────────────────
+  Antes:  59/310 (19%)
+  Depois: 256/310 (83%)
+  Ganho:  +197 os_itens vinculados (+64pp)
+  Ainda sem match: 54
+
+── COBERTURA POR SISTEMA ────────────────────────────────────────────────────
+  Sistema              Categoria      Com FK  Total      %
+  -------------------- ------------ -------- ------ ------
+  NULL                 Serviço             1      1   100%
+  Arrefecimento        Compra              3      3   100%
+  Arrefecimento        Servico             2      2   100%
+  Cambio               Compra             18     19    95%
+  Cambio               Servico             9      9   100%
+  Cambio               Serviço             2      2   100%
+  Diferencial          Compra              0      5     0%
+  Diferencial          Servico             0      1     0%
+  Direcao              Compra              2      2   100%
+  Direcao              Servico            10     10   100%
+  Direcao              Serviço             1      1   100%
+  Diversos             Compra              1     14     7%
+  Diversos             Servico             3     24    12%
+  Eletrico             Compra              7      7   100%
+  Eletrico             Servico            15     15   100%
+  Freio                Compra             11     11   100%
+  Freio                Servico            21     21   100%
+  Freio                Serviço             1      1   100%
+  Funilaria            Compra              1      1   100%
+  Guincho              Servico             4      4   100%
+  Hidraulico           Compra              7      7   100%
+  Hidraulico           Servico             4      4   100%
+  Implemento           Compra              1      4    25%
+  Implemento           Servico             4      5    80%
+  Implemento           Serviço             0      3     0%
+  Injeção              Servico             1      1   100%
+  Motor                Compra             37     38    97%
+  Motor                Servico             7      7   100%
+  Motor                Serviço             5      5   100%
+  Outro                Compra              0      3     0%
+  Pneu                 Compra             31     32    97%
+  Pneu                 Servico            11     11   100%
+  Revisao              Compra             16     16   100%
+  Revisao              Servico            14     15    93%
+  Suspensao            Compra              2      2   100%
+  Suspensao            Servico             2      2   100%
+  Suspensao            Serviço             2      2   100%
+
+── SERVIÇOS AINDA SEM MATCH (top 30 por frequência) ─────────────────────────
+    4x | Servico      | Diversos             | FORNEC. FAIXAS REFLETIVAS
+    2x | Servico      | Diversos             | FORNEC. ACABAMENTOS INTERNOS
+    2x | Compra       | Diversos             | FORNEC. DENTES CONCHA
+    2x | Compra       | Diversos             | FORNEC. FECHADURAS
+    2x | Servico      | Diversos             | FRETE
+    1x | Compra       | Cambio               | Thinner
+    1x | Compra       | Diferencial          | FORNEC. COROA E PINHÃO
+    1x | Compra       | Diferencial          | FORNEC. ROLAMENTO CUBO
+    1x | Servico      | Diferencial          | FORNEC. ROLAMENTO DUPLO CUBO DE RODA DIANTEIRA
+    1x | Compra       | Diferencial          | FORNEC. SEMI-EIXO E CUBO
+    1x | Compra       | Diferencial          | SUBST. COROA PINHÃO E CARDAN
+    1x | Compra       | Diferencial          | Óleo 85w140
+    1x | Servico      | Diversos             | EMBUCHAMENTO CABINE
+    1x | Compra       | Diversos             | FORNEC. ACABAMENTOS INTERNOS
+    1x | Servico      | Diversos             | FORNEC. BANCO GIRATÓRIO
+    1x | Servico      | Diversos             | FORNEC. FECHADURAS
+    1x | Compra       | Diversos             | FORNEC. GRAXA
+    1x | Compra       | Diversos             | FORNEC. KIT COXINS
+    1x | Compra       | Diversos             | FORNEC. KIT PINOS E BUCHAS
+    1x | Compra       | Diversos             | FORNEC. MANGUEIRA FILTRO AR
+    1x | Compra       | Diversos             | FORNEC. PALHETA PARABRISA
+    1x | Compra       | Diversos             | FORNEC. TAMPA TANQUE E DENTES
+    1x | Compra       | Diversos             | INSTALAÇÃO FAIXAS REFLETIVAS
+    1x | Servico      | Diversos             | LANÇAMENTO INTERNO
+    1x | Servico      | Diversos             | M.O. RECUPERAÇÃO MÁQUINA DE VIDRO L. MOTORISTA
+    1x | Servico      | Diversos             | REEMISÃO DE PLACAS MERCOSUL POR PERDA DA PLACA DIANTEIRA
+    1x | Servico      | Diversos             | SUBST. CABO ACELERADOR
+    1x | Servico      | Diversos             | SUBST. COXINS
+    1x | Servico      | Diversos             | SUBST. LANTERNAS
+    1x | Servico      | Diversos             | SUBST. PARABRISA
+
+── PENDÊNCIAS ────────────────────────────────────────────────────────────────
+  ⏳ conflito_data                       pendente     1
+  ⏳ fornecedor_multi                    pendente     31
+  ⏳ reembolso_sem_veiculo               pendente     8
+  ⏳ servico_sem_grupo                   pendente     54
+  ✓ servico_sem_grupo                   resolvido    197
+
+  Total pendências ativas: 94
+
+── INTEGRIDADE ──────────────────────────────────────────────────────────────
+  integrity_check: ok  ✓
+  foreign_key_check: 8 violações (esperadas: 8 pré-existentes em reembolsos)
+
+================================================================================
+FIM DO RELATÓRIO
+================================================================================

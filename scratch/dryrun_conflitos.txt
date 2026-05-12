@@ -1,0 +1,92 @@
+================================================================================
+FASE 3A.1 — RELATÓRIO DE CONFLITOS SQL vs EXCEL (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+NENHUM UPDATE FOI EXECUTADO.
+================================================================================
+
+OS com match Excel ↔ SQL analisadas: 200
+
+------------------------------------------------------------
+--- CONFLITOS CRÍTICOS — 1 ---
+
+  OS-2026-0180     | campo: data_execucao   | SQL=2026-03-10                 | Excel=2026-03-17               | → REVISÃO HUMANA
+
+------------------------------------------------------------
+--- CONFLITOS MODERADOS — 13 ---
+
+  OS-2025-0004     | campo: categoria       | SQL="Compra,MONTAGEM E ALINHAMENTO PNEUS" | Excel="Compra"                          
+  OS-2025-0006     | campo: categoria       | SQL="Compra,MONTAGEM E ALINHAMENTO PNEUS" | Excel="Compra"                          
+  OS-2025-0015     | campo: categoria       | SQL="Compra"                             | Excel="Serviço"                         
+  OS-2025-0025     | campo: categoria       | SQL="MONTAGEM E ALINHAMENTO PNEUS,Compra" | Excel="Serviço"                         
+  OS-2025-0067     | campo: categoria       | SQL="Compra,MONTAGEM E ALINHAMENTO PNEUS" | Excel="Compra"                          
+  OS-2025-0088     | campo: categoria       | SQL="Compra,MONTAGEM E ALINHAMENTO PNEUS" | Excel="Compra"                          
+  OS-2025-0096     | campo: categoria       | SQL="MONTAGEM E ALINHAMENTO PNEUS,Compra" | Excel="Serviço"                         
+  OS-2025-0105     | campo: categoria       | SQL="MONTAGEM E BALANCEAMENTO PNEUS,Compra" | Excel="Serviço"                         
+  OS-2025-0107     | campo: categoria       | SQL="ALINHAMENTO PNEUS"                  | Excel="Serviço"                         
+  OS-2025-0122     | campo: categoria       | SQL="ALINHAMENTO E CAMBAGEM"             | Excel="Serviço"                         
+  OS-2025-0141     | campo: categoria       | SQL="INSTALAÇÃO E BALANCEAMENTO PNEUS"   | Excel="Serviço"                         
+  OS-2026-0195     | campo: categoria       | SQL="Compra,Serviço"                     | Excel="Compra"                          
+  OS-2026-0199     | campo: categoria       | SQL="M.O. PNEUS"                         | Excel="Serviço"                         
+
+------------------------------------------------------------
+--- ESTADO B (SQL NULL, Excel tem valor) — 166 casos ---
+
+  OS-2024-0001     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2024-0002     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0003     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0005     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0007     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0010     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0011     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0012     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0013     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0014     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0016     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0018     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0020     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0017     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0019     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0021     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0022     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0023     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0024     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0027     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0028     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0029     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0030     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0031     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0032     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0034     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0035     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0036     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0037     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0038     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0039     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0040     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0041     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0042     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0043     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0044     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0045     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0046     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0047     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0049     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  ... e mais 126 casos Estado B
+
+------------------------------------------------------------
+--- SEM CONFLITO — 186 OS ---
+
+================================================================================
+RESUMO DE RISCO FINANCEIRO
+================================================================================
+  Conflitos críticos:             1
+  Conflitos moderados:            13
+  Casos Estado B (SQL NULL):      166
+  OS sem conflito:                186
+  Soma divergências financeiras:  R$ 0.00
+
+AÇÕES NECESSÁRIAS ANTES DA FASE 3A.2:
+  1. Revisar e resolver TODOS os conflitos críticos manualmente
+  2. Aprovar lista de Estado B para atualização SQL ← dados do Excel
+  3. Decidir sobre conflitos moderados de fornecedor caso a caso
+  Nenhuma alteração foi feita neste script.

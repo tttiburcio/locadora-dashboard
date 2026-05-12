@@ -1,0 +1,120 @@
+======================================================================
+FASE 3A.2 — EXECUÇÃO CONTROLADA DO SANEAMENTO
+Início: 2026-05-09 15:31:57
+Banco:  C:\Users\vinic\Documents\clone\locadora.db
+======================================================================
+
+ETAPA 0 — BACKUP E PRÉ-VERIFICAÇÃO
+----------------------------------------
+  Backup criado: locadora_backup_20260509_153157.db (520,192 bytes)
+  PRAGMA integrity_check: OK
+  os_itens: 310 registros
+  ordens_servico: 212 registros
+  notas_fiscais: 270 registros
+  manutencao_parcelas: 597 registros
+
+ETAPA 1 — os_itens.categoria: NULL → inferência via notas_fiscais.tipo_nf
+----------------------------------------
+  Updates aplicados: 220  (Compra: 100 | Servico: 120)
+  Ignorados (tipo_nf misto ou ausente): 0
+
+ETAPA 2 — os_itens.categoria: aliases não-padrão → 'Servico'
+----------------------------------------
+  Updates aplicados: 11
+    id=5: 'MONTAGEM E ALINHAMENTO PNEUS' → 'Servico'
+    id=8: 'MONTAGEM E ALINHAMENTO PNEUS' → 'Servico'
+    id=32: 'MONTAGEM E ALINHAMENTO PNEUS' → 'Servico'
+    id=93: 'MONTAGEM E ALINHAMENTO PNEUS' → 'Servico'
+    id=120: 'MONTAGEM E ALINHAMENTO PNEUS' → 'Servico'
+    id=129: 'MONTAGEM E ALINHAMENTO PNEUS' → 'Servico'
+    id=139: 'MONTAGEM E BALANCEAMENTO PNEUS' → 'Servico'
+    id=142: 'ALINHAMENTO PNEUS' → 'Servico'
+    id=158: 'ALINHAMENTO E CAMBAGEM' → 'Servico'
+    id=185: 'INSTALAÇÃO E BALANCEAMENTO PNEUS' → 'Servico'
+    id=261: 'M.O. PNEUS' → 'Servico'
+
+ETAPA 3 — os_itens.sistema: normalização de acentos
+----------------------------------------
+  Updates aplicados: 113
+    'Câmbio' → 'Cambio': 30x
+    'Direção' → 'Direcao': 13x
+    'Elétrico' → 'Eletrico': 22x
+    'Hidráulico' → 'Hidraulico': 11x
+    'Revisão' → 'Revisao': 31x
+    'Suspensão' → 'Suspensao': 6x
+
+ETAPA 4 — Fornecedores: remoção de espaço duplo
+----------------------------------------
+  ordens_servico.fornecedor: 1 updates
+    id=45: 'LUBRAÇO / WENDEL CHAVES  SOLDA' → 'LUBRAÇO / WENDEL CHAVES SOLDA'
+  notas_fiscais.fornecedor: 3 updates
+    id=63: 'WENDEL CHAVES  SOLDA' → 'WENDEL CHAVES SOLDA'
+    id=265: 'SANTOS  OLIVEIRA ALINHAMENTOS PRUDENTE' → 'SANTOS OLIVEIRA ALINHAMENTOS PRUDENTE'
+    id=267: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+  manutencao_parcelas.fornecedor: 14 updates
+    id=134: 'WENDEL CHAVES  SOLDA' → 'WENDEL CHAVES SOLDA'
+    id=578: 'SANTOS  OLIVEIRA ALINHAMENTOS PRUDENTE' → 'SANTOS OLIVEIRA ALINHAMENTOS PRUDENTE'
+    id=581: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=582: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=583: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=584: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=585: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=586: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=587: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=588: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=589: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=590: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=591: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+    id=592: 'MIGLIATI  LUMINI' → 'MIGLIATI LUMINI'
+  Total etapa 4: 18
+
+ETAPA 5 — os_itens.servico: remoção de espaço duplo
+----------------------------------------
+  Updates aplicados: 1
+    id=194: 'MÃO DE OBRA SUBSTITUIÇÃO DE  EMBREAGEM' → 'MÃO DE OBRA SUBSTITUIÇÃO DE EMBREAGEM'
+
+ETAPA 6 — PÓS-VERIFICAÇÃO
+----------------------------------------
+  os_itens: antes=310, agora=310 ✓
+  ordens_servico: antes=212, agora=212 ✓
+  notas_fiscais: antes=270, agora=270 ✓
+  manutencao_parcelas: antes=597, agora=597 ✓
+  FK violations: 8 ✗
+  os_itens com categoria NULL restantes: 0 ✓
+  os_itens.sistema com acento restantes: 0 ✓
+  OS-2026-0180.data_execucao: 2026-03-10 ✓ (intacta)
+  ordens_servico.fornecedor com duplo espaço restantes: 0 ✓
+  notas_fiscais.fornecedor com duplo espaço restantes: 0 ✓
+  manutencao_parcelas.fornecedor com duplo espaço restantes: 0 ✓
+
+⚠ ATENÇÃO: Erros detectados na pós-verificação:
+  - FK violation: ('reembolsos', 3, 'frota', 0)
+  - FK violation: ('reembolsos', 15, 'frota', 0)
+  - FK violation: ('reembolsos', 17, 'frota', 0)
+  - FK violation: ('reembolsos', 23, 'frota', 0)
+  - FK violation: ('reembolsos', 24, 'frota', 0)
+  - FK violation: ('reembolsos', 27, 'frota', 0)
+  - FK violation: ('reembolsos', 37, 'frota', 0)
+  - FK violation: ('reembolsos', 46, 'frota', 0)
+
+======================================================================
+RELATÓRIO FINAL
+======================================================================
+  Backup:                 locadora_backup_20260509_153157.db
+  Log de auditoria:       consolidacao_log_20260509_153157.csv (363 registros)
+
+  Etapa 1 (cat. inferência):  220 updates
+  Etapa 2 (cat. alias):       11 updates
+  Etapa 3 (sistema acento):   113 updates
+  Etapa 4 (fornec. espaço):   18 updates
+  Etapa 5 (servico espaço):   1 updates
+  TOTAL:                      363 updates
+
+  Ignorados (reservados para revisão humana):
+    OS-2026-0180: data_execucao divergente → NÃO alterado
+    31 OS com '/': fornecedor multi-fornecedor → NÃO alterado
+    0 itens sem tipo_nf definido → NÃO alterados
+
+  Status: COM ERROS — verificar acima
+Fim: 2026-05-09 15:31:57
+======================================================================

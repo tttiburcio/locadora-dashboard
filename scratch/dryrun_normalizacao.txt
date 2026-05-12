@@ -1,0 +1,122 @@
+================================================================================
+FASE 3A.1 — SIMULAÇÃO DE NORMALIZAÇÃO TEXTUAL (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+NENHUM UPDATE FOI EXECUTADO.
+================================================================================
+
+------------------------------------------------------------
+--- ordens_servico.fornecedor ---
+Total registros: 212 | Com mudança: 1
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+        45  LUBRAÇO / WENDEL CHAVES  SOLDA                      LUBRAÇO / WENDEL CHAVES SOLDA                       SIM
+
+
+------------------------------------------------------------
+--- notas_fiscais.fornecedor ---
+Total registros: 270 | Com mudança: 3
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+        63  WENDEL CHAVES  SOLDA                                WENDEL CHAVES SOLDA                                 SIM
+       265  SANTOS  OLIVEIRA ALINHAMENTOS PRUDENTE              SANTOS OLIVEIRA ALINHAMENTOS PRUDENTE               SIM
+       267  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+
+
+------------------------------------------------------------
+--- manutencao_parcelas.fornecedor ---
+Total registros: 597 | Com mudança: 14
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+       134  WENDEL CHAVES  SOLDA                                WENDEL CHAVES SOLDA                                 SIM
+       578  SANTOS  OLIVEIRA ALINHAMENTOS PRUDENTE              SANTOS OLIVEIRA ALINHAMENTOS PRUDENTE               SIM
+       581  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       582  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       583  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       584  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       585  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       586  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       587  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       588  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       589  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       590  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       591  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       592  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+
+
+------------------------------------------------------------
+--- os_itens.sistema ---
+Total registros: 310 | Com mudança: 113
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+         9  Revisão                                             Revisao                                             SIM
+        15  Direção                                             Direcao                                             SIM
+        16  Hidráulico                                          Hidraulico                                          SIM
+        19  Direção                                             Direcao                                             SIM
+        23  Direção                                             Direcao                                             SIM
+        24  Elétrico                                            Eletrico                                            SIM
+        25  Câmbio                                              Cambio                                              SIM
+        26  Revisão                                             Revisao                                             SIM
+        27  Revisão                                             Revisao                                             SIM
+        28  Revisão                                             Revisao                                             SIM
+        30  Câmbio                                              Cambio                                              SIM
+        31  Elétrico                                            Eletrico                                            SIM
+        36  Elétrico                                            Eletrico                                            SIM
+        48  Revisão                                             Revisao                                             SIM
+        49  Revisão                                             Revisao                                             SIM
+        52  Direção                                             Direcao                                             SIM
+        53  Revisão                                             Revisao                                             SIM
+        55  Revisão                                             Revisao                                             SIM
+        56  Revisão                                             Revisao                                             SIM
+        60  Hidráulico                                          Hidraulico                                          SIM
+        63  Revisão                                             Revisao                                             SIM
+        64  Revisão                                             Revisao                                             SIM
+        67  Elétrico                                            Eletrico                                            SIM
+        69  Direção                                             Direcao                                             SIM
+        70  Revisão                                             Revisao                                             SIM
+        73  Revisão                                             Revisao                                             SIM
+        74  Revisão                                             Revisao                                             SIM
+        84  Elétrico                                            Eletrico                                            SIM
+        85  Revisão                                             Revisao                                             SIM
+        86  Elétrico                                            Eletrico                                            SIM
+  ... e mais 83 registros com mudança
+
+
+------------------------------------------------------------
+--- os_itens.categoria (inclui aliases de categoria) ---
+Total registros: 310 | Com mudança: 8
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+         5  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+         8  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+        32  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+        93  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+       120  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+       129  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+       139  MONTAGEM E BALANCEAMENTO PNEUS                      Servico                                             SIM
+       261  M.O. PNEUS                                          Servico                                             SIM
+
+  POSSÍVEIS COLISÕES (valores distintos que normalizam igual):
+  [REVISAR] → 'SERVICO': "M.O. PNEUS" | "MONTAGEM E ALINHAMENTO PNEUS" | "MONTAGEM E BALANCEAMENTO PNEUS"
+
+------------------------------------------------------------
+--- os_itens.servico (normalização básica) ---
+Total registros: 310 | Com mudança: 1
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+       194  MÃO DE OBRA SUBSTITUIÇÃO DE  EMBREAGEM              MÃO DE OBRA SUBSTITUIÇÃO DE EMBREAGEM               SIM
+
+
+================================================================================
+RESUMO GERAL DE NORMALIZAÇÃO
+================================================================================
+  Total de registros com mudança identificada : 140
+  Total de grupos com possíveis colisões      : 1
+
+PRÓXIMO PASSO: Revisar colisões marcadas [REVISAR] antes de aplicar normalização.
+Nenhuma alteração foi feita neste script.

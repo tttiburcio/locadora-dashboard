@@ -1,0 +1,116 @@
+================================================================================
+RELATÓRIO FASE 3B — COBERTURA E ESTATÍSTICAS
+Gerado em: 2026-05-10 15:15:40
+================================================================================
+
+── CONTAGENS ORIGINAIS ──────────────────────────────────────────────────────
+  os_itens                          310  ✓ (esperado 310)
+  ordens_servico                    212  ✓ (esperado 212)
+  notas_fiscais                     270
+  frota                              50
+
+── NOVAS TABELAS ────────────────────────────────────────────────────────────
+  fornecedores                            57 registros
+  fornecedor_aliases                       0 registros
+  catalogo_servicos                       10 registros
+  catalogo_aliases                        74 registros
+  catalogo_componentes                     0 registros
+  pneu_medidas                             7 registros
+  veiculo_pneu_compativel                 14 registros
+  catalogo_pneus                          18 registros
+  pendencias_consolidacao                291 registros
+  consolidacao_log                         0 registros
+
+── COBERTURA — ordens_servico.fornecedor_id ─────────────────────────────────
+  Com fornecedor_id preenchido: 169
+  Sem fornecedor_id (sem match): 31
+  Multi-fornecedor (contém '/'): 31
+
+── COBERTURA — os_itens.servico_catalogo_id ─────────────────────────────────
+  Com servico_catalogo_id: 59 (19.0%)
+  Sem servico_catalogo_id: 251
+
+── COBERTURA — os_itens.medida_pneu_id ──────────────────────────────────────
+  Pneu com medida_pneu_id: 39
+  Pneu sem medida_pneu_id (com espec_pneu): 0
+
+── TOP 20 FORNECEDORES ──────────────────────────────────────────────────────
+  FLORENZA TRUCK                                        30 OS
+  DIBRACAM                                              13 OS
+  TIETE VEÍCULOS                                        10 OS
+  CAIADO PNEUS                                           9 OS
+  ANTONIO ALVES TK DIESEL                                9 OS
+  DELLA VIA                                              8 OS
+  BONI PNEUS                                             7 OS
+  MSAM PEÇAS                                             7 OS
+  AUTO ELETRICA ANA JACINTA                              5 OS
+  RS DIESEL                                              4 OS
+  BLACK BIRD RESGATES 24 HORAS                           4 OS
+  REI DO ÓLEO ITAQUA                                     4 OS
+  MONKEY MUNCK                                           3 OS
+  CASALE OFICINA                                         3 OS
+  RICARDO YOSHIYUKI FUJITA                               3 OS
+  LUBRIFISC                                              3 OS
+  DR DAS MANGUEIRAS                                      2 OS
+  FREIOS JJ                                              2 OS
+  MECÂNICA DUARTE                                        2 OS
+  GP PNEUS                                               2 OS
+
+── CATÁLOGO DE SERVIÇOS — COBERTURA ─────────────────────────────────────────
+  Fornecimento de Pneus                    Pneu         Compra        26 itens
+  Montagem e Alinhamento de Pneus          Pneu         Servico        9 itens
+  Kit Embreagem                            Cambio       Compra         6 itens
+  Troca de Óleo e Filtros                  Motor        Compra         6 itens
+  Substituição de Pastilhas de Freio       Freio        Compra         4 itens
+  Serviço Elétrico                         Eletrico     Servico        4 itens
+  Balanceamento de Pneus                   Pneu         Servico        2 itens
+  Substituição de Lonas de Freio           Freio        Compra         1 itens
+  Guincho / Socorro                        Guincho      Servico        1 itens
+  Kit Revisão                              Revisao      Compra         0 itens
+
+── PNEU MEDIDAS ─────────────────────────────────────────────────────────────
+  11L-16                   1 os_itens
+  12.5/80-18               2 os_itens
+  17.5-25                  2 os_itens
+  19.5L-24                 1 os_itens
+  215/80R17.5              3 os_itens
+  225/75R16C              28 os_itens
+  275/80R22.5              2 os_itens
+
+── VEICULO_PNEU_COMPATIVEL ──────────────────────────────────────────────────
+  BQV5264      11L-16               eixo=NULL         fonte=historico
+  BQV5264      19.5L-24             eixo=NULL         fonte=historico
+  BSX5H07      225/75R16C           eixo=NULL         fonte=historico
+  CCU5G26      225/75R16C           eixo=NULL         fonte=historico
+  CSU3F94      225/75R16C           eixo=NULL         fonte=historico
+  DLG0D92      225/75R16C           eixo=NULL         fonte=historico
+  DPB8E26      225/75R16C           eixo=NULL         fonte=historico
+  DYG5G03      275/80R22.5          eixo=NULL         fonte=historico
+  EJX0I24      225/75R16C           eixo=NULL         fonte=historico
+  EMN8B51      225/75R16C           eixo=NULL         fonte=historico
+  EXW7D65      215/80R17.5          eixo=NULL         fonte=historico
+  FFS0D23      225/75R16C           eixo=NULL         fonte=historico
+  MAX4116      12.5/80-18           eixo=NULL         fonte=historico
+  MAX4116      17.5-25              eixo=NULL         fonte=historico
+
+── PENDÊNCIAS POR TIPO ───────────────────────────────────────────────────────
+  conflito_data                       CRITICO      1  pendente
+  fornecedor_multi                    MEDIA       31  pendente
+  reembolso_sem_veiculo               CRITICO      8  pendente
+  servico_sem_grupo                   MEDIA      251  pendente
+
+── VERIFICAÇÕES DE INTEGRIDADE ──────────────────────────────────────────────
+  integrity_check: ok
+  foreign_key_check: 8 violações (pré-existentes esperadas: 8 em reembolsos)
+    ('reembolsos', 3, 'frota', 0)
+    ('reembolsos', 15, 'frota', 0)
+    ('reembolsos', 17, 'frota', 0)
+    ('reembolsos', 23, 'frota', 0)
+    ('reembolsos', 24, 'frota', 0)
+    ('reembolsos', 27, 'frota', 0)
+    ('reembolsos', 37, 'frota', 0)
+    ('reembolsos', 46, 'frota', 0)
+
+================================================================================
+FIM DO RELATÓRIO
+================================================================================

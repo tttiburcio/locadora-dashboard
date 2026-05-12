@@ -1,0 +1,1443 @@
+================================================================================
+RELATÓRIO COMPLETO DRY-RUN — FASE 3A.1
+Gerado em: 2026-05-09 15:25:30
+NENHUMA ALTERAÇÃO FOI FEITA NO BANCO OU NO EXCEL.
+================================================================================
+
+
+################################################################################
+# SCRIPT 1 — INFERÊNCIA DE CATEGORIA
+# Arquivo: dryrun_categoria.txt
+################################################################################
+
+================================================================================
+FASE 3A.1 — PROPOSTA DE INFERÊNCIA DE CATEGORIA (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+NENHUM UPDATE FOI EXECUTADO. Este relatório é somente leitura.
+================================================================================
+
+Total de os_itens sem categoria: 220
+
+------------------------------------------------------------
+--- ALTA CONFIANÇA (>= 85%) ---
+Subtotal: 220 itens
+
+ item_id  numero_os         sistema         servico                              tipo_nf     cat_proposta  conf%  regra
+--------------------------------------------------------------------------------------------------------------------------------------------
+     252  OS-2026-0193      Arrefecimento   FORNEC. EMBREAGEM VISCOSA E MANGUEI  Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     253  OS-2026-0193      Arrefecimento   FORNEC. EMBREAGEM VISCOSA E MANGUEI  Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      51  OS-2025-0036      Arrefecimento   LIMPEZA RADIADOR E INTERCOOLER       Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     254  OS-2026-0193      Arrefecimento   M.O. SUBSTITUIÇÃO DE EMBREAGEM VISC  Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     121  OS-2025-0089      Arrefecimento   REPARO MANGUEIRA RADIADOR            Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     255  OS-2026-0194      Câmbio          FORNEC. CABO DE EMBREAGEM            Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     215  OS-2026-0164      Câmbio          FORNEC. CABOS CÂMBIO                 Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     204  OS-2026-0155      Câmbio          FORNEC. CILINDRO EMBREAGEM           Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     219  OS-2026-0165      Câmbio          FORNEC. FLUÍDO DE FREIO E CILINDRO   Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     167  OS-2025-0128      Câmbio          FORNEC. KIT EMBREAGEM                Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     193  OS-2026-0145      Câmbio          FORNEC. KIT EMBREAGEM                Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     218  OS-2026-0165      Câmbio          FORNEC. KIT EMBREAGEM                Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     160  OS-2025-0124      Câmbio          FORNEC. PEÇAS CÂMBIO                 Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     228  OS-2026-0172      Câmbio          FORNEC. PEÇAS CÂMBIO                 Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     227  OS-2026-0172      Câmbio          FORNEC. PEÇAS CÂMBIO + ÓLEO          Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     217  OS-2026-0165      Câmbio          FORNEC. ROLAMENTO EMBREAGEM          Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     154  OS-2025-0118      Câmbio          FORNEC. ÓLEO TRANSMISSÃO             Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     181  OS-2025-0137      Câmbio          FORNEC. ÓLEO TRANSMISSÃO             Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     220  OS-2026-0165      Câmbio          M.O. KIT EMBREAGEM                   Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     161  OS-2025-0124      Câmbio          MO SUBST. ENGRENAGENS CÂMBIO         Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     259  OS-2026-0197      Câmbio          MO SUBST. PEÇAS CÂMBIO               Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     168  OS-2025-0128      Câmbio          MO SUBST. SINCRONIZADOS E EMBREAGEM  Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     194  OS-2026-0145      Câmbio          MÃO DE OBRA SUBSTITUIÇÃO DE  EMBREA  Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      25  OS-2025-0019      Câmbio          SUBST. KIT EMBREAGEM                 Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      30  OS-2025-0023      Câmbio          SUBST. KIT EMBREAGEM                 Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     216  OS-2026-0164      Câmbio          SUBST. KIT EMBREAGEM + RETÍFICA VOL  Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     243  OS-2026-0184      Câmbio          SUBST. KIT EMBREAGEM + RETÍFICA VOL  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     186  OS-2025-0142      Câmbio          SUBST. KIT EMBREAGEM COMPLETO        Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     162  OS-2025-0124      Câmbio          SUBST. PEÇAS CÂMBIO                  Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     105  OS-2025-0079      Câmbio          SUBSTITUIÇÃO DE KIT EMBREAGEM        Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      58  OS-2025-0043      Diferencial     FORNEC. COROA E PINHÃO               Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     114  OS-2025-0084      Diferencial     FORNEC. ROLAMENTO CUBO               Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     190  OS-2025-0145      Diferencial     FORNEC. ROLAMENTO DUPLO CUBO DE ROD  Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     113  OS-2025-0084      Diferencial     FORNEC. SEMI-EIXO E CUBO             Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      59  OS-2025-0043      Diferencial     SUBST. COROA PINHÃO E CARDAN         Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      23  OS-2025-0017      Direção         FORNEC. BRAÇO AXIAL DIREÇÃO          Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      69  OS-2025-0051      Direção         FORNEC. PEÇAS DIREÇÃO E CABINE       Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      19  OS-2025-0015      Direção         INSTALAÇÃO PNEUS                     Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     263  OS-2026-0201      Direção         KIT DE CAIXA DE DIREÇÃO              Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     262  OS-2026-0201      Direção         M.O. REPARO EM CAIXA DE DIREÇÃO, SO  Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     245  OS-2026-0186      Direção         MO REPARO DIREÇÃO                    Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     180  OS-2025-0136      Direção         REPARO CAIXA DIREÇÃO                 Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      52  OS-2025-0037      Direção         REPARO CUBO E EMBUCHAMENTO DIREÇÃO   Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     187  OS-2025-0143      Direção         SUBST. BOMBA HIDRÁULICA              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     169  OS-2025-0129      Direção         SUBST. BUCHAS, PIVÔS E BANDEJA       Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     137  OS-2025-0103      Direção         SUBST. ROLAMENTO E BARRAS            Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      15  OS-2025-0011      Direção         SUBST. TERMINAIS DIREÇÃO             Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      78  OS-2025-0058      Diversos        EMBUCHAMENTO CABINE                  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     166  OS-2025-0127      Diversos        FORNEC. ACABAMENTOS INTERNOS         Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     230  OS-2026-0174      Diversos        FORNEC. ACABAMENTOS INTERNOS         Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     240  OS-2026-0181      Diversos        FORNEC. ACABAMENTOS INTERNOS         Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     173  OS-2025-0132      Diversos        FORNEC. BANCO GIRATÓRIO              Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     109  OS-2025-0081      Diversos        FORNEC. DENTES CONCHA                Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     110  OS-2025-0081      Diversos        FORNEC. DENTES CONCHA                Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      37  OS-2025-0029      Diversos        FORNEC. FAIXAS REFLETIVAS            Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      39  OS-2025-0030      Diversos        FORNEC. FAIXAS REFLETIVAS            Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      41  OS-2025-0031      Diversos        FORNEC. FAIXAS REFLETIVAS            Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      43  OS-2025-0032      Diversos        FORNEC. FAIXAS REFLETIVAS            Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      35  OS-2025-0027      Diversos        FORNEC. FECHADURAS                   Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     174  OS-2025-0133      Diversos        FORNEC. FECHADURAS                   Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     178  OS-2025-0134      Diversos        FORNEC. FECHADURAS                   Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      18  OS-2025-0014      Diversos        FORNEC. GRAXA                        Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     205  OS-2026-0156      Diversos        FORNEC. KIT COXINS                   Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      54  OS-2025-0039      Diversos        FORNEC. KIT PINOS E BUCHAS           Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      72  OS-2025-0054      Diversos        FORNEC. MANGUEIRA FILTRO AR          Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     128  OS-2025-0095      Diversos        FORNEC. PALHETA PARABRISA            Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      61  OS-2025-0045      Diversos        FORNEC. TAMPA TANQUE E DENTES        Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      91  OS-2025-0066      Diversos        FRETE                                Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     172  OS-2025-0132      Diversos        FRETE                                Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     177  OS-2025-0133      Diversos        FUNILARIA GERAL                      Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     176  OS-2025-0133      Diversos        INSTALAÇÃO FAIXAS REFLETIVAS         Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+       3  OS-2025-0003      Diversos        LANÇAMENTO INTERNO                   Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     260  OS-2026-0198      Diversos        M.O. RECUPERAÇÃO MÁQUINA DE VIDRO L  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      38  OS-2025-0029      Diversos        PINTURA PARACHOQUE TRASEIRO          Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      40  OS-2025-0030      Diversos        PINTURA PARACHOQUE TRASEIRO          Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      42  OS-2025-0031      Diversos        PINTURA PARACHOQUE TRASEIRO          Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     159  OS-2025-0123      Diversos        REEMISÃO DE PLACAS MERCOSUL POR PER  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      89  OS-2025-0066      Diversos        SUBST. CABO ACELERADOR               Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     197  OS-2026-0148      Diversos        SUBST. COXINS                        Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     163  OS-2025-0125      Diversos        SUBST. LANTERNAS                     Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      44  OS-2025-0032      Diversos        SUBST. PARABRISA                     Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      88  OS-2025-0065      Diversos        SUBST. TERMINAL CÂMBIO               Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     164  OS-2025-0126      Diversos        SUBST. VIDRO PORTA                   Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      62  OS-2025-0045      Diversos        Serviço SOLDA DENTES                 Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      90  OS-2025-0066      Diversos        USINAGEM E EMBUCHAMENTO CAÇAMBA      Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     136  OS-2025-0102      Elétrico        01 BATERIA 100A                      Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     184  OS-2025-0140      Elétrico        01 BATERIA 100A                      Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     196  OS-2026-0147      Elétrico        01 BATERIA 100A                      Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     238  OS-2026-0179      Elétrico        DIAGNÓSTICO ELÉTRICO                 Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      24  OS-2025-0018      Elétrico        FORNEC. BATERIA                      Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      31  OS-2025-0024      Elétrico        FORNEC. BATERIA                      Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     115  OS-2025-0085      Elétrico        FORNEC. CONVERSOR                    Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      95  OS-2025-0069      Elétrico        FORNEC. ECM BOSCH                    Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      67  OS-2025-0049      Elétrico        FORNEC. ROTOR M. PARTIDA             Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     192  OS-2025-0146      Elétrico        M.O. SUBSTITUIÇÃO CONVERSOR 12V E C  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     221  OS-2026-0166      Elétrico        REPARO CHICOTE E VÁLVULA             Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     151  OS-2025-0116      Elétrico        REPARO CHICOTE ELÉTRICO              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     153  OS-2025-0117      Elétrico        REPARO CHICOTE ELÉTRICO              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      87  OS-2025-0064      Elétrico        REPARO ELÉTRICO GERAL                Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     111  OS-2025-0082      Elétrico        REPARO ELÉTRICO GERAL                Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      84  OS-2025-0061      Elétrico        REPARO MOTOR DE PARTIDA              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     183  OS-2025-0140      Elétrico        SUBST. AUTOMÁTICO M. PARTIDA         Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      36  OS-2025-0028      Elétrico        SUBST. LÂMPADA                       Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      86  OS-2025-0063      Elétrico        SUBST. LÂMPADA                       Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      96  OS-2025-0071      Elétrico        SUBST. LÂMPADA                       Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     133  OS-2025-0099      Elétrico        SUBST. LÂMPADA                       Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     214  OS-2026-0163      Elétrico        SUBST. TRANSISTOR MÓDULO             Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     246  OS-2026-0187      Freio           FORNEC. CILINDRO MESTRE DE FREIO     Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     191  OS-2025-0145      Freio           FORNEC. DISCOS DE FREIO DIANTEIRO E  Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      97  OS-2025-0072      Freio           FORNEC. LONAS                        Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     138  OS-2025-0104      Freio           FORNEC. LONAS TRASEIRAS              Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     101  OS-2025-0076      Freio           FORNEC. PASTILHAS E DISCO            Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     103  OS-2025-0077      Freio           FORNEC. PASTILHAS E DISCOS           Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     145  OS-2025-0110      Freio           FORNEC. PASTILHAS E DISCOS           Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     102  OS-2025-0076      Freio           FORNEC. PINÇA DIANTEIRA              Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      21  OS-2025-0016      Freio           FORNEC. PINÇA, DISCO E PASTILHAS     Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     211  OS-2026-0161      Freio           FORNEC. PINÇA, DISCOS E PASTILHAS    Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     209  OS-2026-0159      Freio           FORNEC. PINÇAS TRASEIRAS             Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     131  OS-2025-0097      Freio           MO SUBST. LONAS E PATIM              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     150  OS-2025-0115      Freio           RECOLOCAÇÃO PASTILHAS                Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     118  OS-2025-0087      Freio           SUBST. CANO COMPRESSOR AR            Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     152  OS-2025-0117      Freio           SUBST. LONAS                         Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      68  OS-2025-0050      Freio           SUBST. LONAS E CUÍCAS                Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+       2  OS-2024-0002      Freio           SUBST. LONAS E TAMBOR                Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      29  OS-2025-0022      Freio           SUBST. PASTILHAS                     Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      71  OS-2025-0053      Freio           SUBST. PASTILHAS                     Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      98  OS-2025-0073      Freio           SUBST. PASTILHAS                     Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     195  OS-2026-0146      Freio           SUBST. PASTILHAS                     Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      50  OS-2025-0035      Freio           SUBST. PASTILHAS + REVISÃO           Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     189  OS-2025-0145      Freio           SUBST. PASTILHAS DISCOS E CUBO TRAS  Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+       1  OS-2024-0001      Freio           SUBST. PASTILHAS E DISCOS            Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+       6  OS-2025-0005      Freio           SUBST. PASTILHAS E DISCOS            Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      65  OS-2025-0047      Freio           SUBST. PASTILHAS E DISCOS            Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     224  OS-2026-0169      Freio           SUBST. PASTILHAS E PASSE DISCOS      Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     244  OS-2026-0185      Freio           SUBST. PASTILHAS E REPARO CILINDRO   Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     146  OS-2025-0111      Freio           SUBST. PASTILHAS, DISCOS E REPARO P  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      22  OS-2025-0016      Freio           SUBST. PINÇA, DISCOS E PASTILHAS     Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     188  OS-2025-0144      Freio           SUBST. PINÇAS TRASEIRAS              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     175  OS-2025-0133      Funilaria       PINTURA PARACHOQUE E CARROCERIA      Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     112  OS-2025-0083      Guincho         GUINCHO                              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     198  OS-2026-0149      Guincho         REMOÇÃO                              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     222  OS-2026-0167      Guincho         REMOÇÃO VIA GUINCHO                  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     223  OS-2026-0168      Guincho         REMOÇÃO VIA GUINCHO                  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     208  OS-2026-0158      Hidráulico      FORNEC. BOMBA HIDRÁULICA             Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     107  OS-2025-0080      Hidráulico      FORNEC. KIT CORREIA E FLUIDOS        Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      60  OS-2025-0044      Hidráulico      FORNEC. MANGUEIRA HIDRÁULICA         Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     179  OS-2025-0135      Hidráulico      FORNEC. RESERVATÓRIO DIREÇÃO         Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     155  OS-2025-0119      Hidráulico      FORNEC. ÓLEO HIDRÁULICO              Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     232  OS-2026-0175      Hidráulico      FORNEC. ÓLEO HIDRÁULICO              Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     134  OS-2025-0100      Hidráulico      MANGUEIRA DE ALTA PRESSÃO            Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     106  OS-2025-0080      Hidráulico      REPARO BOMBA HIDRÁULICA              Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      16  OS-2025-0012      Hidráulico      SUBST. BOMBA HID. E TDF              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     125  OS-2025-0092      Hidráulico      SUBST. MANGUEIRA HIDRÁULICA          Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     249  OS-2026-0191      Implemento      FORNEC. ÓLEO HIDRÁULICO              Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     165  OS-2025-0127      Implemento      M.O. SOLDA CARROCERIA                Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     104  OS-2025-0078      Implemento      REPARO PISTÃO HIDRÁULICO             Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     143  OS-2025-0108      Implemento      SUBST. CREMALHEIRA E COLUNA          Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     108  OS-2025-0080      Implemento      SUBST. MANGUEIRA TELESCÓPIO          Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     141  OS-2025-0106      Implemento      SUBST. NIPLE TELESCÓPIO              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      17  OS-2025-0013      Injeção         RECONDICIONAMENTO INJEÇÃO ELETRÔNIC  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      76  OS-2025-0057      Motor           DIAGNÓSTICO SCANNER                  Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     210  OS-2026-0160      Motor           FORNEC. CORREIA POLI-V               Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     207  OS-2026-0157      Motor           FORNEC. FILTROS AR                   Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     234  OS-2026-0177      Motor           FORNEC. KIT MOTOR BAIXO              Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      14  OS-2025-0010      Motor           FORNEC. KIT REPARO MOTOR             Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     148  OS-2025-0113      Motor           FORNEC. MANGUEIRA E COXINS           Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     100  OS-2025-0075      Motor           FORNEC. PEÇAS (INDENIZAÇÃO)          Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     235  OS-2026-0177      Motor           FORNEC. PEÇAS MOTOR BAIXO            Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      79  OS-2025-0059      Motor           FORNEC. PEÇAS RETÍFICA CABEÇOTE      Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      83  OS-2025-0060      Motor           FORNEC. PEÇAS RETÍFICA CABEÇOTE      Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      12  OS-2025-0010      Motor           FORNEC. SENSOR E ADITIVO             Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     132  OS-2025-0098      Motor           FORNEC. SENSOR MAP                   Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      57  OS-2025-0042      Motor           FORNEC. SENSOR RAIL                  Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     206  OS-2026-0157      Motor           FORNEC. SOLENOIDE                    Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      81  OS-2025-0059      Motor           FORNEC. TURBINA                      Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     149  OS-2025-0114      Motor           FORNEC. ÓLEO                         Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     250  OS-2026-0191      Motor           FORNEC. ÓLEO DE MOTOR                Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     213  OS-2026-0162      Motor           FORNEC. ÓLEO MOTOR                   Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     236  OS-2026-0177      Motor           FORNEC. ÓLEO MOTOR                   Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     212  OS-2026-0162      Motor           MO ANÁLISE VAZAMENTO                 Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      82  OS-2025-0059      Motor           MO MONTAGEM CABEÇOTE                 Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      80  OS-2025-0059      Motor           RETÍFICA CABEÇOTE + VÁLVULAS         Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      13  OS-2025-0010      Motor           RETÍFICA CABEÇOTE E BLOCO            Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      77  OS-2025-0057      Motor           RETÍFICA DE MOTOR COMPLETA           Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+      75  OS-2025-0057      Motor           RETÍFICA DE MOTOR COMPLETA (ADIANT.  Servico     Servico        88%  Regra 1 — tipo_nf=Servico (múlt. NFs)
+     157  OS-2025-0121      Motor           SUBST. JUNTAS MOTOR                  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     126  OS-2025-0093      Motor           SUBST. RESFRIADOR ÓLEO E PASTILHAS   Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      49  OS-2025-0034      Revisão         FORNEC. FILTROS                      Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     117  OS-2025-0086      Revisão         FORNEC. FILTROS                      Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     124  OS-2025-0091      Revisão         FORNEC. KIT CORREIA + KIT REVISÃO    Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     170  OS-2025-0130      Revisão         FORNEC. KIT FILTROS                  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+       9  OS-2025-0007      Revisão         FORNEC. KIT FILTROS + ÓLEO           Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     171  OS-2025-0131      Revisão         FORNEC. KIT FILTROS + ÓLEO           Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     135  OS-2025-0101      Revisão         FORNEC. ÓLEO + FILTRO                Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     156  OS-2025-0120      Revisão         FRETE + FILTROS                      Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     116  OS-2025-0086      Revisão         KIT DE REVISÃO CAT 416F2             Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      48  OS-2025-0034      Revisão         KIT REVISAO 500H — JCB 3CX           Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      70  OS-2025-0052      Revisão         KIT REVISAO — VW 13-180              Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     231  OS-2026-0174      Revisão         KIT REVISAO — VW 14-190              Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      55  OS-2025-0040      Revisão         KIT REVISAO — VW 9150                Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      53  OS-2025-0038      Revisão         KIT REVISAO — VW 9170                Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      26  OS-2025-0020      Revisão         KIT REVISAO — VW EXPRESS             Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+      28  OS-2025-0021      Revisão         KIT REVISAO — VW EXPRESS             Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+      63  OS-2025-0046      Revisão         KIT REVISAO — VW EXPRESS             Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      99  OS-2025-0074      Revisão         KIT REVISAO — VW EXPRESS             Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     122  OS-2025-0090      Revisão         KIT REVISAO — VW EXPRESS             Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     123  OS-2025-0091      Revisão         KIT REVISAO — VW EXPRESS             Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     203  OS-2026-0154      Revisão         KIT REVISAO — VW EXPRESS             Produto     Compra         92%  Regra 1 — tipo_nf=Produto (1 NF)
+     226  OS-2026-0171      Revisão         KIT REVISAO — VW EXPRESS             Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      73  OS-2025-0055      Revisão         MO SUBST. SUSPENSÃO E COXIM          Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      74  OS-2025-0056      Revisão         REPARO CUBO DIANTEIRO                Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      56  OS-2025-0041      Revisão         REPARO VAZAMENTO ÓLEO + REVISÃO      Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      64  OS-2025-0046      Revisão         REVISÃO GERAL                        Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     127  OS-2025-0094      Revisão         SUBST. RESFRIADOR ÓLEO E PASTILHAS   Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      85  OS-2025-0062      Revisão         TROCA DE ÓLEO E FILTROS              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     144  OS-2025-0109      Revisão         TROCA DE ÓLEO E FILTROS              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     237  OS-2026-0178      Revisão         TROCA DE ÓLEO E FILTROS              Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+      27  OS-2025-0020      Revisão         TROCA ÓLEO E FILTROS                 Produto     Compra         88%  Regra 1 — tipo_nf=Produto (múlt. NFs)
+     258  OS-2026-0196      Suspensão       M.O. EMBUCHAMENTO DE MOLEJOS TRASEI  Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+     225  OS-2026-0170      Suspensão       SUBST. AMORTECEDORES                 Servico     Servico        92%  Regra 1 — tipo_nf=Servico (1 NF)
+
+------------------------------------------------------------
+--- MÉDIA CONFIANÇA (60–84%) ---
+Subtotal: 0 itens
+
+
+------------------------------------------------------------
+--- AMBÍGUO / REVISÃO HUMANA (< 60%) ---
+Subtotal: 0 itens
+
+
+------------------------------------------------------------
+--- IMPOSSÍVEL INFERIR ---
+Subtotal: 0 itens
+
+
+================================================================================
+RESUMO
+================================================================================
+  Alta confiança      :  220 itens (100.0%)
+  Média confiança     :    0 itens (0.0%)
+  Ambíguo             :    0 itens (0.0%)
+  Impossível          :    0 itens (0.0%)
+
+================================================================================
+SQL QUE SERIA EXECUTADO — DRY-RUN (NÃO APLICADO)
+================================================================================
+
+-- Alta confiança (aplicável automaticamente após aprovação humana):
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 252;  -- OS-2026-0193 | Arrefecimento | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 253;  -- OS-2026-0193 | Arrefecimento | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 51;  -- OS-2025-0036 | Arrefecimento | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 254;  -- OS-2026-0193 | Arrefecimento | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 121;  -- OS-2025-0089 | Arrefecimento | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 255;  -- OS-2026-0194 | Câmbio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 215;  -- OS-2026-0164 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 204;  -- OS-2026-0155 | Câmbio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 219;  -- OS-2026-0165 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 167;  -- OS-2025-0128 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 193;  -- OS-2026-0145 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 218;  -- OS-2026-0165 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 160;  -- OS-2025-0124 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 228;  -- OS-2026-0172 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 227;  -- OS-2026-0172 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 217;  -- OS-2026-0165 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 154;  -- OS-2025-0118 | Câmbio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 181;  -- OS-2025-0137 | Câmbio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 220;  -- OS-2026-0165 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 161;  -- OS-2025-0124 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 259;  -- OS-2026-0197 | Câmbio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 168;  -- OS-2025-0128 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 194;  -- OS-2026-0145 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 25;  -- OS-2025-0019 | Câmbio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 30;  -- OS-2025-0023 | Câmbio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 216;  -- OS-2026-0164 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 243;  -- OS-2026-0184 | Câmbio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 186;  -- OS-2025-0142 | Câmbio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 162;  -- OS-2025-0124 | Câmbio | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 105;  -- OS-2025-0079 | Câmbio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 58;  -- OS-2025-0043 | Diferencial | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 114;  -- OS-2025-0084 | Diferencial | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 190;  -- OS-2025-0145 | Diferencial | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 113;  -- OS-2025-0084 | Diferencial | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 59;  -- OS-2025-0043 | Diferencial | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 23;  -- OS-2025-0017 | Direção | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 69;  -- OS-2025-0051 | Direção | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 19;  -- OS-2025-0015 | Direção | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 263;  -- OS-2026-0201 | Direção | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 262;  -- OS-2026-0201 | Direção | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 245;  -- OS-2026-0186 | Direção | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 180;  -- OS-2025-0136 | Direção | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 52;  -- OS-2025-0037 | Direção | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 187;  -- OS-2025-0143 | Direção | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 169;  -- OS-2025-0129 | Direção | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 137;  -- OS-2025-0103 | Direção | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 15;  -- OS-2025-0011 | Direção | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 78;  -- OS-2025-0058 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 166;  -- OS-2025-0127 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 230;  -- OS-2026-0174 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 240;  -- OS-2026-0181 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 173;  -- OS-2025-0132 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 109;  -- OS-2025-0081 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 110;  -- OS-2025-0081 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 37;  -- OS-2025-0029 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 39;  -- OS-2025-0030 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 41;  -- OS-2025-0031 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 43;  -- OS-2025-0032 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 35;  -- OS-2025-0027 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 174;  -- OS-2025-0133 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 178;  -- OS-2025-0134 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 18;  -- OS-2025-0014 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 205;  -- OS-2026-0156 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 54;  -- OS-2025-0039 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 72;  -- OS-2025-0054 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 128;  -- OS-2025-0095 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 61;  -- OS-2025-0045 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 91;  -- OS-2025-0066 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 172;  -- OS-2025-0132 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 177;  -- OS-2025-0133 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 176;  -- OS-2025-0133 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 3;  -- OS-2025-0003 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 260;  -- OS-2026-0198 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 38;  -- OS-2025-0029 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 40;  -- OS-2025-0030 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 42;  -- OS-2025-0031 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 159;  -- OS-2025-0123 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 89;  -- OS-2025-0066 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 197;  -- OS-2026-0148 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 163;  -- OS-2025-0125 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 44;  -- OS-2025-0032 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 88;  -- OS-2025-0065 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 164;  -- OS-2025-0126 | Diversos | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 62;  -- OS-2025-0045 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 90;  -- OS-2025-0066 | Diversos | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 136;  -- OS-2025-0102 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 184;  -- OS-2025-0140 | Elétrico | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 196;  -- OS-2026-0147 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 238;  -- OS-2026-0179 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 24;  -- OS-2025-0018 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 31;  -- OS-2025-0024 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 115;  -- OS-2025-0085 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 95;  -- OS-2025-0069 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 67;  -- OS-2025-0049 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 192;  -- OS-2025-0146 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 221;  -- OS-2026-0166 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 151;  -- OS-2025-0116 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 153;  -- OS-2025-0117 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 87;  -- OS-2025-0064 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 111;  -- OS-2025-0082 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 84;  -- OS-2025-0061 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 183;  -- OS-2025-0140 | Elétrico | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 36;  -- OS-2025-0028 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 86;  -- OS-2025-0063 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 96;  -- OS-2025-0071 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 133;  -- OS-2025-0099 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 214;  -- OS-2026-0163 | Elétrico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 246;  -- OS-2026-0187 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 191;  -- OS-2025-0145 | Freio | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 97;  -- OS-2025-0072 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 138;  -- OS-2025-0104 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 101;  -- OS-2025-0076 | Freio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 103;  -- OS-2025-0077 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 145;  -- OS-2025-0110 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 102;  -- OS-2025-0076 | Freio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 21;  -- OS-2025-0016 | Freio | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 211;  -- OS-2026-0161 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 209;  -- OS-2026-0159 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 131;  -- OS-2025-0097 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 150;  -- OS-2025-0115 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 118;  -- OS-2025-0087 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 152;  -- OS-2025-0117 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 68;  -- OS-2025-0050 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 2;  -- OS-2024-0002 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 29;  -- OS-2025-0022 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 71;  -- OS-2025-0053 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 98;  -- OS-2025-0073 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 195;  -- OS-2026-0146 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 50;  -- OS-2025-0035 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 189;  -- OS-2025-0145 | Freio | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 1;  -- OS-2024-0001 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 6;  -- OS-2025-0005 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 65;  -- OS-2025-0047 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 224;  -- OS-2026-0169 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 244;  -- OS-2026-0185 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 146;  -- OS-2025-0111 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 22;  -- OS-2025-0016 | Freio | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 188;  -- OS-2025-0144 | Freio | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 175;  -- OS-2025-0133 | Funilaria | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 112;  -- OS-2025-0083 | Guincho | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 198;  -- OS-2026-0149 | Guincho | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 222;  -- OS-2026-0167 | Guincho | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 223;  -- OS-2026-0168 | Guincho | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 208;  -- OS-2026-0158 | Hidráulico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 107;  -- OS-2025-0080 | Hidráulico | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 60;  -- OS-2025-0044 | Hidráulico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 179;  -- OS-2025-0135 | Hidráulico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 155;  -- OS-2025-0119 | Hidráulico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 232;  -- OS-2026-0175 | Hidráulico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 134;  -- OS-2025-0100 | Hidráulico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 106;  -- OS-2025-0080 | Hidráulico | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 16;  -- OS-2025-0012 | Hidráulico | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 125;  -- OS-2025-0092 | Hidráulico | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 249;  -- OS-2026-0191 | Implemento | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 165;  -- OS-2025-0127 | Implemento | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 104;  -- OS-2025-0078 | Implemento | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 143;  -- OS-2025-0108 | Implemento | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 108;  -- OS-2025-0080 | Implemento | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 141;  -- OS-2025-0106 | Implemento | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 17;  -- OS-2025-0013 | Injeção | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 76;  -- OS-2025-0057 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 210;  -- OS-2026-0160 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 207;  -- OS-2026-0157 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 234;  -- OS-2026-0177 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 14;  -- OS-2025-0010 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 148;  -- OS-2025-0113 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 100;  -- OS-2025-0075 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 235;  -- OS-2026-0177 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 79;  -- OS-2025-0059 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 83;  -- OS-2025-0060 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 12;  -- OS-2025-0010 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 132;  -- OS-2025-0098 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 57;  -- OS-2025-0042 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 206;  -- OS-2026-0157 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 81;  -- OS-2025-0059 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 149;  -- OS-2025-0114 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 250;  -- OS-2026-0191 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 213;  -- OS-2026-0162 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 236;  -- OS-2026-0177 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 212;  -- OS-2026-0162 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 82;  -- OS-2025-0059 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 80;  -- OS-2025-0059 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 13;  -- OS-2025-0010 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 77;  -- OS-2025-0057 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 75;  -- OS-2025-0057 | Motor | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 157;  -- OS-2025-0121 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 126;  -- OS-2025-0093 | Motor | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 49;  -- OS-2025-0034 | Revisão | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 117;  -- OS-2025-0086 | Revisão | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 124;  -- OS-2025-0091 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 170;  -- OS-2025-0130 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 9;  -- OS-2025-0007 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 171;  -- OS-2025-0131 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 135;  -- OS-2025-0101 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 156;  -- OS-2025-0120 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 116;  -- OS-2025-0086 | Revisão | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 48;  -- OS-2025-0034 | Revisão | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 70;  -- OS-2025-0052 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 231;  -- OS-2026-0174 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 55;  -- OS-2025-0040 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 53;  -- OS-2025-0038 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 26;  -- OS-2025-0020 | Revisão | conf=88%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 28;  -- OS-2025-0021 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 63;  -- OS-2025-0046 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 99;  -- OS-2025-0074 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 122;  -- OS-2025-0090 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 123;  -- OS-2025-0091 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 203;  -- OS-2026-0154 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 226;  -- OS-2026-0171 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 73;  -- OS-2025-0055 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 74;  -- OS-2025-0056 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 56;  -- OS-2025-0041 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 64;  -- OS-2025-0046 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 127;  -- OS-2025-0094 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 85;  -- OS-2025-0062 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 144;  -- OS-2025-0109 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 237;  -- OS-2026-0178 | Revisão | conf=92%
+UPDATE os_itens SET categoria = 'Compra' WHERE id = 27;  -- OS-2025-0020 | Revisão | conf=88%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 258;  -- OS-2026-0196 | Suspensão | conf=92%
+UPDATE os_itens SET categoria = 'Servico' WHERE id = 225;  -- OS-2026-0170 | Suspensão | conf=92%
+
+-- Média confiança (requer revisão por amostragem):
+
+-- Ambíguos e impossíveis: NÃO gerar SQL — exigem revisão humana caso a caso.
+
+################################################################################
+# SCRIPT 2 — NORMALIZAÇÃO TEXTUAL
+# Arquivo: dryrun_normalizacao.txt
+################################################################################
+
+================================================================================
+FASE 3A.1 — SIMULAÇÃO DE NORMALIZAÇÃO TEXTUAL (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+NENHUM UPDATE FOI EXECUTADO.
+================================================================================
+
+------------------------------------------------------------
+--- ordens_servico.fornecedor ---
+Total registros: 212 | Com mudança: 1
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+        45  LUBRAÇO / WENDEL CHAVES  SOLDA                      LUBRAÇO / WENDEL CHAVES SOLDA                       SIM
+
+
+------------------------------------------------------------
+--- notas_fiscais.fornecedor ---
+Total registros: 270 | Com mudança: 3
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+        63  WENDEL CHAVES  SOLDA                                WENDEL CHAVES SOLDA                                 SIM
+       265  SANTOS  OLIVEIRA ALINHAMENTOS PRUDENTE              SANTOS OLIVEIRA ALINHAMENTOS PRUDENTE               SIM
+       267  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+
+
+------------------------------------------------------------
+--- manutencao_parcelas.fornecedor ---
+Total registros: 597 | Com mudança: 14
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+       134  WENDEL CHAVES  SOLDA                                WENDEL CHAVES SOLDA                                 SIM
+       578  SANTOS  OLIVEIRA ALINHAMENTOS PRUDENTE              SANTOS OLIVEIRA ALINHAMENTOS PRUDENTE               SIM
+       581  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       582  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       583  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       584  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       585  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       586  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       587  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       588  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       589  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       590  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       591  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+       592  MIGLIATI  LUMINI                                    MIGLIATI LUMINI                                     SIM
+
+
+------------------------------------------------------------
+--- os_itens.sistema ---
+Total registros: 310 | Com mudança: 113
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+         9  Revisão                                             Revisao                                             SIM
+        15  Direção                                             Direcao                                             SIM
+        16  Hidráulico                                          Hidraulico                                          SIM
+        19  Direção                                             Direcao                                             SIM
+        23  Direção                                             Direcao                                             SIM
+        24  Elétrico                                            Eletrico                                            SIM
+        25  Câmbio                                              Cambio                                              SIM
+        26  Revisão                                             Revisao                                             SIM
+        27  Revisão                                             Revisao                                             SIM
+        28  Revisão                                             Revisao                                             SIM
+        30  Câmbio                                              Cambio                                              SIM
+        31  Elétrico                                            Eletrico                                            SIM
+        36  Elétrico                                            Eletrico                                            SIM
+        48  Revisão                                             Revisao                                             SIM
+        49  Revisão                                             Revisao                                             SIM
+        52  Direção                                             Direcao                                             SIM
+        53  Revisão                                             Revisao                                             SIM
+        55  Revisão                                             Revisao                                             SIM
+        56  Revisão                                             Revisao                                             SIM
+        60  Hidráulico                                          Hidraulico                                          SIM
+        63  Revisão                                             Revisao                                             SIM
+        64  Revisão                                             Revisao                                             SIM
+        67  Elétrico                                            Eletrico                                            SIM
+        69  Direção                                             Direcao                                             SIM
+        70  Revisão                                             Revisao                                             SIM
+        73  Revisão                                             Revisao                                             SIM
+        74  Revisão                                             Revisao                                             SIM
+        84  Elétrico                                            Eletrico                                            SIM
+        85  Revisão                                             Revisao                                             SIM
+        86  Elétrico                                            Eletrico                                            SIM
+  ... e mais 83 registros com mudança
+
+
+------------------------------------------------------------
+--- os_itens.categoria (inclui aliases de categoria) ---
+Total registros: 310 | Com mudança: 8
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+         5  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+         8  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+        32  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+        93  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+       120  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+       129  MONTAGEM E ALINHAMENTO PNEUS                        Servico                                             SIM
+       139  MONTAGEM E BALANCEAMENTO PNEUS                      Servico                                             SIM
+       261  M.O. PNEUS                                          Servico                                             SIM
+
+  POSSÍVEIS COLISÕES (valores distintos que normalizam igual):
+  [REVISAR] → 'SERVICO': "M.O. PNEUS" | "MONTAGEM E ALINHAMENTO PNEUS" | "MONTAGEM E BALANCEAMENTO PNEUS"
+
+------------------------------------------------------------
+--- os_itens.servico (normalização básica) ---
+Total registros: 310 | Com mudança: 1
+
+        id  valor_atual                                         normalizado                                         mudou?
+  ------------------------------------------------------------------------------------------------------------------------
+       194  MÃO DE OBRA SUBSTITUIÇÃO DE  EMBREAGEM              MÃO DE OBRA SUBSTITUIÇÃO DE EMBREAGEM               SIM
+
+
+================================================================================
+RESUMO GERAL DE NORMALIZAÇÃO
+================================================================================
+  Total de registros com mudança identificada : 140
+  Total de grupos com possíveis colisões      : 1
+
+PRÓXIMO PASSO: Revisar colisões marcadas [REVISAR] antes de aplicar normalização.
+Nenhuma alteração foi feita neste script.
+
+################################################################################
+# SCRIPT 3 — MATCH DE FORNECEDORES
+# Arquivo: dryrun_fornecedores.txt
+################################################################################
+
+  AVISO: erro ao ler manutencoes: no such column: total
+================================================================================
+FASE 3A.1 — RELATÓRIO DE FORNECEDORES (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+NENHUM UPDATE FOI EXECUTADO.
+================================================================================
+
+Total de fornecedores únicos (normalizados, 4 tabelas): 110
+
+------------------------------------------------------------
+--- FORNECEDORES SIMPLES (forma canônica única) ---
+  fornecedor                                           total_ocorrencias
+  ----------------------------------------------------------------------
+  ANTONIO ALVES TK DIESEL                                             70
+  TIETE VEÍCULOS                                                      60
+  DELLA VIA                                                           53
+  BONI PNEUS                                                          40
+  OSMAR LUIS FRANCA                                                   20
+  MONKEY MUNCK                                                        19
+  BLACK BIRD RESGATES 24 HORAS                                        14
+  LUBRIFISC                                                           13
+  REI DO ÓLEO ITAQUA                                                  13
+  MIGLIATI LUMINI                                                     13
+  MECÂNICA DUARTE                                                     12
+  YSTRELLA                                                            12
+  CASALE OFICINA                                                      11
+  GP PNEUS                                                            11
+  RD DIRECOES HIDRAULICAS                                             11
+  SUZANO REPARACAO MECANICA                                            9
+  SOTREQ                                                               8
+  MORECAP                                                              6
+  BRASMIG TRATORES                                                     6
+  DR DAS MANGUEIRAS                                                    6
+  FREIOS JJ                                                            6
+  CPX DISTRIBUIDORA S.A.                                               6
+  THIAGO ELETRICISTA                                                   6
+  MSP DIST E IMP MORECAP                                               6
+  PJ DIESEL                                                            6
+  MOLAS SANTA VITORIA                                                  6
+  TUDO LAR ONLINE MELI                                                 5
+  GLDS ECOMMERCE (ML)                                                  4
+  NAVI TRUCK                                                           4
+  TRUCKAR AUTOMOLAS                                                    4
+  TURBO MAIS                                                           4
+  TKJ GERENCIAMENTO                                                    3
+  MM LUIBRIFICANTES                                                    3
+  SPAR PECAS AUT (ML)                                                  3
+  PARANÁ ELÉTRICA                                                      3
+  INTERLUB                                                             3
+  BORA PEÇAS                                                           3
+  ARAGÃO                                                               3
+  RADIADORES MASTER                                                    3
+  PRUDENCROMO                                                          3
+  MARTINS LUBRIFICANTES                                                3
+  COOPERCITRUS                                                         3
+  ZN PLACAS                                                            3
+  AUTOGLASS                                                            3
+  DEXTER IMPORT AUTO PART (ML)                                         3
+  RENATO TEIXEIRA                                                      3
+  VICTOR EDUARDO BORRACHARIA                                           3
+  FORTUNATO RECAPADORA                                                 3
+  555                                                                  3
+  LUBRACO                                                              3
+  MG VIDROS                                                            2
+  WENDEL CHAVES SOLDA                                                  2
+  CARLINHOZ SOLDAS                                                     2
+  JTO TRANSPORTES                                                      2
+  AZZIOLY CAMINHOES E PECAS                                            2
+  MERCEDAO AUTO PECAS                                                  2
+  CARLAO AUTO ELETRICO                                                 2
+  SANTOS OLIVEIRA ALINHAMENTOS PRUDENTE                                2
+
+------------------------------------------------------------
+--- POSSÍVEIS ALIASES (grafias diferentes, mesmo fornecedor) — 19 grupos ---
+
+  Grupo canônico sugerido: "ALDO OLIVEIRA NASCIMENTO"
+    → canônico: "ALDO OLIVEIRA NASCIMENTO" (7 ocorrências) (acentuação)
+      alias: "ALDO OLIVEIRA NASCIMENTO / TUDO LAR ONLINE MELI / AZZIOLY CAMINHOES E PECAS / DIBRACAM" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "AUTO ELETRICA ANA JACINTA"
+    → canônico: "AUTO ELETRICA ANA JACINTA" (15 ocorrências) (acentuação)
+      alias: "AUTO ELETRICA MAC SOM" (2 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "AUTOMEC"
+    → canônico: "AUTOMEC" (7 ocorrências) (acentuação)
+      alias: "AUTOMEC / JTO TRANSPORTES" (1 ocorrências) (prefixo)
+      alias: "AUTOMEC / YSTRELLA" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "BATERIAS MOGI"
+    → canônico: "BATERIAS MOGI" (3 ocorrências) (acentuação)
+      alias: "BATERIAS SAO CARLOS" (3 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "BORRACHARIA SÃO CARLOS"
+    → canônico: "BORRACHARIA SÃO CARLOS" (7 ocorrências) (acentuação)
+      alias: "BORRACHARIA E C. DE PN. DO SILVAO" (3 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "CAIADO PNEUS"
+    → canônico: "CAIADO PNEUS" (57 ocorrências) (acentuação)
+      alias: "CAIADO PNEUS / FORTUNATO RECAPADORA" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "DIBRACAM"
+    → canônico: "DIBRACAM" (81 ocorrências) (acentuação)
+      alias: "DIBRACAM / ANTONIO ALVES TK DIESEL" (1 ocorrências) (prefixo)
+      alias: "DIBRACAM / CARLINHOZ SOLDAS" (1 ocorrências) (prefixo)
+      alias: "DIBRACAM / MECÂNICA DUARTE" (1 ocorrências) (prefixo)
+      alias: "DIBRACAM / OSMAR LUIS FRANCA / MERCEDAO AUTO PECAS" (1 ocorrências) (prefixo)
+      alias: "DIBRACAM / RENOVE COMERCIO DE PECAS LTDA" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "FLORENZA TRUCK"
+    → canônico: "FLORENZA TRUCK" (157 ocorrências) (acentuação)
+      alias: "FLORENZA TRUCK / TIETE VEÍCULOS" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "GEOMAQ"
+    → canônico: "GEOMAQ" (5 ocorrências) (acentuação)
+      alias: "GEOMAQ / BRASMIG TRATORES" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "INOVA TRANSPORTES LTDA"
+    → canônico: "INOVA TRANSPORTES LTDA" (2 ocorrências) (acentuação)
+      alias: "INOVA TRUCK CENTER LTDA" (2 ocorrências) (prefixo)
+      alias: "INOVA TRANSPORTES LTDA / INOVA TRUCK CENTER LTDA" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "LUBRAÇO"
+    → canônico: "LUBRAÇO" (8 ocorrências) (acentuação)
+      alias: "LUBRAÇO / SOTREQ" (1 ocorrências) (prefixo)
+      alias: "LUBRAÇO / WENDEL CHAVES SOLDA" (1 ocorrências) (prefixo)
+             forma original: "LUBRAÇO / WENDEL CHAVES  SOLDA"
+
+  Grupo canônico sugerido: "MSAM PEÇAS"
+    → canônico: "MSAM PEÇAS" (67 ocorrências) (acentuação)
+      alias: "MSAM PEÇAS / ANTONIO ALVES TK DIESEL" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / ANTONIO ALVES TK DIESEL / MONKEY MUNCK" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / DIBRACAM" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / RS DIESEL" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / RS DIESEL / PJ DIESEL" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / RS DIESEL / PJ DIESEL / TURBO MAIS" (1 ocorrências) (prefixo)
+      alias: "MSAM PEÇAS / TIETE VEÍCULOS" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "NEGAO DAS BATERIAS"
+    → canônico: "NEGAO DAS BATERIAS" (5 ocorrências) (acentuação)
+      alias: "NEGAO DAS BATERIAS / AUTO ELETRICA MAC SOM" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "NOVA LÍNEA"
+    → canônico: "NOVA LÍNEA" (5 ocorrências) (acentuação)
+      alias: "NOVA LÍNEA / YSTRELLA" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "QUATROCENTAO ACESSORIOS"
+    → canônico: "QUATROCENTAO ACESSORIOS" (8 ocorrências) (acentuação)
+      alias: "QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA" (3 ocorrências) (prefixo)
+      alias: "QUATROCENTAO ACESSORIOS / MG VIDROS" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "RENOV. DE PNEUS PRESIDENTE GRU."
+    → canônico: "RENOV. DE PNEUS PRESIDENTE GRU." (5 ocorrências) (acentuação)
+      alias: "RENOV. DE PNEUS PRESIDENTE GRU. / RENOV. PNEUS PRESIDENTE GRU." (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "RENOVE COMÉRCIO DE PEÇAS"
+    → canônico: "RENOVE COMÉRCIO DE PEÇAS" (8 ocorrências) (acentuação)
+      alias: "RENOVE COMERCIO DE PECAS LTDA" (2 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "RICARDO YOSHIYUKI FUJITA"
+    → canônico: "RICARDO YOSHIYUKI FUJITA" (12 ocorrências) (acentuação)
+      alias: "RICARDO YOSHIYUKI FUJITA / ANTONIO ALVES TK DIESEL" (1 ocorrências) (prefixo)
+
+  Grupo canônico sugerido: "RS DIESEL"
+    → canônico: "RS DIESEL" (28 ocorrências) (acentuação)
+      alias: "RS DIESEL / TIETE VEÍCULOS" (2 ocorrências) (prefixo)
+
+------------------------------------------------------------
+--- MULTI-FORNECEDOR (contém '/') — 31 OS ---
+
+  OS-2025-0133     |   R$ 11,260.97 | "ALDO OLIVEIRA NASCIMENTO / TUDO LAR ONLINE MELI / AZZIOLY CAMINHOES E PECAS / DIBRACAM"
+    → Candidatos a separar: ['ALDO OLIVEIRA NASCIMENTO', 'TUDO LAR ONLINE MELI', 'AZZIOLY CAMINHOES E PECAS', 'DIBRACAM']
+  OS-2025-0132     |    R$ 9,066.89 | "AUTOMEC / JTO TRANSPORTES"
+    → Candidatos a separar: ['AUTOMEC', 'JTO TRANSPORTES']
+  OS-2025-0034     |    R$ 7,094.72 | "AUTOMEC / YSTRELLA"
+    → Candidatos a separar: ['AUTOMEC', 'YSTRELLA']
+  OS-2025-0033     |    R$ 6,495.12 | "CAIADO PNEUS / FORTUNATO RECAPADORA"
+    → Candidatos a separar: ['CAIADO PNEUS', 'FORTUNATO RECAPADORA']
+  OS-2026-0164     |    R$ 5,896.78 | "DIBRACAM / ANTONIO ALVES TK DIESEL"
+    → Candidatos a separar: ['DIBRACAM', 'ANTONIO ALVES TK DIESEL']
+  OS-2025-0127     |      R$ 914.02 | "DIBRACAM / CARLINHOZ SOLDAS"
+    → Candidatos a separar: ['DIBRACAM', 'CARLINHOZ SOLDAS']
+  OS-2026-0145     |    R$ 4,345.95 | "DIBRACAM / MECÂNICA DUARTE"
+    → Candidatos a separar: ['DIBRACAM', 'MECÂNICA DUARTE']
+  OS-2026-0165     |    R$ 5,325.01 | "DIBRACAM / OSMAR LUIS FRANCA / MERCEDAO AUTO PECAS"
+    → Candidatos a separar: ['DIBRACAM', 'OSMAR LUIS FRANCA', 'MERCEDAO AUTO PECAS']
+  OS-2026-0193     |    R$ 1,628.00 | "DIBRACAM / RENOVE COMERCIO DE PECAS LTDA"
+    → Candidatos a separar: ['DIBRACAM', 'RENOVE COMERCIO DE PECAS LTDA']
+  OS-2025-0043     |    R$ 4,202.25 | "FLORENZA TRUCK / TIETE VEÍCULOS"
+    → Candidatos a separar: ['FLORENZA TRUCK', 'TIETE VEÍCULOS']
+  OS-2025-0081     |    R$ 1,155.49 | "GEOMAQ / BRASMIG TRATORES"
+    → Candidatos a separar: ['GEOMAQ', 'BRASMIG TRATORES']
+  OS-2026-0162     |      R$ 370.00 | "INOVA TRANSPORTES LTDA / INOVA TRUCK CENTER LTDA"
+    → Candidatos a separar: ['INOVA TRANSPORTES LTDA', 'INOVA TRUCK CENTER LTDA']
+  OS-2025-0086     |    R$ 3,129.96 | "LUBRAÇO / SOTREQ"
+    → Candidatos a separar: ['LUBRAÇO', 'SOTREQ']
+  OS-2025-0045     |    R$ 1,458.53 | "LUBRAÇO / WENDEL CHAVES  SOLDA"
+    → Candidatos a separar: ['LUBRAÇO', 'WENDEL CHAVES  SOLDA']
+  OS-2025-0124     |   R$ 10,820.60 | "MSAM PEÇAS / ANTONIO ALVES TK DIESEL"
+    → Candidatos a separar: ['MSAM PEÇAS', 'ANTONIO ALVES TK DIESEL']
+  OS-2025-0080     |    R$ 6,336.74 | "MSAM PEÇAS / ANTONIO ALVES TK DIESEL / MONKEY MUNCK"
+    → Candidatos a separar: ['MSAM PEÇAS', 'ANTONIO ALVES TK DIESEL', 'MONKEY MUNCK']
+  OS-2026-0177     |    R$ 4,811.04 | "MSAM PEÇAS / DIBRACAM"
+    → Candidatos a separar: ['MSAM PEÇAS', 'DIBRACAM']
+  OS-2025-0145     |    R$ 4,974.20 | "MSAM PEÇAS / RS DIESEL"
+    → Candidatos a separar: ['MSAM PEÇAS', 'RS DIESEL']
+  OS-2025-0010     |    R$ 5,943.73 | "MSAM PEÇAS / RS DIESEL / PJ DIESEL"
+    → Candidatos a separar: ['MSAM PEÇAS', 'RS DIESEL', 'PJ DIESEL']
+  OS-2025-0059     |    R$ 6,174.64 | "MSAM PEÇAS / RS DIESEL / PJ DIESEL / TURBO MAIS"
+    → Candidatos a separar: ['MSAM PEÇAS', 'RS DIESEL', 'PJ DIESEL', 'TURBO MAIS']
+  OS-2025-0076     |    R$ 2,615.29 | "MSAM PEÇAS / TIETE VEÍCULOS"
+    → Candidatos a separar: ['MSAM PEÇAS', 'TIETE VEÍCULOS']
+  OS-2025-0140     |      R$ 970.00 | "NEGAO DAS BATERIAS / AUTO ELETRICA MAC SOM"
+    → Candidatos a separar: ['NEGAO DAS BATERIAS', 'AUTO ELETRICA MAC SOM']
+  OS-2025-0066     |    R$ 4,159.98 | "NOVA LÍNEA / YSTRELLA"
+    → Candidatos a separar: ['NOVA LÍNEA', 'YSTRELLA']
+  OS-2025-0032     |      R$ 352.00 | "QUATROCENTAO ACESSORIOS / MG VIDROS"
+    → Candidatos a separar: ['QUATROCENTAO ACESSORIOS', 'MG VIDROS']
+  OS-2025-0029     |      R$ 455.00 | "QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA"
+    → Candidatos a separar: ['QUATROCENTAO ACESSORIOS', 'MOLAS SANTA VITORIA']
+  OS-2025-0030     |      R$ 384.00 | "QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA"
+    → Candidatos a separar: ['QUATROCENTAO ACESSORIOS', 'MOLAS SANTA VITORIA']
+  OS-2025-0031     |      R$ 455.00 | "QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA"
+    → Candidatos a separar: ['QUATROCENTAO ACESSORIOS', 'MOLAS SANTA VITORIA']
+  OS-2026-0188     |    R$ 1,900.00 | "RENOV. DE PNEUS PRESIDENTE GRU. / RENOV. PNEUS PRESIDENTE GRU."
+    → Candidatos a separar: ['RENOV. DE PNEUS PRESIDENTE GRU.', 'RENOV. PNEUS PRESIDENTE GRU.']
+  OS-2025-0057     |   R$ 20,249.98 | "RICARDO YOSHIYUKI FUJITA / ANTONIO ALVES TK DIESEL"
+    → Candidatos a separar: ['RICARDO YOSHIYUKI FUJITA', 'ANTONIO ALVES TK DIESEL']
+  OS-2025-0016     |    R$ 3,178.68 | "RS DIESEL / TIETE VEÍCULOS"
+    → Candidatos a separar: ['RS DIESEL', 'TIETE VEÍCULOS']
+  OS-2025-0020     |    R$ 2,177.47 | "RS DIESEL / TIETE VEÍCULOS"
+    → Candidatos a separar: ['RS DIESEL', 'TIETE VEÍCULOS']
+
+------------------------------------------------------------
+--- FORNECEDORES NULL / VAZIOS POR TABELA ---
+  ordens_servico                : 12 registros sem fornecedor
+  notas_fiscais                 : 0 registros sem fornecedor
+  manutencao_parcelas           : 0 registros sem fornecedor
+  manutencoes                   : 0 registros sem fornecedor
+
+================================================================================
+RESUMO DE RISCO
+================================================================================
+  Fornecedores únicos (normalizados)  : 110
+  Em grupos com possível alias        : 52 fornecedores em 19 grupos
+  OS com multi-fornecedor ("/")       : 31
+  Registros sem fornecedor (4 tabelas): 12
+
+AÇÕES NECESSÁRIAS ANTES DE CRIAR TABELA fornecedores:
+  1. Revisar grupos de alias — confirmar se são o mesmo fornecedor
+  2. Definir nome canônico para cada grupo
+  3. Decidir tratamento das OS com '/' — 1 vínculo vs múltiplos vínculos
+  4. Obter CNPJ dos principais fornecedores para deduplicação definitiva
+  Nenhuma alteração foi feita neste script.
+
+################################################################################
+# SCRIPT 4 — CATÁLOGO DE SERVIÇOS
+# Arquivo: dryrun_servicos.txt
+################################################################################
+
+================================================================================
+FASE 3A.1 — PROPOSTA DE CATÁLOGO DE SERVIÇOS (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+NENHUM UPDATE FOI EXECUTADO.
+================================================================================
+
+Total de valores únicos de servico: 227
+Grupos identificados com match:     14
+Serviços sem grupo definido:        59
+
+------------------------------------------------------------
+GRUPO: "Fornecimento de Pneus"
+  sistema: Pneu | categoria: Compra | confiança: ALTA | total: 116 ocorrências
+  aliases encontrados:
+    → "FORNEC. PNEUS" (26x)
+    → "MONTAGEM E ALINHAMENTO PNEUS" (6x) [categoria: MONTAGEM E ALINHAMENTO PNEUS]
+    → "FORNEC. FAIXAS REFLETIVAS" (4x) [sistema diferente: Diversos]
+    → "FORNEC. ÓLEO HIDRÁULICO" (3x) [sistema diferente: Hidráulico]
+    → "FORNEC. FECHADURAS" (3x) [sistema diferente: Diversos]
+    → "FORNEC. ACABAMENTOS INTERNOS" (3x) [sistema diferente: Diversos]
+    → "FORNEC. ÓLEO TRANSMISSÃO" (2x) [sistema diferente: Câmbio]
+    → "FORNEC. ÓLEO MOTOR" (2x) [sistema diferente: Motor]
+    → "FORNEC. PNEUS + MONTAGEM" (2x)
+    → "FORNEC. PEÇAS RETÍFICA CABEÇOTE" (2x) [sistema diferente: Motor]
+    → "FORNEC. PEÇAS CÂMBIO" (2x) [sistema diferente: Câmbio]
+    → "FORNEC. FILTROS" (2x) [sistema diferente: Revisão]
+    → "FORNEC. EMBREAGEM VISCOSA E MANGUEIRA INTERCOOLER" (2x) [sistema diferente: Arrefecimento]
+    → "FORNEC. DENTES CONCHA" (2x) [sistema diferente: Diversos]
+    → "FORNEC. BATERIA" (2x) [sistema diferente: Elétrico]
+    → "MONTAGEM E BALANCEAMENTO PNEUS" (1x) [categoria: MONTAGEM E BALANCEAMENTO PNEUS]
+    → "M.O. PNEUS" (1x) [categoria: M.O. PNEUS]
+    → "INSTALAÇÃO PNEUS" (1x) [sistema diferente: Direção]
+    → "INSTALAÇÃO E BALANCEAMENTO PNEUS" (1x) [categoria: INSTALAÇÃO E BALANCEAMENTO PNEUS]
+    → "FORNEC. ÓLEO DE MOTOR" (1x) [sistema diferente: Motor]
+    → "FORNEC. ÓLEO" (1x) [sistema diferente: Motor]
+    → "FORNEC. TURBINA" (1x) [sistema diferente: Motor]
+    → "FORNEC. TAMPA TANQUE E DENTES" (1x) [sistema diferente: Diversos]
+    → "FORNEC. SOLENOIDE" (1x) [sistema diferente: Motor]
+    → "FORNEC. SENSOR RAIL" (1x) [sistema diferente: Motor]
+    → "FORNEC. SENSOR MAP" (1x) [sistema diferente: Motor]
+    → "FORNEC. SENSOR E ADITIVO" (1x) [sistema diferente: Motor]
+    → "FORNEC. SEMI-EIXO E CUBO" (1x) [sistema diferente: Diferencial]
+    → "FORNEC. ROTOR M. PARTIDA" (1x) [sistema diferente: Elétrico]
+    → "FORNEC. ROLAMENTO EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. ROLAMENTO DUPLO CUBO DE RODA DIANTEIRA" (1x) [sistema diferente: Diferencial]
+    → "FORNEC. ROLAMENTO CUBO" (1x) [sistema diferente: Diferencial]
+    → "FORNEC. RESERVATÓRIO DIREÇÃO" (1x) [sistema diferente: Hidráulico]
+    → "FORNEC. PNEUS RECAP" (1x)
+    → "FORNEC. PNEUS E BATERIA" (1x)
+    → "FORNEC. PNEU" (1x)
+    → "FORNEC. PINÇAS TRASEIRAS" (1x) [sistema diferente: Freio]
+    → "FORNEC. PINÇA DIANTEIRA" (1x) [sistema diferente: Freio]
+    → "FORNEC. PEÇAS MOTOR BAIXO" (1x) [sistema diferente: Motor]
+    → "FORNEC. PEÇAS DIREÇÃO E CABINE" (1x) [sistema diferente: Direção]
+    → "FORNEC. PEÇAS CÂMBIO + ÓLEO" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. PEÇAS (INDENIZAÇÃO)" (1x) [sistema diferente: Motor]
+    → "FORNEC. PALHETA PARABRISA" (1x) [sistema diferente: Diversos]
+    → "FORNEC. MANGUEIRA HIDRÁULICA" (1x) [sistema diferente: Hidráulico]
+    → "FORNEC. MANGUEIRA FILTRO AR" (1x) [sistema diferente: Diversos]
+    → "FORNEC. MANGUEIRA E COXINS" (1x) [sistema diferente: Motor]
+    → "FORNEC. KIT REPARO MOTOR" (1x) [sistema diferente: Motor]
+    → "FORNEC. KIT PINOS E BUCHAS" (1x) [sistema diferente: Diversos]
+    → "FORNEC. KIT MOTOR BAIXO" (1x) [sistema diferente: Motor]
+    → "FORNEC. KIT FILTROS" (1x) [sistema diferente: Revisão]
+    → "FORNEC. KIT COXINS" (1x) [sistema diferente: Diversos]
+    → "FORNEC. KIT CORREIA E FLUIDOS" (1x) [sistema diferente: Hidráulico]
+    → "FORNEC. ITENS COMPLEMENTARES" (1x) [sistema diferente: Implemento]
+    → "FORNEC. GRAXA" (1x) [sistema diferente: Diversos]
+    → "FORNEC. FLUÍDO DE FREIO E CILINDRO MESTRE EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. FILTROS AR" (1x) [sistema diferente: Motor]
+    → "FORNEC. ECM BOSCH" (1x) [sistema diferente: Elétrico]
+    → "FORNEC. CORREIA POLI-V" (1x) [sistema diferente: Motor]
+    → "FORNEC. COROA E PINHÃO" (1x) [sistema diferente: Diferencial]
+    → "FORNEC. CONVERSOR" (1x) [sistema diferente: Elétrico]
+    → "FORNEC. CILINDRO MESTRE DE FREIO" (1x) [sistema diferente: Freio]
+    → "FORNEC. CILINDRO EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. CABOS CÂMBIO" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. CABO DE EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. BRAÇO AXIAL DIREÇÃO" (1x) [sistema diferente: Direção]
+    → "FORNEC. BOMBA HIDRÁULICA" (1x) [sistema diferente: Hidráulico]
+    → "FORNEC. BANCO GIRATÓRIO" (1x) [sistema diferente: Diversos]
+    → "ALINHAMENTO PNEUS" (1x) [categoria: ALINHAMENTO PNEUS]
+
+------------------------------------------------------------
+GRUPO: "Troca de Óleo e Filtros"
+  sistema: Motor | categoria: Compra | confiança: ALTA | total: 32 ocorrências
+  aliases encontrados:
+    → "TROCA DE ÓLEO E FILTROS" (3x) [sistema diferente: Revisão]
+    → "Troca de Óleo" (2x) [categoria: Serviço]
+    → "FORNEC. KIT FILTROS + ÓLEO" (2x) [sistema diferente: Revisão]
+    → "Filtro de Combustível" (2x)
+    → "Filtro de Ar" (2x)
+    → "Óleo SAE 80w90" (1x) [sistema diferente: Câmbio]
+    → "Óleo de Motor SAE 15w40" (1x)
+    → "Óleo de Motor 15w40 " (1x)
+    → "Óleo 85w140" (1x) [sistema diferente: Diferencial]
+    → "Óleo 15w40" (1x)
+    → "TROCA ÓLEO E FILTROS" (1x) [sistema diferente: Revisão]
+    → "REPARO VAZAMENTO ÓLEO + REVISÃO" (1x) [sistema diferente: Revisão]
+    → "FRETE + FILTROS" (1x) [sistema diferente: Revisão]
+    → "FORNEC. ÓLEO + FILTRO" (1x) [sistema diferente: Revisão]
+    → "Filtro Raccor" (1x)
+    → "Filtro Lubrificante" (1x)
+    → "Filtro Hidráulico" (1x) [sistema diferente: Hidráulico]
+    → "Filtro de Óleo Diesel" (1x)
+    → "Filtro de Óleo" (1x)
+    → "Filtro de Transmissão" (1x) [sistema diferente: Câmbio]
+    → "Filtro de Combustível Separador" (1x)
+    → "Filtro de Cabine" (1x) [sistema diferente: Outro]
+    → "Filtro de Ar Secundário" (1x)
+    → "Filtro de Ar Primário" (1x)
+    → "Filtro de Ar Condicionado" (1x) [sistema diferente: Outro]
+    → "Carter de Óleo de Motor" (1x)
+
+------------------------------------------------------------
+GRUPO: "Substituição de Pastilhas"
+  sistema: Freio | categoria: Compra | confiança: ALTA | total: 21 ocorrências
+  aliases encontrados:
+    → "SUBST. PASTILHAS" (4x)
+    → "SUBST. PASTILHAS E DISCOS" (3x)
+    → "SUBST. RESFRIADOR ÓLEO E PASTILHAS" (2x) [sistema diferente: Motor]
+    → "FORNEC. PASTILHAS E DISCOS" (2x)
+    → "SUBST. PINÇA, DISCOS E PASTILHAS" (1x)
+    → "SUBST. PASTILHAS, DISCOS E REPARO PINÇA" (1x)
+    → "SUBST. PASTILHAS E REPARO CILINDRO" (1x)
+    → "SUBST. PASTILHAS E PASSE DISCOS" (1x)
+    → "SUBST. PASTILHAS DISCOS E CUBO TRASEIRO" (1x)
+    → "SUBST. PASTILHAS + REVISÃO" (1x)
+    → "RECOLOCAÇÃO PASTILHAS" (1x)
+    → "FORNEC. PINÇA, DISCOS E PASTILHAS" (1x)
+    → "FORNEC. PINÇA, DISCO E PASTILHAS" (1x)
+    → "FORNEC. PASTILHAS E DISCO" (1x)
+
+------------------------------------------------------------
+GRUPO: "Kit Revisão"
+  sistema: Revisao | categoria: Compra | confiança: ALTA | total: 14 ocorrências
+  aliases encontrados:
+    → "KIT REVISAO — VW EXPRESS" (8x) [sistema diferente: Revisão]
+    → "KIT REVISAO — VW 9170" (1x) [sistema diferente: Revisão]
+    → "KIT REVISAO — VW 9150" (1x) [sistema diferente: Revisão]
+    → "KIT REVISAO — VW 14-190" (1x) [sistema diferente: Revisão]
+    → "KIT REVISAO — VW 13-180" (1x) [sistema diferente: Revisão]
+    → "KIT REVISAO 500H — JCB 3CX" (1x) [sistema diferente: Revisão]
+    → "FORNEC. KIT CORREIA + KIT REVISÃO" (1x) [sistema diferente: Revisão]
+
+------------------------------------------------------------
+GRUPO: "Kit Embreagem"
+  sistema: Cambio | categoria: Compra | confiança: ALTA | total: 14 ocorrências
+  aliases encontrados:
+    → "FORNEC. KIT EMBREAGEM" (3x) [sistema diferente: Câmbio]
+    → "SUBST. KIT EMBREAGEM + RETÍFICA VOLANTE" (2x) [sistema diferente: Câmbio]
+    → "SUBST. KIT EMBREAGEM" (2x) [sistema diferente: Câmbio]
+    → "Substituição Cabo de Embreagem" (1x) [sistema diferente: Câmbio] [categoria: Serviço]
+    → "SUBSTITUIÇÃO DE KIT EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "SUBST. KIT EMBREAGEM COMPLETO" (1x) [sistema diferente: Câmbio]
+    → "MÃO DE OBRA SUBSTITUIÇÃO DE  EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "MO SUBST. SINCRONIZADOS E EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "M.O. SUBSTITUIÇÃO DE EMBREAGEM VISCOSA E MANGUEIRA INTERCOOLER" (1x) [sistema diferente: Arrefecimento]
+    → "M.O. KIT EMBREAGEM" (1x) [sistema diferente: Câmbio]
+
+------------------------------------------------------------
+GRUPO: "Serviço Elétrico"
+  sistema: Eletrico | categoria: Servico | confiança: MEDIA | total: 12 ocorrências
+  aliases encontrados:
+    → "SUBST. LÂMPADA" (4x) [sistema diferente: Elétrico]
+    → "01 BATERIA 100A" (3x) [sistema diferente: Elétrico]
+    → "REPARO ELÉTRICO GERAL" (2x) [sistema diferente: Elétrico]
+    → "REPARO CHICOTE ELÉTRICO" (2x) [sistema diferente: Elétrico]
+    → "DIAGNÓSTICO ELÉTRICO" (1x) [sistema diferente: Elétrico]
+
+------------------------------------------------------------
+GRUPO: "Serviço de Direção"
+  sistema: Direcao | categoria: Servico | confiança: MEDIA | total: 10 ocorrências
+  aliases encontrados:
+    → "SUBST. TERMINAIS DIREÇÃO" (1x) [sistema diferente: Direção]
+    → "SUBST. MANGUEIRA HIDRÁULICA" (1x) [sistema diferente: Hidráulico]
+    → "SUBST. BOMBA HIDRÁULICA" (1x) [sistema diferente: Direção]
+    → "REPARO PISTÃO HIDRÁULICO" (1x) [sistema diferente: Implemento]
+    → "REPARO CUBO E EMBUCHAMENTO DIREÇÃO" (1x) [sistema diferente: Direção]
+    → "REPARO CAIXA DIREÇÃO" (1x) [sistema diferente: Direção]
+    → "REPARO BOMBA HIDRÁULICA" (1x) [sistema diferente: Hidráulico]
+    → "MO REPARO DIREÇÃO" (1x) [sistema diferente: Direção]
+    → "M.O. REPARO EM CAIXA DE DIREÇÃO, SOLDA E TROCA DE KIT" (1x) [sistema diferente: Direção]
+    → "KIT DE CAIXA DE DIREÇÃO" (1x) [sistema diferente: Direção]
+
+------------------------------------------------------------
+GRUPO: "Serviço de Motor"
+  sistema: Motor | categoria: Servico | confiança: MEDIA | total: 10 ocorrências
+  aliases encontrados:
+    → "SUBST. JUNTAS MOTOR" (1x)
+    → "RETÍFICA DE MOTOR COMPLETA (ADIANT.)" (1x)
+    → "RETÍFICA DE MOTOR COMPLETA" (1x)
+    → "RETÍFICA CABEÇOTE E BLOCO" (1x)
+    → "RETÍFICA CABEÇOTE + VÁLVULAS" (1x)
+    → "REPARO MOTOR DE PARTIDA" (1x) [sistema diferente: Elétrico]
+    → "RECONDICIONAMENTO INJEÇÃO ELETRÔNICA" (1x) [sistema diferente: Injeção]
+    → "Motor Parcial Completo" (1x) [categoria: Compra]
+    → "Motor " (1x) [categoria: Compra]
+    → "M.O. RECUPERAÇÃO MÁQUINA DE VIDRO L. MOTORISTA" (1x) [sistema diferente: Diversos]
+
+------------------------------------------------------------
+GRUPO: "Substituição de Lonas"
+  sistema: Freio | categoria: Compra | confiança: ALTA | total: 6 ocorrências
+  aliases encontrados:
+    → "SUBST. LONAS E TAMBOR" (1x)
+    → "SUBST. LONAS E CUÍCAS" (1x)
+    → "SUBST. LONAS" (1x)
+    → "MO SUBST. LONAS E PATIM" (1x)
+    → "FORNEC. LONAS TRASEIRAS" (1x)
+    → "FORNEC. LONAS" (1x)
+
+------------------------------------------------------------
+GRUPO: "Serviço Diversos"
+  sistema: Diversos | categoria: Servico | confiança: BAIXA | total: 5 ocorrências
+  aliases encontrados:
+    → "Serviço SOLDA DENTES" (1x)
+    → "REPARO MANGUEIRA RADIADOR" (1x) [sistema diferente: Arrefecimento]
+    → "REPARO CUBO DIANTEIRO" (1x) [sistema diferente: Revisão]
+    → "REPARO CHICOTE E VÁLVULA" (1x) [sistema diferente: Elétrico]
+    → "M.O. SERVIÇO DE SOLDA" (1x) [sistema diferente: Implemento] [categoria: Serviço]
+
+------------------------------------------------------------
+GRUPO: "Guincho / Socorro"
+  sistema: Guincho | categoria: Servico | confiança: ALTA | total: 3 ocorrências
+  aliases encontrados:
+    → "REMOÇÃO VIA GUINCHO" (2x)
+    → "GUINCHO" (1x)
+
+------------------------------------------------------------
+GRUPO: "Montagem e Alinhamento de Pneus"
+  sistema: Pneu | categoria: Servico | confiança: ALTA | total: 2 ocorrências
+  aliases encontrados:
+    → "MO MONTAGEM CABEÇOTE" (1x) [sistema diferente: Motor]
+    → "ALINHAMENTO E CAMBAGEM" (1x) [categoria: ALINHAMENTO E CAMBAGEM]
+
+------------------------------------------------------------
+GRUPO: "Balanceamento de Pneus"
+  sistema: Pneu | categoria: Servico | confiança: ALTA | total: 2 ocorrências
+  aliases encontrados:
+    → "Alinhamento e Balanceamento" (1x) [sistema diferente: Direção] [categoria: Serviço]
+    → "Alinhamento Balanceamento e Cambagem" (1x) [categoria: Serviço]
+
+------------------------------------------------------------
+GRUPO: "Substituição de Disco de Freio"
+  sistema: Freio | categoria: Compra | confiança: ALTA | total: 1 ocorrências
+  aliases encontrados:
+    → "FORNEC. DISCOS DE FREIO DIANTEIRO E TRASEIRO" (1x)
+
+================================================================================
+--- SERVIÇOS SEM GRUPO IDENTIFICADO (59) — texto completamente livre ---
+
+  "PINTURA PARACHOQUE TRASEIRO" | Diversos | (NULL) | 3x
+  "FRETE" | Diversos | (NULL) | 2x
+  "Verificação Seletora de Marchas" | Câmbio | Serviço | 1x
+  "USINAGEM E EMBUCHAMENTO CAÇAMBA" | Diversos | (NULL) | 1x
+  "Turbinas" | Motor | Serviço | 1x
+  "Thinner" | Câmbio | Compra | 1x
+  "Tampa Combustível" | Outro | Compra | 1x
+  "Substituição de Pino e Acoplamento" | Implemento | Serviço | 1x
+  "Substituição de Mola Mestre Dianteira " | Suspensão | Serviço | 1x
+  "Substituição de Cilindro Mestre de Freio" | Freio | Serviço | 1x
+  "Substituição de Carter" | Motor | Serviço | 1x
+  "Substituição de Amortecedor Dianteiro" | Suspensão | Serviço | 1x
+  "SUBST. VIDRO PORTA" | Diversos | (NULL) | 1x
+  "SUBST. TRANSISTOR MÓDULO" | Elétrico | (NULL) | 1x
+  "SUBST. TERMINAL CÂMBIO" | Diversos | (NULL) | 1x
+  "SUBST. ROLAMENTO E BARRAS" | Direção | (NULL) | 1x
+  "SUBST. PINÇAS TRASEIRAS" | Freio | (NULL) | 1x
+  "SUBST. PEÇAS CÂMBIO" | Câmbio | (NULL) | 1x
+  "SUBST. PARABRISA" | Diversos | (NULL) | 1x
+  "SUBST. NIPLE TELESCÓPIO" | Implemento | (NULL) | 1x
+  "SUBST. MANGUEIRA TELESCÓPIO" | Implemento | (NULL) | 1x
+  "SUBST. LANTERNAS" | Diversos | (NULL) | 1x
+  "SUBST. CREMALHEIRA E COLUNA" | Implemento | (NULL) | 1x
+  "SUBST. COXINS" | Diversos | (NULL) | 1x
+  "SUBST. COROA PINHÃO E CARDAN" | Diferencial | (NULL) | 1x
+  "SUBST. CANO COMPRESSOR AR" | Freio | (NULL) | 1x
+  "SUBST. CABO ACELERADOR" | Diversos | (NULL) | 1x
+  "SUBST. BUCHAS, PIVÔS E BANDEJA" | Direção | (NULL) | 1x
+  "SUBST. BOMBA HID. E TDF" | Hidráulico | (NULL) | 1x
+  "SUBST. AUTOMÁTICO M. PARTIDA" | Elétrico | (NULL) | 1x
+  "SUBST. AMORTECEDORES" | Suspensão | (NULL) | 1x
+  "Solda em Sapata do Munck" | Implemento | Serviço | 1x
+  "REVISÃO GERAL" | Revisão | (NULL) | 1x
+  "REMOÇÃO" | Guincho | (NULL) | 1x
+  "REEMISÃO DE PLACAS MERCOSUL POR PERDA DA PLACA DIANTEIRA" | Diversos | (NULL) | 1x
+  "Recuperação de Rosca de Carter" | Motor | Serviço | 1x
+  "PN 17.5-25 16PR G2/L2 TL" | Pneu | Compra | 1x
+  "PINTURA PARACHOQUE E CARROCERIA" | Funilaria | (NULL) | 1x
+  "Pino" | Implemento | Compra | 1x
+  "Mola Dianteira " | Suspensão | Compra | 1x
+  "MO SUBST. SUSPENSÃO E COXIM" | Revisão | (NULL) | 1x
+  "MO SUBST. PEÇAS CÂMBIO" | Câmbio | (NULL) | 1x
+  "MO SUBST. ENGRENAGENS CÂMBIO" | Câmbio | (NULL) | 1x
+  "MO ANÁLISE VAZAMENTO" | Motor | (NULL) | 1x
+  "MANGUEIRA DE ALTA PRESSÃO" | Hidráulico | (NULL) | 1x
+  "M.O. SUBSTITUIÇÃO CONVERSOR 12V E CONFERÊNCIA DE POSITIVO" | Elétrico | (NULL) | 1x
+  "M.O. SOLDA CARROCERIA" | Implemento | (NULL) | 1x
+  "M.O. EMBUCHAMENTO DE MOLEJOS TRASEIROS" | Suspensão | (NULL) | 1x
+  "LIMPEZA RADIADOR E INTERCOOLER" | Arrefecimento | (NULL) | 1x
+  "LANÇAMENTO INTERNO" | Diversos | (NULL) | 1x
+  "KIT DE REVISÃO CAT 416F2" | Revisão | (NULL) | 1x
+  "Junta do Carter" | Motor | Compra | 1x
+  "INSTALAÇÃO FAIXAS REFLETIVAS" | Diversos | (NULL) | 1x
+  "FUNILARIA GERAL" | Diversos | (NULL) | 1x
+  "Fluído de Freio" | Freio | Compra | 1x
+  "EMBUCHAMENTO CABINE" | Diversos | (NULL) | 1x
+  "DIAGNÓSTICO SCANNER" | Motor | (NULL) | 1x
+  "Amortecedor Dianteiro" | Suspensão | Compra | 1x
+  "Acoplamento" | Implemento | Compra | 1x
+
+================================================================================
+RESUMO
+================================================================================
+  Grupos de alta confiança : 10
+  Grupos de média confiança: 3
+  Serviços sem grupo       : 59
+
+PRÓXIMO PASSO: Revisar grupos e confirmar nomes canônicos antes de criar catalogo_servicos.
+Nenhuma alteração foi feita neste script.
+
+################################################################################
+# SCRIPT 5 — CONFLITOS SQL VS EXCEL
+# Arquivo: dryrun_conflitos.txt
+################################################################################
+
+================================================================================
+FASE 3A.1 — RELATÓRIO DE CONFLITOS SQL vs EXCEL (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+NENHUM UPDATE FOI EXECUTADO.
+================================================================================
+
+OS com match Excel ↔ SQL analisadas: 200
+
+------------------------------------------------------------
+--- CONFLITOS CRÍTICOS — 1 ---
+
+  OS-2026-0180     | campo: data_execucao   | SQL=2026-03-10                 | Excel=2026-03-17               | → REVISÃO HUMANA
+
+------------------------------------------------------------
+--- CONFLITOS MODERADOS — 13 ---
+
+  OS-2025-0004     | campo: categoria       | SQL="Compra,MONTAGEM E ALINHAMENTO PNEUS" | Excel="Compra"                          
+  OS-2025-0006     | campo: categoria       | SQL="Compra,MONTAGEM E ALINHAMENTO PNEUS" | Excel="Compra"                          
+  OS-2025-0015     | campo: categoria       | SQL="Compra"                             | Excel="Serviço"                         
+  OS-2025-0025     | campo: categoria       | SQL="MONTAGEM E ALINHAMENTO PNEUS,Compra" | Excel="Serviço"                         
+  OS-2025-0067     | campo: categoria       | SQL="Compra,MONTAGEM E ALINHAMENTO PNEUS" | Excel="Compra"                          
+  OS-2025-0088     | campo: categoria       | SQL="Compra,MONTAGEM E ALINHAMENTO PNEUS" | Excel="Compra"                          
+  OS-2025-0096     | campo: categoria       | SQL="MONTAGEM E ALINHAMENTO PNEUS,Compra" | Excel="Serviço"                         
+  OS-2025-0105     | campo: categoria       | SQL="MONTAGEM E BALANCEAMENTO PNEUS,Compra" | Excel="Serviço"                         
+  OS-2025-0107     | campo: categoria       | SQL="ALINHAMENTO PNEUS"                  | Excel="Serviço"                         
+  OS-2025-0122     | campo: categoria       | SQL="ALINHAMENTO E CAMBAGEM"             | Excel="Serviço"                         
+  OS-2025-0141     | campo: categoria       | SQL="INSTALAÇÃO E BALANCEAMENTO PNEUS"   | Excel="Serviço"                         
+  OS-2026-0195     | campo: categoria       | SQL="Compra,Serviço"                     | Excel="Compra"                          
+  OS-2026-0199     | campo: categoria       | SQL="M.O. PNEUS"                         | Excel="Serviço"                         
+
+------------------------------------------------------------
+--- ESTADO B (SQL NULL, Excel tem valor) — 166 casos ---
+
+  OS-2024-0001     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2024-0002     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0003     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0005     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0007     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0010     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0011     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0012     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0013     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0014     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0016     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0018     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0020     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0017     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0019     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0021     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0022     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0023     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0024     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0027     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0028     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0029     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0030     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0031     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0032     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0034     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0035     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0036     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0037     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0038     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0039     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0040     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0041     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0042     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0043     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0044     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0045     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  OS-2025-0046     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0047     | campo: categoria       | SQL=(NULL)          | Excel=Serviço
+  OS-2025-0049     | campo: categoria       | SQL=(NULL)          | Excel=Compra
+  ... e mais 126 casos Estado B
+
+------------------------------------------------------------
+--- SEM CONFLITO — 186 OS ---
+
+================================================================================
+RESUMO DE RISCO FINANCEIRO
+================================================================================
+  Conflitos críticos:             1
+  Conflitos moderados:            13
+  Casos Estado B (SQL NULL):      166
+  OS sem conflito:                186
+  Soma divergências financeiras:  R$ 0.00
+
+AÇÕES NECESSÁRIAS ANTES DA FASE 3A.2:
+  1. Revisar e resolver TODOS os conflitos críticos manualmente
+  2. Aprovar lista de Estado B para atualização SQL ← dados do Excel
+  3. Decidir sobre conflitos moderados de fornecedor caso a caso
+  Nenhuma alteração foi feita neste script.
+
+################################################################################
+# SCRIPT 6 — IMPACTO EM PRODUÇÃO
+# Arquivo: dryrun_impacto.txt
+################################################################################
+
+================================================================================
+FASE 3A.1 — MAPA DE DEPENDÊNCIAS EXCEL ATIVAS NO BACKEND (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+Arquivo analisado: C:\Users\vinic\Documents\clone\scratch\..\backend\main.py
+NENHUMA ALTERAÇÃO FOI FEITA.
+================================================================================
+
+------------------------------------------------------------
+--- ABAS EXCEL AINDA CARREGADAS VIA load_raw() ---
+
+  Definição de SHEETS em main.py (linhas):
+  L  809: "frota":            "🚛 FROTA",
+  L  810: "fat_unitario":     "💰 FAT_UNITARIO",
+  L  811: "reembolsos":       "↩️ REEMBOLSOS",
+  L  812: "manutencoes":      "🔧 MANUTENCOES",
+  L  813: "faturamento":      "🧾 FATURAMENTO",
+  L  814: "seguro_mensal":    "📋 SEGURO_MENSAL",
+  L  815: "impostos":         "📋 IMPOSTOS",
+  L  816: "rastreamento":     "📍RASTREAMENTO",
+  L  818: "clientes":         "🏢 CLIENTES",
+  L  819: "empresas":         "🏢 EMPRESAS",
+  L  820: "contrato_veiculo": "🔗 CONTRATO_VEICULO",
+
+  aba                   status          observação
+  ------------------------------------------------------------------------------------------
+  frota                 HÍBRIDO         SQL merge em compute() — Excel ainda lido como base
+  manutencoes           HÍBRIDO         SQL OS integradas, mas Excel ainda como fallback
+  fat_unitario          SQL PREFER      _load_db_financials() — fallback Excel se SQL vazio
+  seguro_mensal         SQL PREFER      _load_db_financials() — fallback Excel se SQL vazio
+  impostos              SQL PREFER      _load_db_financials() — fallback Excel se SQL vazio
+  rastreamento          SQL PREFER      _load_db_financials() — fallback Excel se SQL vazio
+  reembolsos            EXCEL PURO      compute() lê Excel direto — SQL existe mas não é usado
+  faturamento           EXCEL PURO      compute() lê Excel direto — SQL existe mas não é usado
+  contratos             EXCEL PURO      _contrato_ativo() — sem equivalente SQL
+  contrato_veiculo      EXCEL PURO      _contrato_ativo() — sem equivalente SQL
+  empresas              EXCEL PURO      _empresa_nome() — sem equivalente SQL
+  clientes              EXCEL PURO      lido mas não referenciado em nenhum endpoint
+
+------------------------------------------------------------
+--- FUNÇÕES COM DEPENDÊNCIA DIRETA DO EXCEL ---
+
+  _empresa_nome() — definida na linha 855
+    L863: df = data.get("empresas", pd.DataFrame())
+
+  _contrato_ativo() — definida na linha 873
+    L882: cv  = data.get("contrato_veiculo", pd.DataFrame())
+    L883: con = data.get("contratos",        pd.DataFrame())
+
+  compute() — definida na linha 983
+    L1007: reimb  = _filter_year(_parse(data["reembolsos"].copy(),   "Emissão"),       "Emissão",      year)
+    L1008: fat_sh = _filter_year(_parse(data["faturamento"].copy(),  "Emissão"),       "Emissão",      year)
+    L1331: fsh = _parse(data["faturamento"], "Emissão")
+
+  load_raw() — definida na linha 827
+
+------------------------------------------------------------
+--- VERIFICAÇÃO: SQL.reembolsos e SQL.faturamento têm dados? ---
+
+  reembolsos: 51 registros | período: 2025-01-02 → 2026-03-23
+  faturamento: 109 registros | período: 2025-01-02 → 2026-03-17
+
+  → Se SQL.reembolsos e SQL.faturamento têm dados completos,
+    é SEGURO remover o fallback Excel para essas tabelas na Fase 3A.2.
+
+------------------------------------------------------------
+--- ENDPOINTS AFETADOS POR ABA EXCEL ---
+
+  reembolsos          : /api/kpis, /api/vehicle/{placa}
+  faturamento         : /api/kpis, /api/monthly
+  contratos           : /api/vehicle/{placa} (via _contrato_ativo)
+  contrato_veiculo    : /api/vehicle/{placa} (via _contrato_ativo)
+  empresas            : /api/vehicle/{placa} (via _empresa_nome)
+  clientes            : (nenhum endpoint — lido mas não usado)
+
+------------------------------------------------------------
+--- PRÉ-REQUISITOS ANTES DE REMOVER CADA ABA DO EXCEL ---
+
+  reembolsos          : Confirmar SQL.reembolsos completo (✓ verificado acima) — pronto para Fase 3A.2
+  faturamento         : Confirmar SQL.faturamento completo (✓ verificado acima) — pronto para Fase 3A.2
+  contratos           : Criar tabelas SQL contratos + contrato_veiculo (Fase 3C)
+  contrato_veiculo    : Criar tabelas SQL contratos + contrato_veiculo (Fase 3C)
+  empresas            : Criar tabela SQL empresas ou migrar para campo em frota (Fase 3C)
+  clientes            : Sem dependência de endpoint — pode ser removido a qualquer momento
+  frota               : Migrar campos extras (Renavam, AnoFab, etc.) para SQL.frota (Fase 3C)
+  manutencoes         : Deprecar após migração completa de OS para SQL (Fase 5)
+
+------------------------------------------------------------
+--- IMPACTO SIMULADO DE REMOÇÃO (estimativa) ---
+
+  Se remover reembolsos do Excel e SQL falhar: 14 veículos perdem custo_reembolsos (51 registros)
+  Se remover faturamento do Excel e SQL falhar: 109 registros de faturamento global perdem visibilidade
+  Se remover contratos do Excel sem SQL: VehicleModal perde dados de Contrato/Região para TODOS os veículos
+
+================================================================================
+RESUMO DE RISCO
+================================================================================
+  Abas 100% Excel puro (sem SQL equivalente): contratos, contrato_veiculo, empresas, clientes
+  Abas com SQL pronto mas backend ainda usa Excel: reembolsos, faturamento
+  Abas híbridas (SQL + Excel): frota, manutencoes, fat_unitario, seguro_mensal, impostos, rastreamento
+
+AÇÃO RECOMENDADA PARA FASE 3A.2:
+  Apenas: remover fallback Excel de reembolsos e faturamento em compute()
+  Tudo mais: aguardar Fase 3C (criação das tabelas SQL de contratos/empresas)
+  Nenhuma alteração foi feita neste script.
+
+================================================================================
+APROVAÇÃO NECESSÁRIA ANTES DA FASE 3A.2
+================================================================================
+
+Itens que EXIGEM revisão humana antes de qualquer escrita no banco:
+
+  1. OS-2026-0180 — data_execucao divergente (ver dryrun_conflitos.txt)
+  2. Itens de categoria AMBÍGUO e IMPOSSÍVEL (ver dryrun_categoria.txt)
+  3. Grupos de fornecedores com alias MÉDIA confiança (ver dryrun_fornecedores.txt)
+  4. Fornecedores com '/' — decidir: 1 vínculo ou múltiplos (ver dryrun_fornecedores.txt)
+  5. Serviços AMBÍGUOS sem grupo identificado (ver dryrun_servicos.txt)
+
+Itens APROVADOS para execução automática na Fase 3A.2:
+
+  A. Inferências de categoria com confiança >= 85% (ver dryrun_categoria.txt)
+  B. Normalizações sem colisão [OK] (ver dryrun_normalizacao.txt)
+  C. Remoção de fallback Excel de reembolsos/faturamento no backend (ver dryrun_impacto.txt)
+
+ASSINATURA DE APROVAÇÃO (preencher manualmente):
+  Revisado por: ___________________________
+  Data:         2026-05-09
+  Aprovado:     [ ] SIM    [ ] NÃO — motivo: ___________

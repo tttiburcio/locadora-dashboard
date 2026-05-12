@@ -1,0 +1,320 @@
+================================================================================
+FASE 3A.1 — PROPOSTA DE CATÁLOGO DE SERVIÇOS (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+NENHUM UPDATE FOI EXECUTADO.
+================================================================================
+
+Total de valores únicos de servico: 227
+Grupos identificados com match:     14
+Serviços sem grupo definido:        59
+
+------------------------------------------------------------
+GRUPO: "Fornecimento de Pneus"
+  sistema: Pneu | categoria: Compra | confiança: ALTA | total: 116 ocorrências
+  aliases encontrados:
+    → "FORNEC. PNEUS" (26x)
+    → "MONTAGEM E ALINHAMENTO PNEUS" (6x) [categoria: MONTAGEM E ALINHAMENTO PNEUS]
+    → "FORNEC. FAIXAS REFLETIVAS" (4x) [sistema diferente: Diversos]
+    → "FORNEC. ÓLEO HIDRÁULICO" (3x) [sistema diferente: Hidráulico]
+    → "FORNEC. FECHADURAS" (3x) [sistema diferente: Diversos]
+    → "FORNEC. ACABAMENTOS INTERNOS" (3x) [sistema diferente: Diversos]
+    → "FORNEC. ÓLEO TRANSMISSÃO" (2x) [sistema diferente: Câmbio]
+    → "FORNEC. ÓLEO MOTOR" (2x) [sistema diferente: Motor]
+    → "FORNEC. PNEUS + MONTAGEM" (2x)
+    → "FORNEC. PEÇAS RETÍFICA CABEÇOTE" (2x) [sistema diferente: Motor]
+    → "FORNEC. PEÇAS CÂMBIO" (2x) [sistema diferente: Câmbio]
+    → "FORNEC. FILTROS" (2x) [sistema diferente: Revisão]
+    → "FORNEC. EMBREAGEM VISCOSA E MANGUEIRA INTERCOOLER" (2x) [sistema diferente: Arrefecimento]
+    → "FORNEC. DENTES CONCHA" (2x) [sistema diferente: Diversos]
+    → "FORNEC. BATERIA" (2x) [sistema diferente: Elétrico]
+    → "MONTAGEM E BALANCEAMENTO PNEUS" (1x) [categoria: MONTAGEM E BALANCEAMENTO PNEUS]
+    → "M.O. PNEUS" (1x) [categoria: M.O. PNEUS]
+    → "INSTALAÇÃO PNEUS" (1x) [sistema diferente: Direção]
+    → "INSTALAÇÃO E BALANCEAMENTO PNEUS" (1x) [categoria: INSTALAÇÃO E BALANCEAMENTO PNEUS]
+    → "FORNEC. ÓLEO DE MOTOR" (1x) [sistema diferente: Motor]
+    → "FORNEC. ÓLEO" (1x) [sistema diferente: Motor]
+    → "FORNEC. TURBINA" (1x) [sistema diferente: Motor]
+    → "FORNEC. TAMPA TANQUE E DENTES" (1x) [sistema diferente: Diversos]
+    → "FORNEC. SOLENOIDE" (1x) [sistema diferente: Motor]
+    → "FORNEC. SENSOR RAIL" (1x) [sistema diferente: Motor]
+    → "FORNEC. SENSOR MAP" (1x) [sistema diferente: Motor]
+    → "FORNEC. SENSOR E ADITIVO" (1x) [sistema diferente: Motor]
+    → "FORNEC. SEMI-EIXO E CUBO" (1x) [sistema diferente: Diferencial]
+    → "FORNEC. ROTOR M. PARTIDA" (1x) [sistema diferente: Elétrico]
+    → "FORNEC. ROLAMENTO EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. ROLAMENTO DUPLO CUBO DE RODA DIANTEIRA" (1x) [sistema diferente: Diferencial]
+    → "FORNEC. ROLAMENTO CUBO" (1x) [sistema diferente: Diferencial]
+    → "FORNEC. RESERVATÓRIO DIREÇÃO" (1x) [sistema diferente: Hidráulico]
+    → "FORNEC. PNEUS RECAP" (1x)
+    → "FORNEC. PNEUS E BATERIA" (1x)
+    → "FORNEC. PNEU" (1x)
+    → "FORNEC. PINÇAS TRASEIRAS" (1x) [sistema diferente: Freio]
+    → "FORNEC. PINÇA DIANTEIRA" (1x) [sistema diferente: Freio]
+    → "FORNEC. PEÇAS MOTOR BAIXO" (1x) [sistema diferente: Motor]
+    → "FORNEC. PEÇAS DIREÇÃO E CABINE" (1x) [sistema diferente: Direção]
+    → "FORNEC. PEÇAS CÂMBIO + ÓLEO" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. PEÇAS (INDENIZAÇÃO)" (1x) [sistema diferente: Motor]
+    → "FORNEC. PALHETA PARABRISA" (1x) [sistema diferente: Diversos]
+    → "FORNEC. MANGUEIRA HIDRÁULICA" (1x) [sistema diferente: Hidráulico]
+    → "FORNEC. MANGUEIRA FILTRO AR" (1x) [sistema diferente: Diversos]
+    → "FORNEC. MANGUEIRA E COXINS" (1x) [sistema diferente: Motor]
+    → "FORNEC. KIT REPARO MOTOR" (1x) [sistema diferente: Motor]
+    → "FORNEC. KIT PINOS E BUCHAS" (1x) [sistema diferente: Diversos]
+    → "FORNEC. KIT MOTOR BAIXO" (1x) [sistema diferente: Motor]
+    → "FORNEC. KIT FILTROS" (1x) [sistema diferente: Revisão]
+    → "FORNEC. KIT COXINS" (1x) [sistema diferente: Diversos]
+    → "FORNEC. KIT CORREIA E FLUIDOS" (1x) [sistema diferente: Hidráulico]
+    → "FORNEC. ITENS COMPLEMENTARES" (1x) [sistema diferente: Implemento]
+    → "FORNEC. GRAXA" (1x) [sistema diferente: Diversos]
+    → "FORNEC. FLUÍDO DE FREIO E CILINDRO MESTRE EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. FILTROS AR" (1x) [sistema diferente: Motor]
+    → "FORNEC. ECM BOSCH" (1x) [sistema diferente: Elétrico]
+    → "FORNEC. CORREIA POLI-V" (1x) [sistema diferente: Motor]
+    → "FORNEC. COROA E PINHÃO" (1x) [sistema diferente: Diferencial]
+    → "FORNEC. CONVERSOR" (1x) [sistema diferente: Elétrico]
+    → "FORNEC. CILINDRO MESTRE DE FREIO" (1x) [sistema diferente: Freio]
+    → "FORNEC. CILINDRO EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. CABOS CÂMBIO" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. CABO DE EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "FORNEC. BRAÇO AXIAL DIREÇÃO" (1x) [sistema diferente: Direção]
+    → "FORNEC. BOMBA HIDRÁULICA" (1x) [sistema diferente: Hidráulico]
+    → "FORNEC. BANCO GIRATÓRIO" (1x) [sistema diferente: Diversos]
+    → "ALINHAMENTO PNEUS" (1x) [categoria: ALINHAMENTO PNEUS]
+
+------------------------------------------------------------
+GRUPO: "Troca de Óleo e Filtros"
+  sistema: Motor | categoria: Compra | confiança: ALTA | total: 32 ocorrências
+  aliases encontrados:
+    → "TROCA DE ÓLEO E FILTROS" (3x) [sistema diferente: Revisão]
+    → "Troca de Óleo" (2x) [categoria: Serviço]
+    → "FORNEC. KIT FILTROS + ÓLEO" (2x) [sistema diferente: Revisão]
+    → "Filtro de Combustível" (2x)
+    → "Filtro de Ar" (2x)
+    → "Óleo SAE 80w90" (1x) [sistema diferente: Câmbio]
+    → "Óleo de Motor SAE 15w40" (1x)
+    → "Óleo de Motor 15w40 " (1x)
+    → "Óleo 85w140" (1x) [sistema diferente: Diferencial]
+    → "Óleo 15w40" (1x)
+    → "TROCA ÓLEO E FILTROS" (1x) [sistema diferente: Revisão]
+    → "REPARO VAZAMENTO ÓLEO + REVISÃO" (1x) [sistema diferente: Revisão]
+    → "FRETE + FILTROS" (1x) [sistema diferente: Revisão]
+    → "FORNEC. ÓLEO + FILTRO" (1x) [sistema diferente: Revisão]
+    → "Filtro Raccor" (1x)
+    → "Filtro Lubrificante" (1x)
+    → "Filtro Hidráulico" (1x) [sistema diferente: Hidráulico]
+    → "Filtro de Óleo Diesel" (1x)
+    → "Filtro de Óleo" (1x)
+    → "Filtro de Transmissão" (1x) [sistema diferente: Câmbio]
+    → "Filtro de Combustível Separador" (1x)
+    → "Filtro de Cabine" (1x) [sistema diferente: Outro]
+    → "Filtro de Ar Secundário" (1x)
+    → "Filtro de Ar Primário" (1x)
+    → "Filtro de Ar Condicionado" (1x) [sistema diferente: Outro]
+    → "Carter de Óleo de Motor" (1x)
+
+------------------------------------------------------------
+GRUPO: "Substituição de Pastilhas"
+  sistema: Freio | categoria: Compra | confiança: ALTA | total: 21 ocorrências
+  aliases encontrados:
+    → "SUBST. PASTILHAS" (4x)
+    → "SUBST. PASTILHAS E DISCOS" (3x)
+    → "SUBST. RESFRIADOR ÓLEO E PASTILHAS" (2x) [sistema diferente: Motor]
+    → "FORNEC. PASTILHAS E DISCOS" (2x)
+    → "SUBST. PINÇA, DISCOS E PASTILHAS" (1x)
+    → "SUBST. PASTILHAS, DISCOS E REPARO PINÇA" (1x)
+    → "SUBST. PASTILHAS E REPARO CILINDRO" (1x)
+    → "SUBST. PASTILHAS E PASSE DISCOS" (1x)
+    → "SUBST. PASTILHAS DISCOS E CUBO TRASEIRO" (1x)
+    → "SUBST. PASTILHAS + REVISÃO" (1x)
+    → "RECOLOCAÇÃO PASTILHAS" (1x)
+    → "FORNEC. PINÇA, DISCOS E PASTILHAS" (1x)
+    → "FORNEC. PINÇA, DISCO E PASTILHAS" (1x)
+    → "FORNEC. PASTILHAS E DISCO" (1x)
+
+------------------------------------------------------------
+GRUPO: "Kit Revisão"
+  sistema: Revisao | categoria: Compra | confiança: ALTA | total: 14 ocorrências
+  aliases encontrados:
+    → "KIT REVISAO — VW EXPRESS" (8x) [sistema diferente: Revisão]
+    → "KIT REVISAO — VW 9170" (1x) [sistema diferente: Revisão]
+    → "KIT REVISAO — VW 9150" (1x) [sistema diferente: Revisão]
+    → "KIT REVISAO — VW 14-190" (1x) [sistema diferente: Revisão]
+    → "KIT REVISAO — VW 13-180" (1x) [sistema diferente: Revisão]
+    → "KIT REVISAO 500H — JCB 3CX" (1x) [sistema diferente: Revisão]
+    → "FORNEC. KIT CORREIA + KIT REVISÃO" (1x) [sistema diferente: Revisão]
+
+------------------------------------------------------------
+GRUPO: "Kit Embreagem"
+  sistema: Cambio | categoria: Compra | confiança: ALTA | total: 14 ocorrências
+  aliases encontrados:
+    → "FORNEC. KIT EMBREAGEM" (3x) [sistema diferente: Câmbio]
+    → "SUBST. KIT EMBREAGEM + RETÍFICA VOLANTE" (2x) [sistema diferente: Câmbio]
+    → "SUBST. KIT EMBREAGEM" (2x) [sistema diferente: Câmbio]
+    → "Substituição Cabo de Embreagem" (1x) [sistema diferente: Câmbio] [categoria: Serviço]
+    → "SUBSTITUIÇÃO DE KIT EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "SUBST. KIT EMBREAGEM COMPLETO" (1x) [sistema diferente: Câmbio]
+    → "MÃO DE OBRA SUBSTITUIÇÃO DE  EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "MO SUBST. SINCRONIZADOS E EMBREAGEM" (1x) [sistema diferente: Câmbio]
+    → "M.O. SUBSTITUIÇÃO DE EMBREAGEM VISCOSA E MANGUEIRA INTERCOOLER" (1x) [sistema diferente: Arrefecimento]
+    → "M.O. KIT EMBREAGEM" (1x) [sistema diferente: Câmbio]
+
+------------------------------------------------------------
+GRUPO: "Serviço Elétrico"
+  sistema: Eletrico | categoria: Servico | confiança: MEDIA | total: 12 ocorrências
+  aliases encontrados:
+    → "SUBST. LÂMPADA" (4x) [sistema diferente: Elétrico]
+    → "01 BATERIA 100A" (3x) [sistema diferente: Elétrico]
+    → "REPARO ELÉTRICO GERAL" (2x) [sistema diferente: Elétrico]
+    → "REPARO CHICOTE ELÉTRICO" (2x) [sistema diferente: Elétrico]
+    → "DIAGNÓSTICO ELÉTRICO" (1x) [sistema diferente: Elétrico]
+
+------------------------------------------------------------
+GRUPO: "Serviço de Direção"
+  sistema: Direcao | categoria: Servico | confiança: MEDIA | total: 10 ocorrências
+  aliases encontrados:
+    → "SUBST. TERMINAIS DIREÇÃO" (1x) [sistema diferente: Direção]
+    → "SUBST. MANGUEIRA HIDRÁULICA" (1x) [sistema diferente: Hidráulico]
+    → "SUBST. BOMBA HIDRÁULICA" (1x) [sistema diferente: Direção]
+    → "REPARO PISTÃO HIDRÁULICO" (1x) [sistema diferente: Implemento]
+    → "REPARO CUBO E EMBUCHAMENTO DIREÇÃO" (1x) [sistema diferente: Direção]
+    → "REPARO CAIXA DIREÇÃO" (1x) [sistema diferente: Direção]
+    → "REPARO BOMBA HIDRÁULICA" (1x) [sistema diferente: Hidráulico]
+    → "MO REPARO DIREÇÃO" (1x) [sistema diferente: Direção]
+    → "M.O. REPARO EM CAIXA DE DIREÇÃO, SOLDA E TROCA DE KIT" (1x) [sistema diferente: Direção]
+    → "KIT DE CAIXA DE DIREÇÃO" (1x) [sistema diferente: Direção]
+
+------------------------------------------------------------
+GRUPO: "Serviço de Motor"
+  sistema: Motor | categoria: Servico | confiança: MEDIA | total: 10 ocorrências
+  aliases encontrados:
+    → "SUBST. JUNTAS MOTOR" (1x)
+    → "RETÍFICA DE MOTOR COMPLETA (ADIANT.)" (1x)
+    → "RETÍFICA DE MOTOR COMPLETA" (1x)
+    → "RETÍFICA CABEÇOTE E BLOCO" (1x)
+    → "RETÍFICA CABEÇOTE + VÁLVULAS" (1x)
+    → "REPARO MOTOR DE PARTIDA" (1x) [sistema diferente: Elétrico]
+    → "RECONDICIONAMENTO INJEÇÃO ELETRÔNICA" (1x) [sistema diferente: Injeção]
+    → "Motor Parcial Completo" (1x) [categoria: Compra]
+    → "Motor " (1x) [categoria: Compra]
+    → "M.O. RECUPERAÇÃO MÁQUINA DE VIDRO L. MOTORISTA" (1x) [sistema diferente: Diversos]
+
+------------------------------------------------------------
+GRUPO: "Substituição de Lonas"
+  sistema: Freio | categoria: Compra | confiança: ALTA | total: 6 ocorrências
+  aliases encontrados:
+    → "SUBST. LONAS E TAMBOR" (1x)
+    → "SUBST. LONAS E CUÍCAS" (1x)
+    → "SUBST. LONAS" (1x)
+    → "MO SUBST. LONAS E PATIM" (1x)
+    → "FORNEC. LONAS TRASEIRAS" (1x)
+    → "FORNEC. LONAS" (1x)
+
+------------------------------------------------------------
+GRUPO: "Serviço Diversos"
+  sistema: Diversos | categoria: Servico | confiança: BAIXA | total: 5 ocorrências
+  aliases encontrados:
+    → "Serviço SOLDA DENTES" (1x)
+    → "REPARO MANGUEIRA RADIADOR" (1x) [sistema diferente: Arrefecimento]
+    → "REPARO CUBO DIANTEIRO" (1x) [sistema diferente: Revisão]
+    → "REPARO CHICOTE E VÁLVULA" (1x) [sistema diferente: Elétrico]
+    → "M.O. SERVIÇO DE SOLDA" (1x) [sistema diferente: Implemento] [categoria: Serviço]
+
+------------------------------------------------------------
+GRUPO: "Guincho / Socorro"
+  sistema: Guincho | categoria: Servico | confiança: ALTA | total: 3 ocorrências
+  aliases encontrados:
+    → "REMOÇÃO VIA GUINCHO" (2x)
+    → "GUINCHO" (1x)
+
+------------------------------------------------------------
+GRUPO: "Montagem e Alinhamento de Pneus"
+  sistema: Pneu | categoria: Servico | confiança: ALTA | total: 2 ocorrências
+  aliases encontrados:
+    → "MO MONTAGEM CABEÇOTE" (1x) [sistema diferente: Motor]
+    → "ALINHAMENTO E CAMBAGEM" (1x) [categoria: ALINHAMENTO E CAMBAGEM]
+
+------------------------------------------------------------
+GRUPO: "Balanceamento de Pneus"
+  sistema: Pneu | categoria: Servico | confiança: ALTA | total: 2 ocorrências
+  aliases encontrados:
+    → "Alinhamento e Balanceamento" (1x) [sistema diferente: Direção] [categoria: Serviço]
+    → "Alinhamento Balanceamento e Cambagem" (1x) [categoria: Serviço]
+
+------------------------------------------------------------
+GRUPO: "Substituição de Disco de Freio"
+  sistema: Freio | categoria: Compra | confiança: ALTA | total: 1 ocorrências
+  aliases encontrados:
+    → "FORNEC. DISCOS DE FREIO DIANTEIRO E TRASEIRO" (1x)
+
+================================================================================
+--- SERVIÇOS SEM GRUPO IDENTIFICADO (59) — texto completamente livre ---
+
+  "PINTURA PARACHOQUE TRASEIRO" | Diversos | (NULL) | 3x
+  "FRETE" | Diversos | (NULL) | 2x
+  "Verificação Seletora de Marchas" | Câmbio | Serviço | 1x
+  "USINAGEM E EMBUCHAMENTO CAÇAMBA" | Diversos | (NULL) | 1x
+  "Turbinas" | Motor | Serviço | 1x
+  "Thinner" | Câmbio | Compra | 1x
+  "Tampa Combustível" | Outro | Compra | 1x
+  "Substituição de Pino e Acoplamento" | Implemento | Serviço | 1x
+  "Substituição de Mola Mestre Dianteira " | Suspensão | Serviço | 1x
+  "Substituição de Cilindro Mestre de Freio" | Freio | Serviço | 1x
+  "Substituição de Carter" | Motor | Serviço | 1x
+  "Substituição de Amortecedor Dianteiro" | Suspensão | Serviço | 1x
+  "SUBST. VIDRO PORTA" | Diversos | (NULL) | 1x
+  "SUBST. TRANSISTOR MÓDULO" | Elétrico | (NULL) | 1x
+  "SUBST. TERMINAL CÂMBIO" | Diversos | (NULL) | 1x
+  "SUBST. ROLAMENTO E BARRAS" | Direção | (NULL) | 1x
+  "SUBST. PINÇAS TRASEIRAS" | Freio | (NULL) | 1x
+  "SUBST. PEÇAS CÂMBIO" | Câmbio | (NULL) | 1x
+  "SUBST. PARABRISA" | Diversos | (NULL) | 1x
+  "SUBST. NIPLE TELESCÓPIO" | Implemento | (NULL) | 1x
+  "SUBST. MANGUEIRA TELESCÓPIO" | Implemento | (NULL) | 1x
+  "SUBST. LANTERNAS" | Diversos | (NULL) | 1x
+  "SUBST. CREMALHEIRA E COLUNA" | Implemento | (NULL) | 1x
+  "SUBST. COXINS" | Diversos | (NULL) | 1x
+  "SUBST. COROA PINHÃO E CARDAN" | Diferencial | (NULL) | 1x
+  "SUBST. CANO COMPRESSOR AR" | Freio | (NULL) | 1x
+  "SUBST. CABO ACELERADOR" | Diversos | (NULL) | 1x
+  "SUBST. BUCHAS, PIVÔS E BANDEJA" | Direção | (NULL) | 1x
+  "SUBST. BOMBA HID. E TDF" | Hidráulico | (NULL) | 1x
+  "SUBST. AUTOMÁTICO M. PARTIDA" | Elétrico | (NULL) | 1x
+  "SUBST. AMORTECEDORES" | Suspensão | (NULL) | 1x
+  "Solda em Sapata do Munck" | Implemento | Serviço | 1x
+  "REVISÃO GERAL" | Revisão | (NULL) | 1x
+  "REMOÇÃO" | Guincho | (NULL) | 1x
+  "REEMISÃO DE PLACAS MERCOSUL POR PERDA DA PLACA DIANTEIRA" | Diversos | (NULL) | 1x
+  "Recuperação de Rosca de Carter" | Motor | Serviço | 1x
+  "PN 17.5-25 16PR G2/L2 TL" | Pneu | Compra | 1x
+  "PINTURA PARACHOQUE E CARROCERIA" | Funilaria | (NULL) | 1x
+  "Pino" | Implemento | Compra | 1x
+  "Mola Dianteira " | Suspensão | Compra | 1x
+  "MO SUBST. SUSPENSÃO E COXIM" | Revisão | (NULL) | 1x
+  "MO SUBST. PEÇAS CÂMBIO" | Câmbio | (NULL) | 1x
+  "MO SUBST. ENGRENAGENS CÂMBIO" | Câmbio | (NULL) | 1x
+  "MO ANÁLISE VAZAMENTO" | Motor | (NULL) | 1x
+  "MANGUEIRA DE ALTA PRESSÃO" | Hidráulico | (NULL) | 1x
+  "M.O. SUBSTITUIÇÃO CONVERSOR 12V E CONFERÊNCIA DE POSITIVO" | Elétrico | (NULL) | 1x
+  "M.O. SOLDA CARROCERIA" | Implemento | (NULL) | 1x
+  "M.O. EMBUCHAMENTO DE MOLEJOS TRASEIROS" | Suspensão | (NULL) | 1x
+  "LIMPEZA RADIADOR E INTERCOOLER" | Arrefecimento | (NULL) | 1x
+  "LANÇAMENTO INTERNO" | Diversos | (NULL) | 1x
+  "KIT DE REVISÃO CAT 416F2" | Revisão | (NULL) | 1x
+  "Junta do Carter" | Motor | Compra | 1x
+  "INSTALAÇÃO FAIXAS REFLETIVAS" | Diversos | (NULL) | 1x
+  "FUNILARIA GERAL" | Diversos | (NULL) | 1x
+  "Fluído de Freio" | Freio | Compra | 1x
+  "EMBUCHAMENTO CABINE" | Diversos | (NULL) | 1x
+  "DIAGNÓSTICO SCANNER" | Motor | (NULL) | 1x
+  "Amortecedor Dianteiro" | Suspensão | Compra | 1x
+  "Acoplamento" | Implemento | Compra | 1x
+
+================================================================================
+RESUMO
+================================================================================
+  Grupos de alta confiança : 10
+  Grupos de média confiança: 3
+  Serviços sem grupo       : 59
+
+PRÓXIMO PASSO: Revisar grupos e confirmar nomes canônicos antes de criar catalogo_servicos.
+Nenhuma alteração foi feita neste script.

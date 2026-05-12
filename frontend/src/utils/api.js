@@ -28,6 +28,7 @@ export const getIntervalosAnalysis  = (sistema)            => api.get('/maintena
 
 // ── Banco SQLite — CRUD legado (manutenções) ─────────────────────────
 export const dbListFrota           = ()                    => api.get('/db/frota').then(r => r.data)
+export const dbPneuSpecs           = (placa)               => api.get(`/db/pneu-specs/${encodeURIComponent(placa)}`).then(r => r.data)
 export const dbListManutencoes     = (status, placa)       => api.get('/db/manutencoes', { params: { ...(status ? { status } : {}), ...(placa ? { placa } : {}) } }).then(r => r.data)
 export const dbGetManutencao       = (id)                  => api.get(`/db/manutencoes/${id}`).then(r => r.data)
 export const dbAbrirManutencao     = (payload)             => api.post('/db/manutencoes', payload).then(r => r.data)

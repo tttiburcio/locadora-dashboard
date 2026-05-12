@@ -1068,10 +1068,6 @@ def compute(year: int):
         logger.warning("[FC_FALLBACK] faturamento do Excel — year=%s", year)
         fat_sh = _filter_year(_parse(data["faturamento"].copy(), "Emissão"), "Emissão", year)
 
-    logger.info(
-        "[FC_FALLBACK] manut_raw lido do Excel em compute() year=%s — "
-        "ordens_servico SQL é sobreposto em seguida; Excel serve como base histórica.", year,
-    )
     manut_raw = _filter_year(_parse(data["manutencoes"].copy(), "DataExecução"), "DataExecução", year)
 
     # ── Excel Notas Count ──────────────────────────────────
@@ -2006,8 +2002,7 @@ def get_intervalos_analysis(sistema: str = Query(...)):
                     oi.modelo_pneu                              AS modelo_pneu,
                     oi.condicao_pneu                            AS condicao_pneu,
                     oi.manejo_pneu                              AS manejo_pneu,
-                    oi.categoria                                AS categoria,
-                    os.fornecedor                               AS fornecedor
+                    oi.categoria                                AS categoria
                 FROM ordens_servico os
                 JOIN os_itens oi  ON oi.os_id = os.id
                 LEFT JOIN frota f ON f.placa   = os.placa
@@ -2025,32 +2020,25 @@ def get_intervalos_analysis(sistema: str = Query(...)):
         return {"sistema": sistema, "fleet": {}, "por_placa": []}
 
     if is_pneu:
-        # SQL autoritativo para QUALQUER row pneu — mesmo sem posicao_pneu preenchida.
-        # Excel complementa posicao_pneu ausente no SQL e cobre OS totalmente ausentes do SQL.
+        # SQL é autoritativo quando tem posicao_pneu preenchida (granularidade por item).
+        # Excel cobre OSes sem dados SQL úteis (posição nula ou ausentes no novo modelo).
+        # Regra:
+        #   - OS com pelo menos 1 linha SQL com posicao_pneu não-nula → usar só SQL
+        #   - OS sem linha SQL com posição → usar Excel (posição vem da planilha)
         frames_pneu = []
-        sql_nos = set(rows_sql["numero_os"].dropna().unique()) if not rows_sql.empty else set()
 
         if not rows_sql.empty:
-            rows_sql_base = rows_sql.copy()
-            # Backfill posicao_pneu de Excel para rows SQL que ainda não têm posição
-            if not rows_excel.empty:
-                pos_xl = (
-                    rows_excel[rows_excel["posicao_pneu"].notna()]
-                    [["numero_os", "posicao_pneu"]]
-                    .drop_duplicates("numero_os")
-                    .set_index("numero_os")["posicao_pneu"]
-                )
-                mask_no_pos = (
-                    rows_sql_base["posicao_pneu"].isna()
-                    | (rows_sql_base["posicao_pneu"].astype(str).str.strip() == "")
-                )
-                rows_sql_base.loc[mask_no_pos, "posicao_pneu"] = (
-                    rows_sql_base.loc[mask_no_pos, "numero_os"].map(pos_xl)
-                )
-            frames_pneu.append(rows_sql_base)
+            # Para pneu: remover linhas SQL sem posição (sem posição = sem dados úteis)
+            rows_sql_pneu = rows_sql[rows_sql["posicao_pneu"].notna() & (rows_sql["posicao_pneu"].astype(str).str.strip() != "")].copy()
+            # OS que têm pelo menos 1 item SQL com posição — essas prevalecem sobre Excel
+            sql_nos = set(rows_sql_pneu["numero_os"].dropna().unique())
+            if not rows_sql_pneu.empty:
+                frames_pneu.append(rows_sql_pneu)
+        else:
+            sql_nos = set()
 
         if not rows_excel.empty:
-            # Excel apenas para OS completamente ausentes do SQL
+            # Usar Excel apenas para OSes sem cobertura SQL com posição
             excel_only = rows_excel[~rows_excel["numero_os"].isin(sql_nos)].copy()
             if not excel_only.empty:
                 frames_pneu.append(excel_only)
@@ -2100,52 +2088,6 @@ def get_intervalos_analysis(sistema: str = Query(...)):
                         combined.drop(columns=["data_exec_sql", "modelo_sql", "km_sql"], inplace=True)
                 except Exception as _e:
                     logger.warning("Erro ao enriquecer data/modelo/km em intervalos: %s", _e)
-
-    # ── 3.2. Enriquecer campos os_itens para rows Excel de pneu ───────────────────────
-    # Rows Excel não carregam posicao_pneu, espec_pneu, servico, categoria, descricao etc.
-    # Consulta os_itens para backfill desses campos quando disponíveis no SQL.
-    if is_pneu and not combined.empty and "fonte" in combined.columns:
-        xl_mask = combined["fonte"].eq("excel")
-        xl_nos  = combined.loc[xl_mask, "numero_os"].dropna().unique().tolist()
-        if xl_nos:
-            nos_str2 = ", ".join(f"'{n.replace(chr(39), '')}'" for n in xl_nos)
-            try:
-                with engine.connect() as _c2:
-                    enrich_items = pd.read_sql(f"""
-                        SELECT os.numero_os,
-                               oi.posicao_pneu  AS posicao_pneu_sql,
-                               oi.espec_pneu    AS espec_pneu_sql,
-                               oi.qtd_pneu      AS qtd_pneu_sql,
-                               oi.marca_pneu    AS marca_pneu_sql,
-                               oi.modelo_pneu   AS modelo_pneu_sql,
-                               oi.condicao_pneu AS condicao_pneu_sql,
-                               oi.servico       AS servico_sql,
-                               oi.categoria     AS categoria_sql,
-                               oi.descricao     AS descricao_sql,
-                               oi.qtd_itens     AS qtd_itens_sql
-                        FROM ordens_servico os
-                        JOIN os_itens oi ON oi.os_id = os.id
-                        WHERE os.deletado_em IS NULL
-                          AND LOWER(oi.sistema) = 'pneu'
-                          AND (LOWER(COALESCE(oi.categoria,'')) = 'compra'
-                               OR LOWER(COALESCE(oi.manejo_pneu,'')) = 'recapadora')
-                          AND os.numero_os IN ({nos_str2})
-                    """, _c2)
-                if not enrich_items.empty:
-                    combined = combined.merge(enrich_items, on="numero_os", how="left")
-                    for _field in ["posicao_pneu", "espec_pneu", "qtd_pneu", "marca_pneu",
-                                   "modelo_pneu", "condicao_pneu", "servico", "categoria",
-                                   "descricao", "qtd_itens"]:
-                        _sql_col = f"{_field}_sql"
-                        if _sql_col in combined.columns:
-                            _m = combined[_field].isna() & combined[_sql_col].notna()
-                            combined.loc[_m, _field] = combined.loc[_m, _sql_col]
-                    combined.drop(
-                        columns=[c for c in combined.columns if c.endswith("_sql")],
-                        inplace=True,
-                    )
-            except Exception as _e2:
-                logger.warning("Erro ao enriquecer os_itens pneu em intervalos: %s", _e2)
 
     # ── 3.5. Carregar rodízios (Pneu) — indexados por os_ref para montagem de fases ──
     rods_by_os: dict = {}
@@ -2447,12 +2389,7 @@ def get_intervalos_analysis(sistema: str = Query(...)):
             pos_arrivals_g: dict = {}
             for conj in all_conjs_flat:
                 last_f = conj["fases"][-1]
-                pos = last_f.get("posicao")
-                if not pos or pos == "—":
-                    logger.debug("[PNEU] conj sem posicao — excluído do cross-descarte: os=%s",
-                                 conj.get("os_ref"))
-                    continue
-                for pp in (_pos_parts(pos) or [pos]):
+                for pp in (_pos_parts(last_f["posicao"]) or [last_f["posicao"]]):
                     pos_arrivals_g.setdefault(pp, []).append(
                         (last_f["km_inicio"] or 0, last_f["data_inicio"], conj)
                     )
@@ -2922,69 +2859,6 @@ def listar_frota_db(db: Session = Depends(get_db)):
         .order_by(models.Frota.placa)
         .all()
     )
-
-
-
-@app.get("/api/db/pneu-specs/{placa}")
-def get_pneu_specs(placa: str, db: Session = Depends(get_db)):
-    """Retorna specs de pneu para uma placa: por posição (para auto-fill) e
-    todas as medidas únicas conhecidas (para sugestões no datalist)."""
-    from sqlalchemy import text as _text
-    with engine.connect() as _c:
-        # Rows COM posição — para auto-fill por posição
-        rows_pos = _c.execute(_text("""
-            SELECT oi.posicao_pneu, oi.espec_pneu, oi.marca_pneu, oi.modelo_pneu, oi.condicao_pneu,
-                   COALESCE(os.data_execucao, os.data_entrada) AS ultima_data
-            FROM os_itens oi
-            JOIN ordens_servico os ON os.id = oi.os_id
-            WHERE UPPER(os.placa) = UPPER(:placa)
-              AND oi.posicao_pneu IS NOT NULL AND oi.posicao_pneu != ''
-              AND oi.espec_pneu   IS NOT NULL AND oi.espec_pneu   != ''
-              AND os.deletado_em  IS NULL
-              AND LOWER(oi.sistema) = 'pneu'
-              AND LOWER(COALESCE(oi.categoria,'')) = 'compra'
-            ORDER BY ultima_data DESC
-        """), {"placa": placa}).fetchall()
-
-        # Todas as medidas distintas do veículo (independente de posição)
-        rows_specs = _c.execute(_text("""
-            SELECT DISTINCT oi.espec_pneu, oi.marca_pneu, oi.modelo_pneu, oi.condicao_pneu,
-                   COALESCE(os.data_execucao, os.data_entrada) AS ultima_data
-            FROM os_itens oi
-            JOIN ordens_servico os ON os.id = oi.os_id
-            WHERE UPPER(os.placa) = UPPER(:placa)
-              AND oi.espec_pneu IS NOT NULL AND oi.espec_pneu != ''
-              AND os.deletado_em IS NULL
-              AND LOWER(oi.sistema) = 'pneu'
-              AND LOWER(COALESCE(oi.categoria,'')) = 'compra'
-            ORDER BY ultima_data DESC
-        """), {"placa": placa}).fetchall()
-
-    por_posicao: dict = {}
-    for r in rows_pos:
-        pos = (r[0] or "").strip().upper()
-        if pos and pos not in por_posicao:
-            por_posicao[pos] = {
-                "espec_pneu":    r[1],
-                "marca_pneu":    r[2],
-                "modelo_pneu":   r[3],
-                "condicao_pneu": r[4],
-            }
-
-    seen: set = set()
-    specs_unicas: list = []
-    for r in rows_specs:
-        espec = r[0]
-        if espec and espec not in seen:
-            seen.add(espec)
-            specs_unicas.append({
-                "espec_pneu":    espec,
-                "marca_pneu":    r[1],
-                "modelo_pneu":   r[2],
-                "condicao_pneu": r[3],
-            })
-
-    return {"por_posicao": por_posicao, "specs_unicas": specs_unicas}
 
 
 # ═════════════════════════════════════════════════════════════════════

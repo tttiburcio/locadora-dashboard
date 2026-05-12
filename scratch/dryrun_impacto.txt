@@ -1,0 +1,104 @@
+================================================================================
+FASE 3A.1 — MAPA DE DEPENDÊNCIAS EXCEL ATIVAS NO BACKEND (DRY-RUN)
+Gerado em: 2026-05-09 15:25:30
+Arquivo analisado: C:\Users\vinic\Documents\clone\scratch\..\backend\main.py
+NENHUMA ALTERAÇÃO FOI FEITA.
+================================================================================
+
+------------------------------------------------------------
+--- ABAS EXCEL AINDA CARREGADAS VIA load_raw() ---
+
+  Definição de SHEETS em main.py (linhas):
+  L  809: "frota":            "🚛 FROTA",
+  L  810: "fat_unitario":     "💰 FAT_UNITARIO",
+  L  811: "reembolsos":       "↩️ REEMBOLSOS",
+  L  812: "manutencoes":      "🔧 MANUTENCOES",
+  L  813: "faturamento":      "🧾 FATURAMENTO",
+  L  814: "seguro_mensal":    "📋 SEGURO_MENSAL",
+  L  815: "impostos":         "📋 IMPOSTOS",
+  L  816: "rastreamento":     "📍RASTREAMENTO",
+  L  818: "clientes":         "🏢 CLIENTES",
+  L  819: "empresas":         "🏢 EMPRESAS",
+  L  820: "contrato_veiculo": "🔗 CONTRATO_VEICULO",
+
+  aba                   status          observação
+  ------------------------------------------------------------------------------------------
+  frota                 HÍBRIDO         SQL merge em compute() — Excel ainda lido como base
+  manutencoes           HÍBRIDO         SQL OS integradas, mas Excel ainda como fallback
+  fat_unitario          SQL PREFER      _load_db_financials() — fallback Excel se SQL vazio
+  seguro_mensal         SQL PREFER      _load_db_financials() — fallback Excel se SQL vazio
+  impostos              SQL PREFER      _load_db_financials() — fallback Excel se SQL vazio
+  rastreamento          SQL PREFER      _load_db_financials() — fallback Excel se SQL vazio
+  reembolsos            EXCEL PURO      compute() lê Excel direto — SQL existe mas não é usado
+  faturamento           EXCEL PURO      compute() lê Excel direto — SQL existe mas não é usado
+  contratos             EXCEL PURO      _contrato_ativo() — sem equivalente SQL
+  contrato_veiculo      EXCEL PURO      _contrato_ativo() — sem equivalente SQL
+  empresas              EXCEL PURO      _empresa_nome() — sem equivalente SQL
+  clientes              EXCEL PURO      lido mas não referenciado em nenhum endpoint
+
+------------------------------------------------------------
+--- FUNÇÕES COM DEPENDÊNCIA DIRETA DO EXCEL ---
+
+  _empresa_nome() — definida na linha 855
+    L863: df = data.get("empresas", pd.DataFrame())
+
+  _contrato_ativo() — definida na linha 873
+    L882: cv  = data.get("contrato_veiculo", pd.DataFrame())
+    L883: con = data.get("contratos",        pd.DataFrame())
+
+  compute() — definida na linha 983
+    L1007: reimb  = _filter_year(_parse(data["reembolsos"].copy(),   "Emissão"),       "Emissão",      year)
+    L1008: fat_sh = _filter_year(_parse(data["faturamento"].copy(),  "Emissão"),       "Emissão",      year)
+    L1331: fsh = _parse(data["faturamento"], "Emissão")
+
+  load_raw() — definida na linha 827
+
+------------------------------------------------------------
+--- VERIFICAÇÃO: SQL.reembolsos e SQL.faturamento têm dados? ---
+
+  reembolsos: 51 registros | período: 2025-01-02 → 2026-03-23
+  faturamento: 109 registros | período: 2025-01-02 → 2026-03-17
+
+  → Se SQL.reembolsos e SQL.faturamento têm dados completos,
+    é SEGURO remover o fallback Excel para essas tabelas na Fase 3A.2.
+
+------------------------------------------------------------
+--- ENDPOINTS AFETADOS POR ABA EXCEL ---
+
+  reembolsos          : /api/kpis, /api/vehicle/{placa}
+  faturamento         : /api/kpis, /api/monthly
+  contratos           : /api/vehicle/{placa} (via _contrato_ativo)
+  contrato_veiculo    : /api/vehicle/{placa} (via _contrato_ativo)
+  empresas            : /api/vehicle/{placa} (via _empresa_nome)
+  clientes            : (nenhum endpoint — lido mas não usado)
+
+------------------------------------------------------------
+--- PRÉ-REQUISITOS ANTES DE REMOVER CADA ABA DO EXCEL ---
+
+  reembolsos          : Confirmar SQL.reembolsos completo (✓ verificado acima) — pronto para Fase 3A.2
+  faturamento         : Confirmar SQL.faturamento completo (✓ verificado acima) — pronto para Fase 3A.2
+  contratos           : Criar tabelas SQL contratos + contrato_veiculo (Fase 3C)
+  contrato_veiculo    : Criar tabelas SQL contratos + contrato_veiculo (Fase 3C)
+  empresas            : Criar tabela SQL empresas ou migrar para campo em frota (Fase 3C)
+  clientes            : Sem dependência de endpoint — pode ser removido a qualquer momento
+  frota               : Migrar campos extras (Renavam, AnoFab, etc.) para SQL.frota (Fase 3C)
+  manutencoes         : Deprecar após migração completa de OS para SQL (Fase 5)
+
+------------------------------------------------------------
+--- IMPACTO SIMULADO DE REMOÇÃO (estimativa) ---
+
+  Se remover reembolsos do Excel e SQL falhar: 14 veículos perdem custo_reembolsos (51 registros)
+  Se remover faturamento do Excel e SQL falhar: 109 registros de faturamento global perdem visibilidade
+  Se remover contratos do Excel sem SQL: VehicleModal perde dados de Contrato/Região para TODOS os veículos
+
+================================================================================
+RESUMO DE RISCO
+================================================================================
+  Abas 100% Excel puro (sem SQL equivalente): contratos, contrato_veiculo, empresas, clientes
+  Abas com SQL pronto mas backend ainda usa Excel: reembolsos, faturamento
+  Abas híbridas (SQL + Excel): frota, manutencoes, fat_unitario, seguro_mensal, impostos, rastreamento
+
+AÇÃO RECOMENDADA PARA FASE 3A.2:
+  Apenas: remover fallback Excel de reembolsos e faturamento em compute()
+  Tudo mais: aguardar Fase 3C (criação das tabelas SQL de contratos/empresas)
+  Nenhuma alteração foi feita neste script.

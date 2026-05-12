@@ -1,0 +1,886 @@
+
+================================================================================
+SEÇÃO 1 — SCHEMA SQL COMPLETO
+================================================================================
+Total de tabelas: 15
+Tabelas: fat_unitario, faturamento, frota, impostos, manutencao_parcelas, manutencoes, nf_itens, notas_fiscais, ordens_servico, os_counters, os_itens, pneu_rodizios, rastreamento, reembolsos, seguro_mensal
+
+
+------------------------------------------------------------
+Tabela: fat_unitario
+------------------------------------------------------------
+  Linhas: 230
+  Colunas (7):
+    id                                  INTEGER              [PK] NOT NULL
+    mes                                 DATE                
+    id_veiculo                          INTEGER             
+    contrato                            VARCHAR(100)        
+    medicao                             NUMERIC(14, 2)      
+    trabalhado                          INTEGER             
+    parado                              INTEGER             
+  Foreign Keys:
+    id_veiculo → frota.id
+
+
+------------------------------------------------------------
+Tabela: faturamento
+------------------------------------------------------------
+  Linhas: 109
+  Colunas (4):
+    id                                  INTEGER              [PK] NOT NULL
+    emissao                             DATE                
+    valor_locacoes                      NUMERIC(14, 2)      
+    valor_recebido                      NUMERIC(14, 2)      
+
+
+------------------------------------------------------------
+Tabela: frota
+------------------------------------------------------------
+  Linhas: 50
+  Colunas (9):
+    id                                  INTEGER              [PK] NOT NULL
+    placa                               VARCHAR(20)          NOT NULL
+    empresa                             VARCHAR(100)        
+    marca                               VARCHAR(80)         
+    modelo                              VARCHAR(100)        
+    status                              VARCHAR(50)         
+    tipagem                             VARCHAR(80)         
+    implemento                          VARCHAR(80)         
+    valor_total                         NUMERIC(14, 2)      
+  Índices:
+    sqlite_autoindex_frota_1 UNIQUE
+
+
+------------------------------------------------------------
+Tabela: impostos
+------------------------------------------------------------
+  Linhas: 32
+  Colunas (4):
+    id                                  INTEGER              [PK] NOT NULL
+    ano_imposto                         INTEGER             
+    id_veiculo                          INTEGER             
+    valor_total_final                   NUMERIC(14, 2)      
+  Foreign Keys:
+    id_veiculo → frota.id
+
+
+------------------------------------------------------------
+Tabela: manutencao_parcelas
+------------------------------------------------------------
+  Linhas: 597
+  Colunas (33):
+    id                                  INTEGER              [PK] NOT NULL
+    manutencao_id                       INTEGER             
+    nf_ordem                            INTEGER             
+    nota                                VARCHAR(50)         
+    fornecedor                          VARCHAR(120)        
+    empresa_temp                        VARCHAR(100)        
+    sistema_temp                        VARCHAR(100)        
+    servico_temp                        VARCHAR(200)        
+    descricao_temp                      TEXT                
+    valor_item_total                    NUMERIC(14, 2)      
+    tipo_custo                          VARCHAR(30)         
+    data_vencimento                     DATE                
+    parcela_atual                       INTEGER             
+    parcela_total                       INTEGER             
+    valor_parcela                       NUMERIC(14, 2)      
+    forma_pgto                          VARCHAR(50)         
+    status_pagamento                    VARCHAR(20)         
+    data_vencimento_original            DATE                
+    prorrogada                          BOOLEAN             
+    isento_encargos                     BOOLEAN             
+    tipo_pgto_prorrogacao               VARCHAR(20)         
+    chave_pix                           VARCHAR(100)        
+    multa_pct                           NUMERIC(6, 2)       
+    juros_diario_pct                    NUMERIC(6, 4)       
+    data_prevista_pagamento             DATE                
+    dias_cartorio                       INTEGER             
+    valor_atualizado                    NUMERIC(14, 2)      
+    sera_reembolsado                    BOOLEAN             
+    valor_reembolso                     NUMERIC(14, 2)      
+    qtd_itens_reembolso                 INTEGER             
+    motivo_reembolso                    TEXT                
+    nf_id                               INTEGER             
+    deletado_em                         DATETIME            
+  Foreign Keys:
+    nf_id → notas_fiscais.id
+    manutencao_id → manutencoes.id
+  Índices:
+    idx_parcela_nf
+    idx_parcela_venc
+
+
+------------------------------------------------------------
+Tabela: manutencoes
+------------------------------------------------------------
+  Linhas: 200
+  Colunas (33):
+    id                                  INTEGER              [PK] NOT NULL
+    status_manutencao                   VARCHAR(30)          NOT NULL
+    id_veiculo                          INTEGER              NOT NULL
+    placa                               VARCHAR(20)         
+    modelo                              VARCHAR(100)        
+    empresa                             VARCHAR(100)        
+    id_contrato                         VARCHAR(50)         
+    implemento                          VARCHAR(80)         
+    id_ord_serv                         VARCHAR(50)         
+    valida_nova_os                      VARCHAR(10)         
+    total_os                            NUMERIC(14, 2)      
+    categoria                           VARCHAR(30)         
+    fornecedor                          VARCHAR(120)        
+    tipo_manutencao                     VARCHAR(30)         
+    sistema                             VARCHAR(80)         
+    servico                             VARCHAR(200)        
+    descricao                           TEXT                
+    qtd_itens                           INTEGER             
+    km                                  NUMERIC(10, 0)      
+    posicao_pneu                        VARCHAR(50)         
+    qtd_pneu                            INTEGER             
+    espec_pneu                          VARCHAR(100)        
+    marca_pneu                          VARCHAR(80)         
+    manejo_pneu                         VARCHAR(80)         
+    responsavel_tec                     VARCHAR(80)         
+    indisponivel                        BOOLEAN             
+    data_entrada                        DATE                
+    data_execucao                       DATE                
+    prox_km                             NUMERIC(10, 0)      
+    prox_data                           DATE                
+    observacoes                         TEXT                
+    criado_em                           DATETIME             DEFAULT CURRENT_TIMESTAMP
+    atualizado_em                       DATETIME             DEFAULT CURRENT_TIMESTAMP
+  Foreign Keys:
+    id_veiculo → frota.id
+
+
+------------------------------------------------------------
+Tabela: nf_itens
+------------------------------------------------------------
+  Linhas: 307
+  Colunas (8):
+    id                                  INTEGER              [PK] NOT NULL
+    nf_id                               INTEGER              NOT NULL
+    os_item_id                          INTEGER              NOT NULL
+    quantidade                          NUMERIC(14, 4)      
+    valor_unitario                      NUMERIC(14, 2)      
+    valor_total_item                    NUMERIC(14, 2)      
+    descricao_override                  TEXT                
+    criado_em                           DATETIME             DEFAULT CURRENT_TIMESTAMP
+  Foreign Keys:
+    os_item_id → os_itens.id
+    nf_id → notas_fiscais.id
+  Índices:
+    idx_nfitem_osi
+    idx_nfitem_nf
+
+
+------------------------------------------------------------
+Tabela: notas_fiscais
+------------------------------------------------------------
+  Linhas: 270
+  Colunas (13):
+    id                                  INTEGER              [PK] NOT NULL
+    os_id                               INTEGER              NOT NULL
+    numero_nf                           VARCHAR(50)         
+    tipo_nf                             VARCHAR(20)          NOT NULL
+    empresa_faturada                    VARCHAR(100)        
+    fornecedor                          VARCHAR(120)        
+    valor_total_nf                      NUMERIC(14, 2)      
+    data_emissao                        DATE                
+    observacoes                         TEXT                
+    tipo_nf_needs_review                BOOLEAN             
+    deletado_em                         DATETIME            
+    criado_em                           DATETIME             DEFAULT CURRENT_TIMESTAMP
+    nf_ordem_origem                     INTEGER             
+  Foreign Keys:
+    os_id → ordens_servico.id
+  Índices:
+    idx_nf_emissao
+    idx_nf_os
+
+
+------------------------------------------------------------
+Tabela: ordens_servico
+------------------------------------------------------------
+  Linhas: 212
+  Colunas (27):
+    id                                  INTEGER              [PK] NOT NULL
+    numero_os                           VARCHAR(50)         
+    status_os                           VARCHAR(40)          NOT NULL
+    id_veiculo                          INTEGER              NOT NULL
+    placa                               VARCHAR(20)         
+    modelo                              VARCHAR(100)        
+    empresa                             VARCHAR(100)        
+    id_contrato                         VARCHAR(50)         
+    implemento                          VARCHAR(80)         
+    fornecedor                          VARCHAR(120)        
+    tipo_manutencao                     VARCHAR(30)         
+    categoria                           VARCHAR(30)         
+    total_os                            NUMERIC(14, 2)      
+    responsavel_tec                     VARCHAR(80)         
+    indisponivel                        BOOLEAN             
+    km                                  NUMERIC(10, 0)      
+    data_entrada                        DATE                
+    data_execucao                       DATE                
+    prox_km                             NUMERIC(10, 0)      
+    prox_data                           DATE                
+    status_execucao                     VARCHAR(40)         
+    descricao_pendente                  TEXT                
+    observacoes                         TEXT                
+    deletado_em                         DATETIME            
+    criado_em                           DATETIME             DEFAULT CURRENT_TIMESTAMP
+    atualizado_em                       DATETIME             DEFAULT CURRENT_TIMESTAMP
+    migrado_de_ids                      TEXT                
+  Foreign Keys:
+    id_veiculo → frota.id
+  Índices:
+    idx_os_status
+    idx_os_veiculo_data
+    idx_os_numero
+    sqlite_autoindex_ordens_servico_1 UNIQUE
+
+
+------------------------------------------------------------
+Tabela: os_counters
+------------------------------------------------------------
+  Linhas: 1
+  Colunas (2):
+    ano                                 INTEGER              [PK] NOT NULL
+    ultimo                              INTEGER              NOT NULL
+
+
+------------------------------------------------------------
+Tabela: os_itens
+------------------------------------------------------------
+  Linhas: 310
+  Colunas (16):
+    id                                  INTEGER              [PK] NOT NULL
+    os_id                               INTEGER              NOT NULL
+    categoria                           VARCHAR(30)         
+    sistema                             VARCHAR(80)         
+    servico                             VARCHAR(200)        
+    descricao                           TEXT                
+    qtd_itens                           INTEGER             
+    posicao_pneu                        VARCHAR(50)         
+    qtd_pneu                            INTEGER             
+    espec_pneu                          VARCHAR(100)        
+    marca_pneu                          VARCHAR(80)         
+    manejo_pneu                         VARCHAR(80)         
+    criado_em                           DATETIME             DEFAULT CURRENT_TIMESTAMP
+    manutencao_origem_id                INTEGER             
+    modelo_pneu                         VARCHAR(100)        
+    condicao_pneu                       VARCHAR(20)         
+  Foreign Keys:
+    os_id → ordens_servico.id
+  Índices:
+    idx_osi_os
+
+
+------------------------------------------------------------
+Tabela: pneu_rodizios
+------------------------------------------------------------
+  Linhas: 3
+  Colunas (12):
+    id                                  INTEGER              [PK] NOT NULL
+    placa                               VARCHAR(20)          NOT NULL
+    data                                DATE                 NOT NULL
+    km                                  INTEGER             
+    posicao_anterior                    VARCHAR(50)          NOT NULL
+    posicao_nova                        VARCHAR(50)          NOT NULL
+    espec_pneu                          VARCHAR(100)        
+    marca_pneu                          VARCHAR(80)         
+    qtd                                 INTEGER             
+    os_ref                              VARCHAR(50)         
+    observacao                          TEXT                
+    criado_em                           DATETIME             DEFAULT CURRENT_TIMESTAMP
+  Índices:
+    idx_rodizio_placa
+
+
+------------------------------------------------------------
+Tabela: rastreamento
+------------------------------------------------------------
+  Linhas: 283
+  Colunas (4):
+    id                                  INTEGER              [PK] NOT NULL
+    vencimento                          DATE                
+    id_veiculo                          INTEGER             
+    valor                               NUMERIC(14, 2)      
+  Foreign Keys:
+    id_veiculo → frota.id
+
+
+------------------------------------------------------------
+Tabela: reembolsos
+------------------------------------------------------------
+  Linhas: 51
+  Colunas (4):
+    id                                  INTEGER              [PK] NOT NULL
+    emissao                             DATE                
+    id_veiculo                          INTEGER             
+    valor_reembolso                     NUMERIC(14, 2)      
+  Foreign Keys:
+    id_veiculo → frota.id
+
+
+------------------------------------------------------------
+Tabela: seguro_mensal
+------------------------------------------------------------
+  Linhas: 190
+  Colunas (4):
+    id                                  INTEGER              [PK] NOT NULL
+    vencimento                          DATE                
+    id_veiculo                          INTEGER             
+    valor                               NUMERIC(14, 2)      
+  Foreign Keys:
+    id_veiculo → frota.id
+
+================================================================================
+SEÇÃO 2 — INVENTÁRIO EXCEL
+================================================================================
+Total de abas: 14
+
+
+------------------------------------------------------------
+Aba: 🏢 EMPRESAS
+------------------------------------------------------------
+  Linhas: 4 | Colunas: 18
+    IDEmpresa                           dtype=int64        nulos=   0 (  0.0%)
+    RazaoSocial                         dtype=str          nulos=   0 (  0.0%)
+    CNPJ_CPF                            dtype=str          nulos=   0 (  0.0%)
+    InscricaoEstadual                   dtype=float64      nulos=   3 ( 75.0%)
+    Abertura                            dtype=datetime64[us] nulos=   1 ( 25.0%)
+    TipoCliente                         dtype=str          nulos=   1 ( 25.0%)
+    RamoCliente                         dtype=str          nulos=   1 ( 25.0%)
+    SócioAdministrador                  dtype=str          nulos=   1 ( 25.0%)
+    Logradouro                          dtype=str          nulos=   1 ( 25.0%)
+    Numero                              dtype=float64      nulos=   1 ( 25.0%)
+    Complemento                         dtype=str          nulos=   1 ( 25.0%)
+    Bairro                              dtype=str          nulos=   1 ( 25.0%)
+    CEP                                 dtype=str          nulos=   1 ( 25.0%)
+    Municipio                           dtype=str          nulos=   1 ( 25.0%)
+    Estado                              dtype=str          nulos=   1 ( 25.0%)
+    EmailCliente                        dtype=str          nulos=   1 ( 25.0%)
+    TelefoneCliente                     dtype=str          nulos=   1 ( 25.0%)
+    Idade                               dtype=str          nulos=   1 ( 25.0%)
+
+
+------------------------------------------------------------
+Aba: 🚛 FROTA
+------------------------------------------------------------
+  Linhas: 50 | Colunas: 18
+    IDVeiculo                           dtype=int64        nulos=   0 (  0.0%)
+    Placa                               dtype=str          nulos=   0 (  0.0%)
+    Renavam                             dtype=float64      nulos=   2 (  4.0%)
+    Marca                               dtype=str          nulos=   0 (  0.0%)
+    Modelo                              dtype=str          nulos=   0 (  0.0%)
+    Tipagem                             dtype=str          nulos=   0 (  0.0%)
+    Especie                             dtype=str          nulos=  20 ( 40.0%)
+    AnoFabricacao                       dtype=int64        nulos=   0 (  0.0%)
+    AnoModelo                           dtype=int64        nulos=   0 (  0.0%)
+    TabelaFipe                          dtype=int64        nulos=   0 (  0.0%)
+    Implemento                          dtype=str          nulos=  24 ( 48.0%)
+    ValorImplemento                     dtype=float64      nulos=   2 (  4.0%)
+    ValorTotal                          dtype=float64      nulos=   2 (  4.0%)
+    Status                              dtype=str          nulos=   0 (  0.0%)
+    ValorVenda                          dtype=float64      nulos=  20 ( 40.0%)
+    StatusBancario                      dtype=str          nulos=  32 ( 64.0%)
+    Restricoes                          dtype=str          nulos=  32 ( 64.0%)
+    Observacoes                         dtype=str          nulos=  30 ( 60.0%)
+
+
+------------------------------------------------------------
+Aba: 🏢 CLIENTES
+------------------------------------------------------------
+  Linhas: 16 | Colunas: 12
+    IDCliente                           dtype=int64        nulos=   0 (  0.0%)
+    RazaoSocial                         dtype=str          nulos=   0 (  0.0%)
+    CNPJ_CPF                            dtype=str          nulos=   0 (  0.0%)
+    TipoCliente                         dtype=str          nulos=   0 (  0.0%)
+    RamoCliente                         dtype=str          nulos=   0 (  0.0%)
+    ServicoCliente                      dtype=str          nulos=   0 (  0.0%)
+    MunicipioCliente                    dtype=str          nulos=   0 (  0.0%)
+    EstadoCliente                       dtype=str          nulos=   0 (  0.0%)
+    ContatoCliente                      dtype=str          nulos=   0 (  0.0%)
+    EmailCliente                        dtype=str          nulos=   0 (  0.0%)
+    TelefoneCliente                     dtype=str          nulos=   0 (  0.0%)
+    StatusCliente                       dtype=str          nulos=   0 (  0.0%)
+
+
+------------------------------------------------------------
+Aba: 📄 CONTRATOS
+------------------------------------------------------------
+  Linhas: 36 | Colunas: 22
+    IDContrato                          dtype=int64        nulos=   0 (  0.0%)
+    IDEmpresa                           dtype=int64        nulos=   0 (  0.0%)
+    IDCliente                           dtype=int64        nulos=   0 (  0.0%)
+    NomeCliente                         dtype=str          nulos=   0 (  0.0%)
+    OrigemContrato                      dtype=str          nulos=   0 (  0.0%)
+    IDContratoOrigem                    dtype=object       nulos=  21 ( 58.3%)
+    ModeloContrato                      dtype=str          nulos=   0 (  0.0%)
+    ResponsavelInterno                  dtype=str          nulos=   0 (  0.0%)
+    CidadeOperacao                      dtype=str          nulos=   0 (  0.0%)
+    EstadoOperacao                      dtype=str          nulos=   0 (  0.0%)
+    DataInicio                          dtype=datetime64[us] nulos=   0 (  0.0%)
+    DataFimPrevista                     dtype=datetime64[us] nulos=   0 (  0.0%)
+    DataEncerramento                    dtype=datetime64[us] nulos=   8 ( 22.2%)
+    IDVeiculo                           dtype=object       nulos=   0 (  0.0%)
+    ItensContratados                    dtype=int64        nulos=   0 (  0.0%)
+    ValorMensal                         dtype=int64        nulos=   0 (  0.0%)
+    StatusContrato                      dtype=str          nulos=   0 (  0.0%)
+    MotivoEncerramento                  dtype=str          nulos=   8 ( 22.2%)
+    DocumentoRede                       dtype=str          nulos=   0 (  0.0%)
+    Observacoes                         dtype=str          nulos=   0 (  0.0%)
+    DiasTotais                          dtype=float64      nulos=   8 ( 22.2%)
+    Alertas                             dtype=float64      nulos=  29 ( 80.6%)
+
+
+------------------------------------------------------------
+Aba: 💰 FAT_UNITARIO
+------------------------------------------------------------
+  Linhas: 230 | Colunas: 13
+    IDFatUnitario                       dtype=int64        nulos=   0 (  0.0%)
+    Mes                                 dtype=datetime64[us] nulos=   0 (  0.0%)
+    IDVeiculo                           dtype=int64        nulos=   0 (  0.0%)
+    IDEmpresa                           dtype=int64        nulos=   0 (  0.0%)
+    Placa                               dtype=str          nulos=   0 (  0.0%)
+    Modelo                              dtype=str          nulos=   0 (  0.0%)
+    Implemento                          dtype=str          nulos=   0 (  0.0%)
+    IDContrato                          dtype=float64      nulos=  10 (  4.3%)
+    Diaria                              dtype=float64      nulos=   0 (  0.0%)
+    Trabalhado                          dtype=int64        nulos=   0 (  0.0%)
+    Parado                              dtype=int64        nulos=   0 (  0.0%)
+    Medicao                             dtype=float64      nulos=   0 (  0.0%)
+    Contrato                            dtype=str          nulos=   0 (  0.0%)
+
+
+------------------------------------------------------------
+Aba: 🧾 FATURAMENTO
+------------------------------------------------------------
+  Linhas: 109 | Colunas: 16
+    IDFatura                            dtype=int64        nulos=   0 (  0.0%)
+    Medicao                             dtype=datetime64[us] nulos=   0 (  0.0%)
+    IDEmpresa                           dtype=int64        nulos=   0 (  0.0%)
+    IDContrato                          dtype=object       nulos=   0 (  0.0%)
+    IDCliente                           dtype=int64        nulos=   0 (  0.0%)
+    Fatura                              dtype=int64        nulos=   0 (  0.0%)
+    Emissão                             dtype=datetime64[us] nulos=   0 (  0.0%)
+    Vencimento                          dtype=datetime64[us] nulos=   0 (  0.0%)
+    Empresa                             dtype=str          nulos=   0 (  0.0%)
+    ValorLocacoes                       dtype=float64      nulos=   0 (  0.0%)
+    DataEntrada                         dtype=datetime64[us] nulos=   1 (  0.9%)
+    ValorRecebido                       dtype=float64      nulos=   0 (  0.0%)
+    Encargos                            dtype=float64      nulos=   0 (  0.0%)
+    FormaRecebimento                    dtype=str          nulos=   0 (  0.0%)
+    StatusRecebimento                   dtype=str          nulos=   0 (  0.0%)
+    DocumentoRede                       dtype=float64      nulos= 109 (100.0%)
+
+
+------------------------------------------------------------
+Aba: ↩️ REEMBOLSOS
+------------------------------------------------------------
+  Linhas: 51 | Colunas: 19
+    IDReembolso                         dtype=float64      nulos=   2 (  3.9%)
+    Tipo                                dtype=str          nulos=   0 (  0.0%)
+    IDEmpresa                           dtype=int64        nulos=   0 (  0.0%)
+    IDContrato                          dtype=int64        nulos=   0 (  0.0%)
+    IDCliente                           dtype=int64        nulos=   0 (  0.0%)
+    IDVeiculo                           dtype=float64      nulos=   8 ( 15.7%)
+    IDOrdServ                           dtype=str          nulos=  34 ( 66.7%)
+    IDMulta                             dtype=float64      nulos=  51 (100.0%)
+    Recibo                              dtype=int64        nulos=   0 (  0.0%)
+    Emissão                             dtype=datetime64[us] nulos=   0 (  0.0%)
+    Vencimento                          dtype=datetime64[us] nulos=   0 (  0.0%)
+    Empresa                             dtype=str          nulos=   0 (  0.0%)
+    ValorReembolso                      dtype=float64      nulos=   0 (  0.0%)
+    DataEntrada                         dtype=datetime64[us] nulos=  11 ( 21.6%)
+    ValorRecebido                       dtype=float64      nulos=   0 (  0.0%)
+    Encargos de Faturamento             dtype=float64      nulos=   0 (  0.0%)
+    FormaRecebimento                    dtype=str          nulos=   0 (  0.0%)
+    StatusRecebimento                   dtype=str          nulos=   0 (  0.0%)
+    DocumentoRede                       dtype=float64      nulos=  51 (100.0%)
+
+
+------------------------------------------------------------
+Aba: 🛡️ SEGUROS
+------------------------------------------------------------
+  Linhas: 11 | Colunas: 15
+    IDSeguro                            dtype=int64        nulos=   0 (  0.0%)
+    IDEmpresa                           dtype=int64        nulos=   0 (  0.0%)
+    NumApolice                          dtype=str          nulos=   0 (  0.0%)
+    Inicio                              dtype=datetime64[us] nulos=   0 (  0.0%)
+    Validade                            dtype=datetime64[us] nulos=   0 (  0.0%)
+    IDVeiculo                           dtype=object       nulos=   0 (  0.0%)
+    Itens                               dtype=str          nulos=   0 (  0.0%)
+    Modelo                              dtype=str          nulos=   0 (  0.0%)
+    Cobertura                           dtype=str          nulos=   0 (  0.0%)
+    ValorTotal                          dtype=float64      nulos=   0 (  0.0%)
+    ValorParcela                        dtype=float64      nulos=   0 (  0.0%)
+    Parcelas                            dtype=int64        nulos=   0 (  0.0%)
+    DiaVencimento                       dtype=int64        nulos=   0 (  0.0%)
+    DocumentoRede                       dtype=str          nulos=   0 (  0.0%)
+    Status                              dtype=str          nulos=   0 (  0.0%)
+
+
+------------------------------------------------------------
+Aba: 📋 SEGURO_MENSAL
+------------------------------------------------------------
+  Linhas: 190 | Colunas: 11
+    IDFinancaSeguro                     dtype=int64        nulos=   0 (  0.0%)
+    IDSeguro                            dtype=int64        nulos=   0 (  0.0%)
+    IDEmpresa                           dtype=int64        nulos=   0 (  0.0%)
+    IDVeiculo                           dtype=int64        nulos=   0 (  0.0%)
+    Placa                               dtype=str          nulos=   0 (  0.0%)
+    ApoliceSeguro                       dtype=str          nulos=   0 (  0.0%)
+    Vencimento                          dtype=datetime64[us] nulos=   0 (  0.0%)
+    Valor                               dtype=float64      nulos=   0 (  0.0%)
+    ParcelaAtual                        dtype=int64        nulos=   0 (  0.0%)
+    ParcelaTotal                        dtype=int64        nulos=   0 (  0.0%)
+    Status                              dtype=str          nulos=   0 (  0.0%)
+
+
+------------------------------------------------------------
+Aba: 🔧 MANUTENCOES
+------------------------------------------------------------
+  Linhas: 611 | Colunas: 39
+    IDManutencao                        dtype=int64        nulos=   0 (  0.0%)
+    ValidaNovaOS                        dtype=str          nulos= 603 ( 98.7%)
+    IDOrdServ                           dtype=str          nulos=  52 (  8.5%)
+    NFOrdem                             dtype=float64      nulos=  52 (  8.5%)
+    TotalOS                             dtype=float64      nulos=  52 (  8.5%)
+    Empresa                             dtype=float64      nulos=  52 (  8.5%)
+    Placa                               dtype=str          nulos=  52 (  8.5%)
+    IDVeiculo                           dtype=float64      nulos=  52 (  8.5%)
+    IDContrato                          dtype=float64      nulos= 611 (100.0%)
+    Modelo                              dtype=str          nulos=  52 (  8.5%)
+    Implemento                          dtype=object       nulos= 108 ( 17.7%)
+    Fornecedor                          dtype=str          nulos=  52 (  8.5%)
+    Nota                                dtype=object       nulos=  52 (  8.5%)
+    Data Venc.                          dtype=datetime64[us] nulos=  52 (  8.5%)
+    ParcelaAtual                        dtype=float64      nulos=  52 (  8.5%)
+    ParcelaTotal                        dtype=float64      nulos=  52 (  8.5%)
+    ValorParcela                        dtype=float64      nulos=  52 (  8.5%)
+    FormaPgto                           dtype=str          nulos=  52 (  8.5%)
+    Categoria                           dtype=str          nulos=  52 (  8.5%)
+    Status                              dtype=str          nulos=  52 (  8.5%)
+    TipoManutencao                      dtype=str          nulos=  52 (  8.5%)
+    Sistema                             dtype=str          nulos=  52 (  8.5%)
+    Serviço                             dtype=str          nulos=  52 (  8.5%)
+    Descricao                           dtype=str          nulos=  52 (  8.5%)
+    QtdItens                            dtype=str          nulos= 437 ( 71.5%)
+    KM                                  dtype=float64      nulos= 218 ( 35.7%)
+    PosiçãoPneu                         dtype=str          nulos= 492 ( 80.5%)
+    QtdPneu                             dtype=float64      nulos= 492 ( 80.5%)
+    EspecificaçãoPneu                   dtype=str          nulos= 493 ( 80.7%)
+    MarcaPneu                           dtype=str          nulos= 509 ( 83.3%)
+    ModeloPneu                          dtype=str          nulos= 495 ( 81.0%)
+    CondicaoPneu                        dtype=str          nulos= 515 ( 84.3%)
+    ManejoPneu                          dtype=str          nulos= 492 ( 80.5%)
+    DataExecução                        dtype=datetime64[us] nulos=  77 ( 12.6%)
+    ResponsavelTec                      dtype=str          nulos= 238 ( 39.0%)
+    Indisponível                        dtype=float64      nulos= 611 (100.0%)
+    ProxKM                              dtype=float64      nulos= 550 ( 90.0%)
+    ProxData                            dtype=float64      nulos= 611 (100.0%)
+    Obsercacoes                         dtype=float64      nulos= 611 (100.0%)
+
+
+------------------------------------------------------------
+Aba: 📋 IMPOSTOS
+------------------------------------------------------------
+  Linhas: 32 | Colunas: 25
+    IDImposto                           dtype=int64        nulos=   0 (  0.0%)
+    IDVeiculo                           dtype=int64        nulos=   0 (  0.0%)
+    AnoImposto                          dtype=int64        nulos=   0 (  0.0%)
+    Placa                               dtype=str          nulos=   0 (  0.0%)
+    Marca                               dtype=str          nulos=   0 (  0.0%)
+    Modelo                              dtype=str          nulos=   0 (  0.0%)
+    AnoModelo                           dtype=int64        nulos=   0 (  0.0%)
+    Especie                             dtype=str          nulos=   0 (  0.0%)
+    Renavam                             dtype=int64        nulos=   0 (  0.0%)
+    VencimentoLicenc.                   dtype=datetime64[us] nulos=  17 ( 53.1%)
+    ValorLicenc.                        dtype=float64      nulos=   0 (  0.0%)
+    JurosLicenc.                        dtype=float64      nulos=   0 (  0.0%)
+    VencimentoIpva                      dtype=datetime64[us] nulos=  18 ( 56.2%)
+    ValorIpva                           dtype=float64      nulos=   0 (  0.0%)
+    JurosIpva                           dtype=float64      nulos=   0 (  0.0%)
+    QtdeMultas                          dtype=float64      nulos=   3 (  9.4%)
+    ValorMultas                         dtype=float64      nulos=   0 (  0.0%)
+    JurosMulta                          dtype=float64      nulos=   0 (  0.0%)
+    ValorTotalOriginal                  dtype=float64      nulos=   0 (  0.0%)
+    JurosTotal                          dtype=float64      nulos=   0 (  0.0%)
+    ValorTotalFinal                     dtype=float64      nulos=   0 (  0.0%)
+    TotalPago                           dtype=float64      nulos=   0 (  0.0%)
+    SaldoTotal                          dtype=float64      nulos=   0 (  0.0%)
+    Status                              dtype=str          nulos=   0 (  0.0%)
+    DocumentoRede                       dtype=float64      nulos=  32 (100.0%)
+
+
+------------------------------------------------------------
+Aba: 📍RASTREAMENTO
+------------------------------------------------------------
+  Linhas: 283 | Colunas: 8
+    IDRastreamento                      dtype=int64        nulos=   0 (  0.0%)
+    IDEmpresa                           dtype=int64        nulos=   0 (  0.0%)
+    IDVeiculo                           dtype=int64        nulos=   0 (  0.0%)
+    Fornecedor                          dtype=str          nulos=   0 (  0.0%)
+    Placa                               dtype=str          nulos=   0 (  0.0%)
+    Vencimento                          dtype=datetime64[us] nulos=   0 (  0.0%)
+    Valor                               dtype=float64      nulos=   0 (  0.0%)
+    Status                              dtype=str          nulos=   0 (  0.0%)
+
+
+------------------------------------------------------------
+Aba: 🔗 CONTRATO_VEICULO
+------------------------------------------------------------
+  Linhas: 87 | Colunas: 4
+    IDContratoVeiculo                   dtype=int64        nulos=   0 (  0.0%)
+    IDContrato                          dtype=int64        nulos=   0 (  0.0%)
+    IDVeiculo                           dtype=int64        nulos=   0 (  0.0%)
+    Sequencia                           dtype=int64        nulos=   0 (  0.0%)
+
+
+------------------------------------------------------------
+Aba: 🔗 CONTRATO_ORIGEM
+------------------------------------------------------------
+  Linhas: 18 | Colunas: 4
+    IDContratoOrigem                    dtype=int64        nulos=   0 (  0.0%)
+    IDContrato                          dtype=int64        nulos=   0 (  0.0%)
+    IDContratoOrigem.1                  dtype=int64        nulos=   0 (  0.0%)
+    Sequencia                           dtype=int64        nulos=   0 (  0.0%)
+
+================================================================================
+SEÇÃO 3 — REGISTROS APENAS NO EXCEL (sem match SQL)
+================================================================================
+Linhas Excel sem IDOrdServ: 52
+    Placa DataExecução Sistema Fornecedor  TotalOS
+559   NaN          NaT     NaN        NaN      NaN
+560   NaN          NaT     NaN        NaN      NaN
+561   NaN          NaT     NaN        NaN      NaN
+562   NaN          NaT     NaN        NaN      NaN
+563   NaN          NaT     NaN        NaN      NaN
+564   NaN          NaT     NaN        NaN      NaN
+565   NaN          NaT     NaN        NaN      NaN
+566   NaN          NaT     NaN        NaN      NaN
+567   NaN          NaT     NaN        NaN      NaN
+568   NaN          NaT     NaN        NaN      NaN
+
+OS únicas no Excel mas AUSENTES no SQL (total): 0
+
+Volume financeiro Excel sem cobertura SQL (por ano/placa):
+
+================================================================================
+SEÇÃO 4 — REGISTROS APENAS NO SQL (sem match Excel)
+================================================================================
+OS no SQL (ativas) sem linha no Excel: 11
+  Detalhamento (até 30):
+    OS-2026-0205 | EXW7D65 | None | status=em_andamento | total=None | sistema=Implemento
+    OS-2026-0209 | DYG5G03 | None | status=em_andamento | total=None | sistema=Motor
+    OS-2026-0211 | EJX0I24 | 2026-03-31 | status=finalizada | total=683 | sistema=Freio
+    OS-2026-0210 | FFS0D23 | 2026-04-02 | status=finalizada | total=480 | sistema=Câmbio
+    OS-2026-0212 | EJX0I24 | 2026-04-10 | status=finalizada | total=450 | sistema=Câmbio
+    OS-2026-0207 | DLG0D92 | 2026-04-15 | status=finalizada | total=420 | sistema=None
+    OS-2026-0206 | BQV5264 | 2026-04-23 | status=finalizada | total=1800.06 | sistema=Motor
+    OS-2026-0213 | EVF8I83 | 2026-04-23 | status=finalizada | total=255 | sistema=Implemento
+    OS-2026-0208 | DPB8E26 | 2026-04-25 | status=executado_aguardando_nf | total=None | sistema=Motor
+    OS-2026-0204 | EXW7D65 | 2026-05-04 | status=finalizada | total=8591.7 | sistema=Motor
+    OS-2026-0214 | MAX4116 | 2026-05-09 | status=executado_aguardando_nf | total=None | sistema=Pneu
+
+================================================================================
+SEÇÃO 5 — REGISTROS DIVERGENTES (match existente, valores diferentes)
+================================================================================
+OS com match em ambos os lados: 200
+
+Divergências em 'total_os': 0
+
+Divergências em 'data_execucao': 1
+  OS-2026-0180: Excel=2026-03-17 | SQL=2026-03-10
+
+Divergências em 'placa': 0
+
+Divergências em 'sistema': 1
+  OS-2025-0015: Excel=pneu | SQL=direção
+
+Divergências em 'fornecedor': 31
+  OS-2025-0010: Excel=RS DIESEL | SQL=MSAM PEÇAS / RS DIESEL / PJ DIESEL
+  OS-2025-0016: Excel=TIETE VEÍCULOS | SQL=RS DIESEL / TIETE VEÍCULOS
+  OS-2025-0020: Excel=TIETE VEÍCULOS | SQL=RS DIESEL / TIETE VEÍCULOS
+  OS-2025-0029: Excel=QUATROCENTAO ACESSORIOS | SQL=QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA
+  OS-2025-0030: Excel=QUATROCENTAO ACESSORIOS | SQL=QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA
+  OS-2025-0031: Excel=QUATROCENTAO ACESSORIOS | SQL=QUATROCENTAO ACESSORIOS / MOLAS SANTA VITORIA
+  OS-2025-0032: Excel=QUATROCENTAO ACESSORIOS | SQL=QUATROCENTAO ACESSORIOS / MG VIDROS
+  OS-2025-0033: Excel=CAIADO PNEUS | SQL=CAIADO PNEUS / FORTUNATO RECAPADORA
+  OS-2025-0034: Excel=AUTOMEC | SQL=AUTOMEC / YSTRELLA
+  OS-2025-0043: Excel=TIETE VEÍCULOS | SQL=FLORENZA TRUCK / TIETE VEÍCULOS
+  ... e mais 21
+
+Divergências em 'km': 0
+
+================================================================================
+SEÇÃO 6 — AUDITORIA DE CAMPOS PNEU
+================================================================================
+Excel: linhas Pneu+Compra = 96
+SQL: itens Pneu+Compra/Recap = 32
+
+Campos pneu com valores inválidos no SQL (os_itens, sistema=pneu):
+  espec_pneu          :    4 inválidos de 43 (9.3%)
+  posicao_pneu        :   32 inválidos de 43 (74.4%)
+  marca_pneu          :    4 inválidos de 43 (9.3%)
+  modelo_pneu         :    2 inválidos de 43 (4.7%)
+  manejo_pneu         :    2 inválidos de 43 (4.7%)
+  qtd_pneu            :    2 inválidos de 43 (4.7%)
+  categoria           :    0 inválidos de 43 (0.0%)
+
+Cruzamento pneu Excel vs SQL por IDOrdServ (espec_pneu):
+  Apenas no Excel (sem OS pneu SQL): 0
+  Apenas no SQL (sem linha Excel Pneu): 1
+    OS-2026-0214 | MAX4116 | espec=17.5-25 | marca=None
+  Presentes nos dois lados: 29
+    ✓ OS-2025-0004 | xl_espec={'225/75R16C'} | sql_espec={'225/75R16C'}
+    ✓ OS-2025-0006 | xl_espec={'225/75R16C'} | sql_espec={'225/75R16C'}
+    ✓ OS-2025-0008 | xl_espec={'225/75R16C'} | sql_espec={'225/75R16C'}
+    ✓ OS-2025-0009 | xl_espec={'12.5/80-18'} | sql_espec={'12.5/80-18'}
+    ✓ OS-2025-0015 | xl_espec={'225/75R16C'} | sql_espec={'225/75R16C'}
+    ✓ OS-2025-0025 | xl_espec={'225/75R16C'} | sql_espec={'225/75R16C'}
+    ✓ OS-2025-0026 | xl_espec={'17.5-25'} | sql_espec={'17.5-25'}
+    ✓ OS-2025-0033 | xl_espec={'215/80R17.5'} | sql_espec={'215/80R17.5'}
+    ✓ OS-2025-0048 | xl_espec={'225/75R16C'} | sql_espec={'225/75R16C'}
+    ✓ OS-2025-0067 | xl_espec={'225/75R16C'} | sql_espec={'225/75R16C'}
+
+================================================================================
+SEÇÃO 7 — VALORES INVÁLIDOS
+================================================================================
+
+------------------------------------------------------------
+7A — SQL: campos críticos de ordens_servico
+------------------------------------------------------------
+Total ordens_servico ativas: 211
+  numero_os           :    0 inválidos de 211 ativos
+  placa               :    0 inválidos de 211 ativos
+  status_os           :    0 inválidos de 211 ativos
+  total_os            :    4 inválidos de 211 ativos
+  data_execucao       :    6 inválidos de 211 ativos
+  km                  :    7 inválidos de 211 ativos
+  fornecedor          :   11 inválidos de 211 ativos
+  tipo_manutencao     :    0 inválidos de 211 ativos
+
+------------------------------------------------------------
+7B — SQL: campos críticos de os_itens
+------------------------------------------------------------
+Total os_itens: 310
+  sistema             :    1 inválidos de 310
+  categoria           :  220 inválidos de 310
+  servico             :    0 inválidos de 310
+  descricao           :   30 inválidos de 310
+
+------------------------------------------------------------
+7C — SQL: campos críticos de notas_fiscais
+------------------------------------------------------------
+Total notas_fiscais ativas: 269
+  numero_nf           :    0 inválidos de 269
+  valor_total_nf      :    0 inválidos de 269
+  data_emissao        :    9 inválidos de 269
+  fornecedor          :    0 inválidos de 269
+
+------------------------------------------------------------
+7D — Excel MANUTENCOES: campos críticos
+------------------------------------------------------------
+Total linhas MANUTENCOES Excel: 611
+  IDOrdServ                :    52 inválidos de 611 (8.5%)
+  Placa                    :    52 inválidos de 611 (8.5%)
+  Sistema                  :    52 inválidos de 611 (8.5%)
+  Categoria                :    52 inválidos de 611 (8.5%)
+  Fornecedor               :    52 inválidos de 611 (8.5%)
+  TotalOS                  :    53 inválidos de 611 (8.7%)
+  DataExecução             :    77 inválidos de 611 (12.6%)
+  KM                       :   218 inválidos de 611 (35.7%)
+  Nota                     :    53 inválidos de 611 (8.7%)
+
+================================================================================
+SEÇÃO 8 — DIFERENÇAS DE NOMENCLATURA E TIPAGEM
+================================================================================
+Excel (MANUTENCOES)                 SQL Tabela           SQL Coluna                Tipo SQL
+----------------------------------------------------------------------------------------------------
+  IDManutencao                      manutencoes          id                        INTEGER      [Excel dtype: int64]
+  IDOrdServ                         ordens_servico       numero_os                 VARCHAR      [Excel dtype: str]
+  NFOrdem                           manutencao_parcelas  nf_ordem                  INTEGER      [Excel dtype: float64]
+  TotalOS                           ordens_servico       total_os                  NUMERIC      [Excel dtype: float64]
+  Placa                             ordens_servico       placa                     VARCHAR      [Excel dtype: str]
+  IDVeiculo                         ordens_servico       id_veiculo                INTEGER      [Excel dtype: float64]
+  Fornecedor                        ordens_servico       fornecedor                VARCHAR      [Excel dtype: str]
+  Nota                              notas_fiscais        numero_nf                 VARCHAR      [Excel dtype: object]
+  Data Venc.                        manutencao_parcelas  data_vencimento           DATE         [Excel dtype: datetime64[us]]
+  ParcelaAtual                      manutencao_parcelas  parcela_atual             INTEGER      [Excel dtype: float64]
+  ParcelaTotal                      manutencao_parcelas  parcela_total             INTEGER      [Excel dtype: float64]
+  ValorParcela                      manutencao_parcelas  valor_parcela             NUMERIC      [Excel dtype: float64]
+  FormaPgto                         manutencao_parcelas  forma_pgto                VARCHAR      [Excel dtype: str]
+  Categoria                         os_itens             categoria                 VARCHAR      [Excel dtype: str]
+  Status                            manutencao_parcelas  status_pagamento          VARCHAR      [Excel dtype: str]
+  TipoManutencao                    ordens_servico       tipo_manutencao           VARCHAR      [Excel dtype: str]
+  Sistema                           os_itens             sistema                   VARCHAR      [Excel dtype: str]
+  Serviço                           os_itens             servico                   VARCHAR      [Excel dtype: str]
+  Descricao                         os_itens             descricao                 TEXT         [Excel dtype: str]
+  QtdItens                          os_itens             qtd_itens                 INTEGER      [Excel dtype: str]
+  KM                                ordens_servico       km                        NUMERIC      [Excel dtype: float64]
+  PosiçãoPneu                       os_itens             posicao_pneu              VARCHAR      [Excel dtype: str]
+  QtdPneu                           os_itens             qtd_pneu                  INTEGER      [Excel dtype: float64]
+  EspecificaçãoPneu                 os_itens             espec_pneu                VARCHAR      [Excel dtype: str]
+  MarcaPneu                         os_itens             marca_pneu                VARCHAR      [Excel dtype: str]
+  ModeloPneu                        os_itens             modelo_pneu               VARCHAR      [Excel dtype: str]
+  CondicaoPneu                      os_itens             condicao_pneu             VARCHAR      [Excel dtype: str]
+  ManejoPneu                        os_itens             manejo_pneu               VARCHAR      [Excel dtype: str]
+  DataExecução                      ordens_servico       data_execucao             DATE         [Excel dtype: datetime64[us]]
+  ProxKM                            ordens_servico       prox_km                   NUMERIC      [Excel dtype: float64]
+  ProxData                          ordens_servico       prox_data                 DATE         [Excel dtype: float64]
+  Obsercacoes                       ordens_servico       observacoes               TEXT         [Excel dtype: float64]
+
+Colunas Excel SEM equivalente SQL direto:
+  Excel.ValidaNovaOS
+  Excel.IDContrato
+  Excel.Modelo
+  Excel.Implemento
+  Excel.Empresa
+  Excel.NFOrdem
+  Excel.ResponsavelTec
+  Excel.Indisponível
+
+Colunas SQL SEM equivalente Excel (ordens_servico + os_itens):
+  SQL.ordens_servico.status_execucao
+  SQL.ordens_servico.descricao_pendente
+  SQL.ordens_servico.migrado_de_ids
+  SQL.ordens_servico.deletado_em
+  SQL.ordens_servico.criado_em
+  SQL.ordens_servico.atualizado_em
+  SQL.ordens_servico.status_os
+  SQL.os_itens.manutencao_origem_id
+
+================================================================================
+SEÇÃO 9 — TABELAS SEM EQUIVALENTE SQL (risco de perda)
+================================================================================
+  📄 CONTRATOS                   :   36 linhas | Contratos de locação — lido pelo backend via load_raw()/CONTRATOS
+  🔗 CONTRATO_VEICULO            :   87 linhas | Relação contrato-veículo — lido pelo backend
+  🔗 CONTRATO_ORIGEM             :   18 linhas | Origem dos contratos
+  🏢 EMPRESAS                    :    4 linhas | Cadastro de empresas — lido pelo backend
+  🏢 CLIENTES                    :   16 linhas | Cadastro de clientes
+  🛡️ SEGUROS                    :   11 linhas | Apólices de seguro — dados de parcelas em seguro_mensal
+
+Risco: backend (load_raw) lê CONTRATOS e CONTRATO_VEICULO diretamente do Excel.
+Se migrar para SQL-only, essas abas precisam de tabelas próprias no banco.
+
+================================================================================
+RESUMO EXECUTIVO — RISCOS DE CONSOLIDAÇÃO
+================================================================================
+Área                                Risco    Razão
+----------------------------------------------------------------------------------------------------
+  MANUTENCOES → SQL                 ALTO     611 linhas Excel denormalizadas vs 212 OS SQL; 52 linhas sem IDOrdServ
+  Pneu fields                       MÉDIO    Cruzamento por IDOrdServ possível; campos parcialmente corrigidos
+  Financeiro simples                BAIXO    fat, seg, imp, rast: row counts idênticos, DB já autoritativo
+  CONTRATOS/CLIENTES                ALTO     Sem equivalente SQL; backend lê do Excel; requer novo modelo de dados
+  Registros sem IDOrdServ           MÉDIO    52 linhas Excel; fallback: placa+data+valor
+  Divergências TotalOS              MÉDIO    Diferença entre TotalOS Excel vs parcelas SQL por competência
+  nf_itens / pneu_rodizios          INFO     Tabelas SQL sem equivalente Excel — dados novos, sem risco de perda
+  Campos FROTA extras               INFO     Renavam, AnoFabricacao, TabelaFipe, etc. existem só no Excel
+
+Estimativa de complexidade da migração:
+  - Fase 2 (mapeamento OS Excel→SQL):        ALTA    (~200 OS, validação por parcela)
+  - Fase 3 (migrar CONTRATOS para SQL):       ALTA    (novo schema necessário)
+  - Fase 4 (limpeza campos inválidos):        MÉDIA   (automatizável por regras)
+  - Fase 5 (deprecar load_raw do Excel):      BAIXA   (backend já usa DB para financeiro)

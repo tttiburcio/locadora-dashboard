@@ -264,6 +264,8 @@ class OsItemBase(BaseModel):
     qtd_pneu:     Optional[int] = None
     espec_pneu:   Optional[str] = None
     marca_pneu:   Optional[str] = None
+    modelo_pneu:  Optional[str] = None
+    condicao_pneu:Optional[str] = None
     manejo_pneu:  Optional[str] = None
 
 
