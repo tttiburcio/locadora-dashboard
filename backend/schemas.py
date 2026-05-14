@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import date, datetime
-from typing import Optional, Literal
+from typing import Optional, Literal, Union, Any
 
 
 # ─────────────────────────────────────────────
@@ -45,7 +45,7 @@ class ParcelaUpdate(BaseModel):
 class ParcelaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id:               int
+    id:               Union[int, str]
     manutencao_id:    Optional[int] = None
     nf_id:            Optional[int] = None
     nf_ordem:         Optional[int]
@@ -90,6 +90,7 @@ class ParcelaFinanceiroResponse(ParcelaResponse):
     contrato_inicio:  Optional[str]  = None
     contrato_fim:     Optional[str]  = None
     contrato_status:  Optional[str]  = None
+    sistema:          Optional[str]  = None
 
 
 # ─────────────────────────────────────────────

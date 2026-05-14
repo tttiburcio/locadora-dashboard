@@ -342,14 +342,17 @@ export default function FinalizarOsModal({ os, onClose, onSaved, editMode = fals
         valor_unitario:   parseMoney(it.valor_unitario),
         valor_total_item: parseMoney(it.valor_total_item),
       })),
-      parcelas: nf.parcelas.filter(p => parseMoney(p.valor_parcela) > 0).map((p, i, arr) => ({
-        data_vencimento:  p.data_vencimento || null,
-        valor_parcela:    parseMoney(p.valor_parcela),
-        forma_pgto:       p.forma_pgto,
-        status_pagamento: p.status_pagamento,
-        parcela_atual:    p.parcela_atual || (i + 1),
-        parcela_total:    p.parcela_total || arr.length,
-      })),
+      parcelas: nf.parcelas
+        .filter(p => parseMoney(p.valor_parcela) > 0)
+        .sort((a, b) => (a.data_vencimento || '9999-99-99').localeCompare(b.data_vencimento || '9999-99-99'))
+        .map((p, i, arr) => ({
+          data_vencimento:  p.data_vencimento || null,
+          valor_parcela:    parseMoney(p.valor_parcela),
+          forma_pgto:       p.forma_pgto,
+          status_pagamento: p.status_pagamento,
+          parcela_atual:    i + 1,
+          parcela_total:    arr.length,
+        })),
     }
   }
 

@@ -64,8 +64,9 @@ function ParcelaBadge({ status }) {
 function NfCard({ nf, index, itemLookup }) {
   const [open, setOpen] = useState(true)
   const empresa = resolveEmpresa(nf.empresa_faturada)
-  const totalParcelas = nf.parcelas?.length ?? 0
-  const pagas = nf.parcelas?.filter(p => p.status_pagamento === 'Pago').length ?? 0
+  const parcelasOrdenadas = [...(nf.parcelas || [])].sort((a, b) => (a.data_vencimento || '9999-99-99').localeCompare(b.data_vencimento || '9999-99-99'))
+  const totalParcelas = parcelasOrdenadas.length
+  const pagas = parcelasOrdenadas.filter(p => p.status_pagamento === 'Pago').length
   const progresso = totalParcelas > 0 ? Math.round((pagas / totalParcelas) * 100) : 0
   const barColor = pagas === totalParcelas && totalParcelas > 0 ? '#10b981' : pagas > 0 ? '#8b5cf6' : '#6b7280'
 
@@ -134,7 +135,7 @@ function NfCard({ nf, index, itemLookup }) {
           )}
 
           {/* Parcelas */}
-          {nf.parcelas?.length > 0 && (
+          {parcelasOrdenadas.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2.5">
                 <p className="text-g-600 text-xs uppercase tracking-widest font-bold">
@@ -148,11 +149,11 @@ function NfCard({ nf, index, itemLookup }) {
                 </div>
               </div>
               <div className="flex flex-col gap-1.5">
-                {nf.parcelas.map((p, i) => (
+                {parcelasOrdenadas.map((p, i) => (
                   <div key={i} className="bg-g-900 border border-g-800 rounded-lg px-4 py-3 flex items-center justify-between text-sm">
                     <div className="flex items-center gap-4">
                       <span className="text-g-600 font-mono w-14 font-bold">
-                        {p.parcela_atual != null ? `${p.parcela_atual}/${p.parcela_total}` : `#${i + 1}`}
+                        {`${i + 1}/${totalParcelas}`}
                       </span>
                       {p.data_vencimento && (
                         <span className="text-g-400 font-medium">Venc. {dateBR(p.data_vencimento)}</span>

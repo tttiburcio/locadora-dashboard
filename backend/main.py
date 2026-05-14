@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Query, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import text
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -23,6 +24,19 @@ logger = logging.getLogger("locadora")
 app = FastAPI(title="TKJ Locadora API", version="2.1.0")
 
 MAPWS_BASE = "http://localhost:8001"
+
+
+def _resolve_fornecedor_id(db: Session, name: str | None) -> int | None:
+    """Busca id na tabela física fornecedores pelo nome (case-insensitive)."""
+    if not name or not str(name).strip():
+        return None
+    try:
+        q = text("SELECT id FROM fornecedores WHERE UPPER(TRIM(nome)) = :n LIMIT 1")
+        res = db.execute(q, {"n": str(name).strip().upper()}).fetchone()
+        return res[0] if res else None
+    except Exception as e:
+        logger.warning("Falha ao resolver fornecedor_id para '%s': %s", name, e)
+        return None
 
 
 def _mapws_km_direct(placa: str, date_str: str) -> float | None:
@@ -272,39 +286,90 @@ def sync_db_to_excel() -> int:
 
             if nfs_ativas:
                 for nf in nfs_ativas:
-                    for p in [p for p in nf.parcelas if p.deletado_em is None]:
-                        all_new_rows.append({
-                            "IDManutencao":       next_id,
-                            "IDOrdServ":          os_obj.numero_os,
-                            "TotalOS":            float(os_obj.total_os) if os_obj.total_os else np.nan,
-                            "Empresa":            os_obj.empresa,
-                            "Placa":              os_obj.placa,
-                            "IDVeiculo":          os_obj.id_veiculo,
-                            "Modelo":             os_obj.modelo,
-                            "Implemento":         os_obj.implemento,
-                            "Fornecedor":         nf.fornecedor or os_obj.fornecedor,
-                            "Nota":               nf.numero_nf,
-                            "Data Venc.":         pd.to_datetime(p.data_vencimento).strftime("%Y-%m-%d") if p.data_vencimento else np.nan,
-                            "ParcelaAtual":       p.parcela_atual,
-                            "ParcelaTotal":       p.parcela_total,
-                            "ValorParcela":       float(p.valor_parcela) if p.valor_parcela else np.nan,
-                            "FormaPgto":          p.forma_pgto,
-                            "Categoria":          nf.tipo_nf or os_obj.categoria,
-                            "Status":             p.status_pagamento,
-                            "TipoManutencao":     os_obj.tipo_manutencao,
-                            "Sistema":            first_item.sistema if first_item else np.nan,
-                            "Serviço":            first_item.servico if first_item else np.nan,
-                            "KM":                 float(os_obj.km) if os_obj.km else np.nan,
-                            "DataExecução":       pd.to_datetime(os_obj.data_execucao or os_obj.data_entrada).strftime("%Y-%m-%d") if (os_obj.data_execucao or os_obj.data_entrada) else np.nan,
-                            "PosiçãoPneu":        first_item.posicao_pneu if first_item else np.nan,
-                            "QtdPneu":            first_item.qtd_pneu if first_item else np.nan,
-                            "EspecificaçãoPneu":  first_item.espec_pneu if first_item else np.nan,
-                            "MarcaPneu":          first_item.marca_pneu    if first_item else np.nan,
-                            "ModeloPneu":         first_item.modelo_pneu   if first_item else np.nan,
-                            "CondicaoPneu":       first_item.condicao_pneu if first_item else np.nan,
-                            "ManejoPneu":         first_item.manejo_pneu   if first_item else np.nan,
-                        })
-                        next_id += 1
+                    # Agrupar peso por sistema para o caso de múltiplos itens do mesmo sistema na mesma NF
+                    total_items_cost = sum(float(it.valor_total_item or 0) for it in nf.itens) if getattr(nf, 'itens', None) else 0
+                    sys_info = {}
+                    if total_items_cost > 0 and len(nf.itens) > 1:
+                        for it in nf.itens:
+                            sn = (it.os_item.sistema if it.os_item else None) or "Outros"
+                            if sn not in sys_info:
+                                sys_info[sn] = {"cost": 0.0, "item_ref": it}
+                            sys_info[sn]["cost"] += float(it.valor_total_item or 0)
+                    
+                    for p in [px for px in nf.parcelas if px.deletado_em is None]:
+                        # Se houver repartição por sistema calculada
+                        if sys_info:
+                            for sname, sdict in sys_info.items():
+                                ratio = sdict["cost"] / total_items_cost
+                                it_ref = sdict["item_ref"]
+                                row_val = float(p.valor_parcela) if p.valor_parcela else 0.0
+                                
+                                all_new_rows.append({
+                                    "IDManutencao":       next_id,
+                                    "IDOrdServ":          os_obj.numero_os,
+                                    "TotalOS":            float(os_obj.total_os) if os_obj.total_os else np.nan,
+                                    "Empresa":            os_obj.empresa,
+                                    "Placa":              os_obj.placa,
+                                    "IDVeiculo":          os_obj.id_veiculo,
+                                    "Modelo":             os_obj.modelo,
+                                    "Implemento":         os_obj.implemento,
+                                    "Fornecedor":         nf.fornecedor or os_obj.fornecedor,
+                                    "Nota":               nf.numero_nf,
+                                    "Data Venc.":         pd.to_datetime(p.data_vencimento).strftime("%Y-%m-%d") if p.data_vencimento else np.nan,
+                                    "ParcelaAtual":       p.parcela_atual,
+                                    "ParcelaTotal":       p.parcela_total,
+                                    "ValorParcela":       round(row_val * ratio, 2),
+                                    "FormaPgto":          p.forma_pgto,
+                                    "Categoria":          nf.tipo_nf or os_obj.categoria,
+                                    "Status":             p.status_pagamento,
+                                    "TipoManutencao":     os_obj.tipo_manutencao,
+                                    "Sistema":            sname,
+                                    "Serviço":            it_ref.os_item.servico if (it_ref and it_ref.os_item) else np.nan,
+                                    "KM":                 float(os_obj.km) if os_obj.km else np.nan,
+                                    "DataExecução":       pd.to_datetime(os_obj.data_execucao or os_obj.data_entrada).strftime("%Y-%m-%d") if (os_obj.data_execucao or os_obj.data_entrada) else np.nan,
+                                    "PosiçãoPneu":        it_ref.os_item.posicao_pneu if (it_ref and it_ref.os_item) else np.nan,
+                                    "QtdPneu":            it_ref.os_item.qtd_pneu if (it_ref and it_ref.os_item) else np.nan,
+                                    "EspecificaçãoPneu":  it_ref.os_item.espec_pneu if (it_ref and it_ref.os_item) else np.nan,
+                                    "MarcaPneu":          it_ref.os_item.marca_pneu    if (it_ref and it_ref.os_item) else np.nan,
+                                    "ModeloPneu":         it_ref.os_item.modelo_pneu   if (it_ref and it_ref.os_item) else np.nan,
+                                    "CondicaoPneu":       it_ref.os_item.condicao_pneu if (it_ref and it_ref.os_item) else np.nan,
+                                    "ManejoPneu":         it_ref.os_item.manejo_pneu   if (it_ref and it_ref.os_item) else np.nan,
+                                })
+                                next_id += 1
+                        else:
+                            # Caso contrário (1 item ou sem custos), usa o fluxo antigo com fallback de dados
+                            all_new_rows.append({
+                                "IDManutencao":       next_id,
+                                "IDOrdServ":          os_obj.numero_os,
+                                "TotalOS":            float(os_obj.total_os) if os_obj.total_os else np.nan,
+                                "Empresa":            os_obj.empresa,
+                                "Placa":              os_obj.placa,
+                                "IDVeiculo":          os_obj.id_veiculo,
+                                "Modelo":             os_obj.modelo,
+                                "Implemento":         os_obj.implemento,
+                                "Fornecedor":         nf.fornecedor or os_obj.fornecedor,
+                                "Nota":               nf.numero_nf,
+                                "Data Venc.":         pd.to_datetime(p.data_vencimento).strftime("%Y-%m-%d") if p.data_vencimento else np.nan,
+                                "ParcelaAtual":       p.parcela_atual,
+                                "ParcelaTotal":       p.parcela_total,
+                                "ValorParcela":       float(p.valor_parcela) if p.valor_parcela else np.nan,
+                                "FormaPgto":          p.forma_pgto,
+                                "Categoria":          nf.tipo_nf or os_obj.categoria,
+                                "Status":             p.status_pagamento,
+                                "TipoManutencao":     os_obj.tipo_manutencao,
+                                "Sistema":            first_item.sistema if first_item else np.nan,
+                                "Serviço":            first_item.servico if first_item else np.nan,
+                                "KM":                 float(os_obj.km) if os_obj.km else np.nan,
+                                "DataExecução":       pd.to_datetime(os_obj.data_execucao or os_obj.data_entrada).strftime("%Y-%m-%d") if (os_obj.data_execucao or os_obj.data_entrada) else np.nan,
+                                "PosiçãoPneu":        first_item.posicao_pneu if first_item else np.nan,
+                                "QtdPneu":            first_item.qtd_pneu if first_item else np.nan,
+                                "EspecificaçãoPneu":  first_item.espec_pneu if first_item else np.nan,
+                                "MarcaPneu":          first_item.marca_pneu    if first_item else np.nan,
+                                "ModeloPneu":         first_item.modelo_pneu   if first_item else np.nan,
+                                "CondicaoPneu":       first_item.condicao_pneu if first_item else np.nan,
+                                "ManejoPneu":         first_item.manejo_pneu   if first_item else np.nan,
+                            })
+                            next_id += 1
             else:
                 # OS sem NFs: grava linha de resumo
                 all_new_rows.append({
@@ -1105,7 +1170,7 @@ def compute(year: int):
                            WHERE nf.os_id = os.id AND nf.deletado_em IS NULL AND p.deletado_em IS NULL
                          )
                          THEN COALESCE(
-                           (SELECT SUM(p.valor_parcela)
+                           (SELECT SUM(COALESCE(p.valor_atualizado, p.valor_parcela))
                             FROM manutencao_parcelas p
                             JOIN notas_fiscais nf ON nf.id = p.nf_id
                             WHERE nf.os_id = os.id
@@ -1135,9 +1200,60 @@ def compute(year: int):
             """, conn, params={"year": str(year)})
             
             if not sql_os.empty:
+                # ── EXPLOSÃO DE SISTEMAS PARA O DASHBOARD ──────────────────────
+                # Garante que custos de ordens com múltiplos sistemas sejam fracionados corretamente
+                os_ids_list = [int(x) for x in sql_os["id_sql"].dropna().tolist()]
+                if os_ids_list:
+                    try:
+                        placeholders = ','.join(['?'] * len(os_ids_list))
+                        items_sql = f"""
+                            SELECT i.os_id, COALESCE(i.sistema, 'Outros') as Sistema, 
+                                   MAX(COALESCE(i.servico, '')) as Serviço,
+                                   SUM(COALESCE(nfi.valor_total_item, 0)) as sys_cost
+                            FROM os_itens i
+                            LEFT JOIN nf_itens nfi ON nfi.os_item_id = i.id
+                            WHERE i.os_id IN ({placeholders})
+                            GROUP BY i.os_id, i.sistema
+                        """
+                        df_items = pd.read_sql(items_sql, conn, params=os_ids_list)
+                        
+                        if not df_items.empty:
+                            exploded_rows = []
+                            for _, os_row in sql_os.iterrows():
+                                oid = int(os_row["id_sql"])
+                                sub_items = df_items[df_items["os_id"] == oid]
+                                
+                                if sub_items.empty:
+                                    exploded_rows.append(os_row)
+                                    continue
+                                
+                                total_item_sum = float(sub_items["sys_cost"].sum())
+                                orig_total = float(os_row["TotalOS"] or 0)
+                                
+                                if total_item_sum > 0:
+                                    for _, it_row in sub_items.iterrows():
+                                        nr = os_row.copy()
+                                        nr["Sistema"] = it_row["Sistema"]
+                                        nr["Serviço"] = it_row["Serviço"]
+                                        nr["TotalOS"] = round(orig_total * (float(it_row["sys_cost"]) / total_item_sum), 2)
+                                        exploded_rows.append(nr)
+                                else:
+                                    # Distribui igualmente se custos nos itens não informados
+                                    share = 1.0 / len(sub_items)
+                                    for _, it_row in sub_items.iterrows():
+                                        nr = os_row.copy()
+                                        nr["Sistema"] = it_row["Sistema"]
+                                        nr["Serviço"] = it_row["Serviço"]
+                                        nr["TotalOS"] = round(orig_total * share, 2)
+                                        exploded_rows.append(nr)
+                            
+                            sql_os = pd.DataFrame(exploded_rows)
+                    except Exception as ex_exp:
+                        logger.error("Erro ao explodir sistemas na análise compute(): %s", ex_exp)
+
                 sql_os["DataExecução"] = pd.to_datetime(sql_os["DataExecução"])
+                
                 # SQL prevalece sobre Excel: remove do Excel as OS que existem no SQL
-                # (o SQL calcula TotalOS por parcelas do ano, mais preciso que o Excel)
                 if not manut_raw.empty and "IDOrdServ" in manut_raw.columns:
                     sql_ids = set(sql_os["IDOrdServ"].dropna().unique())
                     manut_raw = manut_raw[~manut_raw["IDOrdServ"].isin(sql_ids)]
@@ -2299,6 +2415,47 @@ def get_intervalos_analysis(sistema: str = Query(...)):
 
             for espec_val, espec_grp in grp.groupby("_espec", sort=False):
                 espec_grp = espec_grp.sort_values(["km", "data_exec"], na_position="last").reset_index(drop=True)
+
+                # ── CORREÇÃO BUG: Inferência de posicao_pneu por look-ahead / look-behind ─
+                # Quando posicao_pneu = NULL (ex: OS cadastrada sem informar posição), o
+                # algoritmo de tokenização ignora o conjunto (pos == "—"), impedindo a
+                # detecção de substituição cruzada.  A heurística:
+                #   1. Look-ahead: se a próxima compra desta especificação tem posição definida,
+                #      herda essa posição (padrão: substituto é instalado no mesmo eixo).
+                #   2. Look-behind: se não há próxima, herda da compra anterior mais recente.
+                _valid_pos_m = (
+                    espec_grp["posicao_pneu"].notna()
+                    & (espec_grp["posicao_pneu"].astype(str).str.strip() != "")
+                    & (~espec_grp["posicao_pneu"].astype(str).str.strip().isin(["—", "nan", "None", "none"]))
+                )
+                _km_num_col = pd.to_numeric(espec_grp["km"], errors="coerce").fillna(-1.0)
+                for _idx in espec_grp.index:
+                    _p = str(espec_grp.at[_idx, "posicao_pneu"] or "").strip()
+                    if not _p or _p in ("—", "nan", "None", "none"):
+                        _km_i = _km_num_col.at[_idx]
+                        _ahead = espec_grp[_valid_pos_m & (_km_num_col > _km_i)]
+                        if not _ahead.empty:
+                            espec_grp.at[_idx, "posicao_pneu"] = _ahead.iloc[0]["posicao_pneu"]
+                        else:
+                            _behind = espec_grp[_valid_pos_m & (_km_num_col < _km_i)]
+                            if not _behind.empty:
+                                espec_grp.at[_idx, "posicao_pneu"] = _behind.iloc[-1]["posicao_pneu"]
+
+                # ── CORREÇÃO BUG: Inferência de qtd_pneu ──────────────────────────────────
+                # Quando qtd_pneu = NULL, herda o qtd da compra mais próxima na mesma posição
+                # e mesma especificação para garantir que a tokenização gere o número correto
+                # de tokens e marque todos os pneus substituídos (não apenas o primeiro).
+                for _idx in espec_grp.index:
+                    if pd.isna(espec_grp.at[_idx, "qtd_pneu"]) or espec_grp.at[_idx, "qtd_pneu"] is None:
+                        _pos_i = str(espec_grp.at[_idx, "posicao_pneu"] or "").strip()
+                        if _pos_i and _pos_i not in ("—", "nan", "None"):
+                            _qtd_src = espec_grp[
+                                espec_grp["qtd_pneu"].notna()
+                                & (espec_grp["posicao_pneu"].astype(str).str.strip() == _pos_i)
+                            ]
+                            if not _qtd_src.empty:
+                                espec_grp.at[_idx, "qtd_pneu"] = _qtd_src.iloc[0]["qtd_pneu"]
+
                 conjs:     list = []
                 km_diffs:  list = []
                 dia_diffs: list = []
@@ -2444,67 +2601,122 @@ def get_intervalos_analysis(sistema: str = Query(...)):
             # ── Detectar descarte GLOBAL (cross-espec) ────────────────────────────
             # Qualquer novo pneu na mesma posição (independente de medida) descarta
             # o conjunto anterior. A lógica por-espec dentro do loop não captura isso.
-            pos_arrivals_g: dict = {}
+            # ── Detectar descarte GLOBAL (cross-espec) com rastreamento por unidade ──────
+            # Implementa fila de consumo dinâmico para suportar substituições parciais (ex: 1 novo repõe 1 de 2 antigos).
+            import copy
+            from collections import defaultdict
+            
+            # 1. Tokenização: Transforma conjuntos em tokens unitários independentes
+            all_tokens = []
             for conj in all_conjs_flat:
                 last_f = conj["fases"][-1]
                 pos = last_f.get("posicao")
-                if not pos or pos == "—":
-                    logger.debug("[PNEU] conj sem posicao — excluído do cross-descarte: os=%s",
-                                 conj.get("os_ref"))
-                    continue
-                for pp in (_pos_parts(pos) or [pos]):
-                    pos_arrivals_g.setdefault(pp, []).append(
-                        (last_f["km_inicio"] or 0, last_f["data_inicio"], conj)
-                    )
-            for pos in pos_arrivals_g:
-                # Ordena por km; usa data como desempate quando km é nulo/zero
-                pos_arrivals_g[pos].sort(key=lambda x: (x[0], x[1] or ""))
+                if not pos or pos == "—": continue
+                
+                qtd = max(1, int(conj.get("qtd") or 1))
+                for i in range(qtd):
+                    for pp in (_pos_parts(pos) or [pos]):
+                        all_tokens.append({
+                            "conj_id": id(conj),
+                            "conj": conj,
+                            "pos": pp,
+                            "km": last_f["km_inicio"] or 0,
+                            "dt": last_f.get("data_inicio") or "",
+                            "replaced_by": None
+                        })
+            
+            # Ordena cronologicamente (km depois data)
+            all_tokens.sort(key=lambda t: (t["km"], t["dt"] or ""))
+            
+            # 2. Algoritmo de Consumo Stateful: Cada token novo consome o token ativo mais antigo
+            active_tokens_by_pos = {}
+            for token in all_tokens:
+                p = token["pos"]
+                pool = active_tokens_by_pos.setdefault(p, [])
+                
+                # Candidatos a substituição: Devem ter chegado ANTES em km ou data, e vir de outro evento
+                victims = [
+                    v for v in pool 
+                    if v["conj_id"] != token["conj_id"] 
+                    and (token["km"] > v["km"] or (token["km"] == v["km"] and (token["dt"] or "") > (v["dt"] or "")))
+                ]
+                
+                if victims:
+                    victim = victims[0] # FIFO: consome o mais antigo da fila ativa
+                    victim["replaced_by"] = token
+                    pool.remove(victim)
+                
+                pool.append(token)
 
-            for conj in all_conjs_flat:
-                if conj.get("descartado"):
+            # 3. Reconstrução Dinâmica: Divide conjuntos originais se houver destinos parciais mistos
+            final_all_conjs = []
+            
+            # Mapeia tokens de volta para seu conjunto original para agrupar
+            conj_to_tokens = defaultdict(list)
+            for t in all_tokens:
+                conj_to_tokens[id(t["conj"])].append(t)
+                
+            for orig_conj in all_conjs_flat:
+                toks = conj_to_tokens.get(id(orig_conj))
+                if not toks:
+                    final_all_conjs.append(orig_conj)
                     continue
-                last_f = conj["fases"][-1]
-                if not last_f["em_uso"]:
-                    continue
-                km_entry   = last_f["km_inicio"] or 0
-                date_entry = last_f.get("data_inicio") or ""
-                next_arr = None
-                for pp in (_pos_parts(last_f["posicao"]) or [last_f["posicao"]]):
-                    cand = next(
-                        (a for a in pos_arrivals_g.get(pp, [])
-                         # Caso normal: km posterior
-                         # Fallback: km ambos nulos (=0) → comparar por data
-                         if (a[0] > km_entry or (not km_entry and (a[1] or "") > date_entry))
-                         and a[2] is not conj),
-                        None,
-                    )
-                    if cand and (next_arr is None
-                                 or cand[0] < next_arr[0]
-                                 or (cand[0] == next_arr[0] and (cand[1] or "") < (next_arr[1] or ""))):
-                        next_arr = cand
-                if next_arr:
-                    nk, nd, _ = next_arr
-                    last_f["km_fim"]     = nk if nk else None
-                    last_f["data_fim"]   = nd
-                    if (nk and km_entry) or (nk and not km_entry and nk > 0):
-                        km_rod = max(0, round(nk - km_entry))
-                    else:
-                        # Ambos sem km — interpola via histórico de OS do veículo
-                        d0 = last_f.get("data_inicio")
-                        d1 = nd
-                        km_d0 = _km_at_date(d0) if d0 else None
-                        km_d1 = _km_at_date(d1) if d1 else None
-                        if km_d0 is not None and km_d1 is not None and km_d1 > km_d0:
-                            km_rod = max(0, round(km_d1 - km_d0))
+                
+                # Agrupa tokens deste conjunto pelo destino do replacement (True/False e ID do causador)
+                by_fate = defaultdict(list)
+                for t in toks:
+                    # Identificador do destino: None se ativo, ou ID do conj substituto se descartado
+                    rid = id(t["replaced_by"]["conj"]) if t["replaced_by"] else None
+                    by_fate[rid].append(t)
+                
+                # Gera conjuntos fracionados na saída
+                for rid, sub_toks in by_fate.items():
+                    c_split = copy.deepcopy(orig_conj)
+                    c_split["qtd"] = len(sub_toks) # quantidade residual da fatia
+                    l_f = c_split["fases"][-1]
+                    
+                    rep = sub_toks[0]["replaced_by"]
+                    if rep:
+                        r_f = rep["conj"]["fases"][-1]
+                        nk = r_f["km_inicio"]
+                        nd = r_f.get("data_inicio")
+                        
+                        l_f["km_fim"]   = nk if nk else None
+                        l_f["data_fim"] = nd
+                        km_entry = l_f["km_inicio"] or 0
+                        
+                        if (nk and km_entry) or (nk and not km_entry and nk > 0):
+                            km_rod = max(0, round(nk - km_entry))
                         else:
-                            km_rod = None
-                    last_f["km_rodado"]  = km_rod
-                    last_f["em_uso"]     = False
-                    last_f["descartado"] = True
-                    conj["km_total"]     = sum(
-                        f["km_rodado"] for f in conj["fases"] if f["km_rodado"] is not None
-                    )
-                    conj["descartado"] = True
+                            d0 = l_f.get("data_inicio")
+                            km_d0 = _km_at_date(d0) if d0 else None
+                            km_d1 = _km_at_date(nd) if nd else None
+                            km_rod = max(0, round(km_d1 - km_d0)) if (km_d0 is not None and km_d1 is not None) else None
+                            
+                        l_f["km_rodado"]  = km_rod
+                        l_f["em_uso"]     = False
+                        l_f["descartado"] = True
+                        c_split["descartado"] = True
+                    else:
+                        # Sem substituto: Mantém ativo
+                        l_f["em_uso"]     = True
+                        l_f["descartado"] = False
+                        c_split["descartado"] = False
+                    
+                    c_split["km_total"] = sum(f.get("km_rodado") or 0 for f in c_split["fases"])
+                    final_all_conjs.append(c_split)
+
+            # 4. Sincronização dos Resultados Finais
+            all_conjs_flat = final_all_conjs # Atualiza lista plana global
+            
+            # Atualiza a árvore hierárquica retornada para o frontend
+            for med in por_medida:
+                m_espec = med["espec"]
+                # Filtra da nova lista unificada apenas os que pertencem a esta medida específica
+                med["conjuntos"] = [cj for cj in final_all_conjs if (cj.get("espec") or "—") == m_espec]
+                med["n_eventos"] = len(med["conjuntos"])
+                med["total_pneus"] = sum(cj.get("qtd") or 0 for cj in med["conjuntos"])
+
 
             # ── Recomputar ∆ KM / ∆ Dias globalmente por posição (cross-espec) ──
             # Ordena todos os conjuntos por km_compra e recalcula o delta contra o
@@ -2839,7 +3051,6 @@ def listar_parcelas(year: int = None, db: Session = Depends(get_db)):
             d["placa"]         = os_obj.placa
             d["modelo"]        = os_obj.modelo
             
-            # Normalização de empresa para garantir funcionamento dos filtros no frontend
             emp_val = nf.empresa_faturada or os_obj.empresa
             if str(emp_val).upper() == "TKJ": emp_val = "1"
             elif str(emp_val).upper() == "FINITA": emp_val = "2"
@@ -2850,10 +3061,10 @@ def listar_parcelas(year: int = None, db: Session = Depends(get_db)):
             d["id_contrato"]   = os_obj.id_contrato
             d["fornecedor_os"] = os_obj.fornecedor
             d["fornecedor"]    = getattr(p, "fornecedor", None) or nf.fornecedor or os_obj.fornecedor
-            # descrição: concatena itens da OS
             d["descricao"]     = "; ".join(filter(None, (it.servico or it.sistema for it in os_obj.itens))) or None
+            d["sistema"]       = "; ".join(sorted(set(filter(None, (it.sistema for it in os_obj.itens))))) or None
             d["id_ord_serv"]   = os_obj.numero_os
-            d["nota"]          = nf.numero_nf  # Garante busca por número de nota
+            d["nota"]          = nf.numero_nf
             d["data_execucao"] = os_obj.data_execucao
             contrato = _contrato_ativo(data, os_obj.id_veiculo, os_obj.data_execucao)
         else:
@@ -2865,6 +3076,7 @@ def listar_parcelas(year: int = None, db: Session = Depends(get_db)):
             d["fornecedor_os"] = manut.fornecedor
             d["fornecedor"]    = getattr(p, "fornecedor", None) or manut.fornecedor
             d["descricao"]     = manut.descricao
+            d["sistema"]       = manut.sistema
             d["id_ord_serv"]   = manut.id_ord_serv
             d["data_execucao"] = manut.data_execucao
             contrato = _contrato_ativo(data, manut.id_veiculo, manut.data_execucao)
@@ -2874,6 +3086,45 @@ def listar_parcelas(year: int = None, db: Session = Depends(get_db)):
         d["contrato_inicio"] = contrato["contrato_inicio"] if contrato else None
         d["contrato_fim"]    = contrato["contrato_fim"]    if contrato else None
         d["contrato_status"] = contrato["contrato_status"] if contrato else None
+
+        # ── EXPLOSÃO POR SISTEMA ──────────────────────────────────────
+        # Se possuir múltiplos itens, replicamos a parcela prorateada por custo de cada sistema
+        if os_obj and getattr(nf, 'itens', None) and len(nf.itens) > 1:
+            try:
+                total_cost = sum(float(it.valor_total_item or 0) for it in nf.itens)
+                if total_cost > 0:
+                    # Agrupar por sistema para o caso de haver múltiplos itens do mesmo sistema
+                    sys_weights = {}
+                    sys_descs   = {}
+                    for it in nf.itens:
+                        sys_name = (it.os_item.sistema if it.os_item else None) or "Outros"
+                        sys_weights[sys_name] = sys_weights.get(sys_name, 0.0) + float(it.valor_total_item or 0)
+                        d_txt = (it.os_item.servico or it.os_item.descricao) if it.os_item else None
+                        if d_txt:
+                            if sys_name not in sys_descs: sys_descs[sys_name] = []
+                            sys_descs[sys_name].append(d_txt)
+
+                    for idx, (sys_name, sys_cost) in enumerate(sys_weights.items()):
+                        ratio = sys_cost / total_cost
+                        sd = d.copy()
+                        sd["id"] = f"{p.id}_sis_{idx}" # chave id virtual única
+                        sd["sistema"] = sys_name
+                        
+                        v_parc = float(p.valor_parcela or 0)
+                        sd["valor_parcela"] = round(v_parc * ratio, 2)
+                        if p.valor_atualizado is not None:
+                            v_att = float(p.valor_atualizado)
+                            sd["valor_atualizado"] = round(v_att * ratio, 2)
+                        
+                        if sys_name in sys_descs:
+                            sd["descricao"] = "; ".join(filter(None, sorted(set(sys_descs[sys_name]))))
+                        
+                        result.append(sd)
+                    continue # não adiciona o original agregado
+            except Exception as e:
+                logger.error("Erro na explosão de sistemas na parcela %s: %s", p.id, e)
+        
+        # Fallback padrão caso só tenha 1 item ou erro
         result.append(d)
     return result
 
@@ -3037,10 +3288,22 @@ def abrir_os(payload: schemas.OsAbrir, db: Session = Depends(get_db)):
         raise HTTPException(404, f"Veículo {payload.id_veiculo} não encontrado")
 
     data = payload.model_dump(exclude={"itens"})
-    if not data.get("modelo"):
-        data["modelo"] = veiculo.modelo
-    if not data.get("placa"):
-        data["placa"] = veiculo.placa
+    
+    # Auto-preenchimento de dados da frota
+    if not data.get("modelo"):     data["modelo"]     = veiculo.modelo
+    if not data.get("placa"):      data["placa"]      = veiculo.placa
+    if not data.get("implemento"): data["implemento"] = veiculo.implemento
+    if not data.get("empresa"):    data["empresa"]    = veiculo.empresa
+
+    # Auto-preenchimento de categoria da OS pelo 1º item se vazio
+    if not data.get("categoria") and payload.itens:
+        first_cat = payload.itens[0].categoria
+        if first_cat:
+            data["categoria"] = first_cat
+
+    # Resolução de fornecedor_id
+    if data.get("fornecedor"):
+        data["fornecedor_id"] = _resolve_fornecedor_id(db, data.get("fornecedor"))
 
     data["numero_os"] = generate_numero_os_atomic(db)
     
@@ -3421,6 +3684,11 @@ def adicionar_nf(os_id: int, payload: schemas.NotaFiscalCreate, db: Session = De
     if os.numero_os is None:
         os.numero_os = generate_numero_os_atomic(db)
 
+    # Propaga fornecedor para o cabeçalho da OS
+    if payload.fornecedor:
+        os.fornecedor = payload.fornecedor
+        os.fornecedor_id = _resolve_fornecedor_id(db, payload.fornecedor)
+
     nf_data = payload.model_dump(exclude={"itens", "parcelas"})
     nf = models.NotaFiscal(os_id=os_id, **nf_data)
     db.add(nf)
@@ -3454,6 +3722,13 @@ def sync_nfs(os_id: int, payload: list[schemas.NotaFiscalCreate], db: Session = 
 
     if os_obj.numero_os is None and payload:
         os_obj.numero_os = generate_numero_os_atomic(db)
+
+    # Propaga o fornecedor da primeira Nota Fiscal recebida para o cabeçalho da OS
+    if payload:
+        first_f = payload[0].fornecedor
+        if first_f:
+            os_obj.fornecedor = first_f
+            os_obj.fornecedor_id = _resolve_fornecedor_id(db, first_f)
 
     nfs_criadas = []
     for nf_data in payload:

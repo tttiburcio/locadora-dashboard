@@ -257,6 +257,8 @@ class OrdemServico(Base):
     criado_em       = Column(DateTime, server_default=func.now())
     atualizado_em   = Column(DateTime, server_default=func.now(), onupdate=func.now())
     migrado_de_ids  = Column(Text)  # JSON list[int]
+    fornecedor_id   = Column(Integer)
+    origem          = Column(Text)
 
     veiculo       = relationship("Frota")
     itens         = relationship("OsItem", back_populates="os", cascade="all, delete-orphan")

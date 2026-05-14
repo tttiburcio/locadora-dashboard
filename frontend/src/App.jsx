@@ -213,6 +213,7 @@ export default function App() {
                 headerTrigger={headerTrigger} 
                 finAlertDismissed={finAlertDismissed}
                 setFinAlertDismissed={setFinAlertDismissed}
+                onRefreshData={() => loadData(year, region)}
               />
             </div>
           )}
